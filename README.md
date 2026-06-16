@@ -13,7 +13,7 @@ cmods/
   manifest.py               Frozen Python modules
   build_unix.sh             Build Unix port
   build_esp32.sh            Build ESP32 port
-  build_circuitpython.sh    CircuitPython build (ESP32-P4 default board)
+  build_cp_unix.sh          CircuitPython unix port (coverage variant)
 ```
 
 ## First-time setup
@@ -125,6 +125,12 @@ MicroPython unix smoke test (after `./build_unix.sh`):
 ./micropython/ports/unix/build-standard/micropython ./lv_micropython_cmod/test_lvgl_unix.py
 ```
 
+CircuitPython unix smoke test (after `./build_cp_unix.sh` with LVGL patched):
+
+```bash
+./circuitpython/ports/unix/build-coverage/micropython ./lv_micropython_cmod/test_lvgl_cp_unix.py
+```
+
 Covers init, headless display, widgets, event callbacks, and GC visibility (see `binding/gc_callback_audit.md`).
 
 Before the first CircuitPython build, read `binding/cp_flash_budget.md` (flash partition headroom + allocator notes).
@@ -135,20 +141,29 @@ Before the first CircuitPython build, read `binding/cp_flash_budget.md` (flash p
 |--------|------|-------|
 | `build_unix.sh` | `micropython/ports/unix` | Desktop dev / testing |
 | `build_esp32.sh` | `micropython/ports/esp32` | Requires ESP-IDF |
-| `build_circuitpython.sh` | `circuitpython/` | Default `BOARD=espressif_esp32p4_function_ev` |
+| `build_cp_unix.sh` | `circuitpython/ports/unix` | Default `VARIANT=coverage`; stock or LVGL-patched tree |
 
 All MicroPython builds pass `USER_C_MODULES` pointing at this repo root and use `manifest.py` for frozen modules.
 
 ## CircuitPython
 
-Use a **release** tree, not Adafruit's `main` branch. After cloning, pin tag **`10.2.1`** on local branch `circuitpython-10.2.1` (see first-time setup above). Apply LVGL patches before building:
+Use a **release** tree, not Adafruit's `main` branch. After cloning, pin tag **`10.2.1`** on local branch `circuitpython-10.2.1` (see first-time setup above). **Leave the CP tree unpatched** until you are ready to integrate LVGL; check status with:
+
+```bash
+./lv_micropython_cmod/apply_cp_lvgl_patches.sh --status
+```
+
+When ready to wire LVGL (default **unix** / **standard** port):
 
 ```bash
 ./lv_micropython_cmod/apply_cp_lvgl_patches.sh --apply
 ```
 
-Target board: **[ESP32-P4-Function-EV-Board](https://circuitpython.org/board/espressif_esp32p4_function_ev/)**
-(`espressif_esp32p4_function_ev`). Build glue and full emission live in `lv_micropython_cmod/`:
+**Primary target:** CircuitPython **unix** port, **`coverage`** variant (desktop dev; avoids unix `standard` + `ringio` ringbuf mismatch on 10.2.1). Patches wire `ports/unix/Makefile` and `variants/coverage/mpconfigvariant.mk`.
+
+**Embedded target (later):** **[ESP32-P4-Function-EV-Board](https://circuitpython.org/board/espressif_esp32p4_function_ev/)** (`espressif_esp32p4_function_ev`) — `build_cp_esp32.sh` (not yet implemented); patch with `PORT=espressif BOARD=espressif_esp32p4_function_ev ./lv_micropython_cmod/apply_cp_lvgl_patches.sh --apply`
+
+Build glue and full emission live in `lv_micropython_cmod/`:
 
 | File | Purpose |
 |------|---------|
@@ -166,7 +181,7 @@ Current status:
 1. Phase 0 spike templates (`shared-bindings/lvgl/`, `shared-module/lvgl/`)
 2. Phase 1–7 emitter complete (`max_phase: 7`); `lvcp.c` ~39.5k lines (parity with `lvmp.c`)
 3. GC-aware allocator draft (`lv_mem_core_circuitpython.c`, via `circuitpython.mk`)
-4. Board wiring + first on-tree build (`apply_cp_lvgl_patches.sh` → `build_circuitpython.sh`)
+4. Port wiring + on-tree build (`apply_cp_lvgl_patches.sh` → `./build_cp_unix.sh`)
 5. **Display bridge — ON HOLD** (Python `displayio`/`mipidsi` flush/tick; resume when requested)
 
 Regenerate and verify bindings:
@@ -176,22 +191,23 @@ Regenerate and verify bindings:
 ./lv_micropython_cmod/verify_bindings.sh
 ```
 
-Build (once the CP tree is wired; `build_circuitpython.sh` applies patches automatically):
+Build CircuitPython unix (works **before or after** patching; does not modify the CP tree):
 
 ```bash
-CMODS_LVGL_ALLOW_MISSING_BINDINGS=1 ./build_circuitpython.sh
+./build_cp_unix.sh
 ```
 
-Or manually:
+On a **clean** release tree this builds stock CircuitPython. After patching, run `regenerate_lvcp.sh` first; the patched Makefile supplies `CMODS_DIR` and pulls in full LVGL + `lvcp.c` (make fails if bindings are missing). Each run starts with `make clean`.
+
+After patching:
 
 ```bash
+./lv_micropython_cmod/regenerate_lvcp.sh
 ./lv_micropython_cmod/apply_cp_lvgl_patches.sh --apply
-CMODS_LVGL_ALLOW_MISSING_BINDINGS=1 ./build_circuitpython.sh
+./build_cp_unix.sh
 ```
 
-Patch status: `./lv_micropython_cmod/apply_cp_lvgl_patches.sh --status` (`pending` / `patched` / `ok` / `missing`).
-
-For CP unix only (not P4 LVGL): `build_cp_unix.sh` — see script header.
+Patch status: `./lv_micropython_cmod/apply_cp_lvgl_patches.sh --status` (`pending` / `patched` / `ok` / `missing`). Defaults to `PORT=unix` `VARIANT=coverage`.
 
 **Display bridge is ON HOLD.** C bindings do not include flush/tick; a future Python `displayio` bridge (similar to `pydisplay_cmods` on MicroPython) will be designed when you ask to resume that work.
 
