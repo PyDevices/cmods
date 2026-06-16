@@ -5,6 +5,9 @@ lv_micropython_cmod/generated/
 lv_micropython_cmod/generated/lvmp.gen_mpy.c
 lv_micropython_cmod/generated/lvmp.gen_lv_bindings.c
 
+# Local MicroPython clone (not a cmods submodule)
+micropython/
+
 # Local CircuitPython clone (not a cmods submodule)
 circuitpython/
 

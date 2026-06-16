@@ -6,7 +6,7 @@ Tools for building MicroPython and CircuitPython with LVGL user C modules.
 
 ```
 cmods/
-  micropython/              MicroPython submodule
+  micropython/              MicroPython clone (local, gitignored)
   circuitpython/            CircuitPython clone (local, gitignored)
   lv_micropython_cmod/      LVGL + bindings generator
   pydisplay_cmods/          Display helpers
@@ -18,14 +18,23 @@ cmods/
 
 ## First-time setup
 
-1. Initialize submodules (micropython, lvgl, etc.).
-2. Generate LVGL bindings (required before any build):
+1. Clone MicroPython and CircuitPython next to this tree (both gitignored; not submodules):
+
+```bash
+git clone https://github.com/micropython/micropython.git micropython
+git clone https://github.com/adafruit/circuitpython.git circuitpython
+cd micropython && git submodule update --init --recursive && cd ..
+cd circuitpython && git submodule update --init --recursive && cd ..
+```
+
+2. Initialize submodules inside `lv_micropython_cmod/` (lvgl, pycparser, etc.).
+3. Generate LVGL bindings (required before any build):
 
 ```bash
 ./lv_micropython_cmod/regenerate_lvmp.sh
 ```
 
-3. Build a port, e.g.:
+4. Build a port, e.g.:
 
 ```bash
 ./build_unix.sh
