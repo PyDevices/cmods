@@ -1,2 +1,13 @@
-# ignore all subdirectories
-*/*
+# LVGL MicroPython bindings (run lv_micropython_cmod/regenerate_lvmp.sh to create)
+lv_micropython_cmod/generated/
+
+# Compare script artifacts (under generated/, listed for clarity)
+lv_micropython_cmod/generated/lvmp.gen_mpy.c
+lv_micropython_cmod/generated/lvmp.gen_lv_bindings.c
+
+# Local CircuitPython clone (not a cmods submodule)
+circuitpython/
+
+# pycparser table caches (repo root preprocess runs)
+lextab.py
+yacctab.py

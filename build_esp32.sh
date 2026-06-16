@@ -2,8 +2,8 @@
 
 set -e
 
-BOARD=ESP32_GENERIC_S3
-VARIANT=SPIRAM_OCT
+BOARD=ESP32_GENERIC_P4
+VARIANT=C6_WIFI
 
 WORK_DIR=$(pwd)
 PORT_DIR=$WORK_DIR/micropython/ports/esp32
@@ -17,7 +17,7 @@ if [ -n "$VARIANT" ]; then
     BUILD_DIR=$BUILD_DIR-$VARIANT
 fi
 
-IDF_DIR=$WORK_DIR/esp-idf
+IDF_DIR=$WORK_DIR/../esp-idf
 . $IDF_DIR/export.sh
 
 pushd $PORT_DIR
