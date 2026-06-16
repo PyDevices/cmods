@@ -7,7 +7,7 @@ Tools for building MicroPython and CircuitPython with LVGL user C modules.
 ```
 cmods/
   micropython/              MicroPython clone (local, gitignored)
-  circuitpython/            CircuitPython clone (local, gitignored)
+  circuitpython/            CircuitPython clone (local, gitignored; pin 10.2.1)
   lv_micropython_cmod/      LVGL + bindings generator
   pydisplay_cmods/          Display helpers
   manifest.py               Frozen Python modules
@@ -24,8 +24,19 @@ cmods/
 git clone https://github.com/micropython/micropython.git micropython
 git clone https://github.com/adafruit/circuitpython.git circuitpython
 cd micropython && git submodule update --init --recursive && cd ..
-cd circuitpython && git submodule update --init --recursive && cd ..
 ```
+
+Pin CircuitPython to the **latest stable release** (not `main`):
+
+```bash
+cd circuitpython
+git fetch --tags
+git checkout -B circuitpython-10.2.1 10.2.1
+make fetch-all-submodules
+cd ..
+```
+
+Use `git describe --tags --exact-match` inside `circuitpython/` to confirm `10.2.1`. Do not `git pull` on `main` — that returns to the development branch.
 
 2. Initialize submodules inside `lv_micropython_cmod/` (lvgl, pycparser, etc.).
 3. Generate LVGL bindings (required before any build):
@@ -129,6 +140,12 @@ Before the first CircuitPython build, read `binding/cp_flash_budget.md` (flash p
 All MicroPython builds pass `USER_C_MODULES` pointing at this repo root and use `manifest.py` for frozen modules.
 
 ## CircuitPython
+
+Use a **release** tree, not Adafruit's `main` branch. After cloning, pin tag **`10.2.1`** on local branch `circuitpython-10.2.1` (see first-time setup above). Apply LVGL patches before building:
+
+```bash
+./lv_micropython_cmod/apply_cp_lvgl_patches.sh --apply
+```
 
 Target board: **[ESP32-P4-Function-EV-Board](https://circuitpython.org/board/espressif_esp32p4_function_ev/)**
 (`espressif_esp32p4_function_ev`). Build glue and full emission live in `lv_micropython_cmod/`:
