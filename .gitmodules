@@ -1,3 +1,0 @@
-[submodule "lv_bindings/lvgl"]
-	path = lv_bindings/lvgl
-	url = https://github.com/lvgl/lvgl.git

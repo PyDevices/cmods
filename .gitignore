@@ -1,15 +1,11 @@
-# LVGL binding generator (run lv_bindings/regenerate_lvmp.sh to create)
-lv_bindings/generated/
-
 # pycparser table caches (from gcc -E / gen_lv_bindings.py)
 lextab.py
 yacctab.py
 
-# Legacy path (forwarding scripts only)
-lv_micropython_cmod/generated/
-
-# Local MicroPython clone (not a cmods submodule)
+# Local clones (not part of cmods repo — user clones into workspace)
 micropython/
-
-# Local CircuitPython clone (not a cmods submodule)
 circuitpython/
+lv_micropython_cmod/
+lv_bindings/
+lv_circuitpython_mod/
+pydisplay_cmods/
