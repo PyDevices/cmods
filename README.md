@@ -13,6 +13,7 @@ cd cmods
 git clone git@github.com:micropython/micropython.git micropython
 cd micropython && git submodule update --init --recursive && cd ..
 
+# Optional — only for LVGL; skip and clone other user C modules instead
 git clone git@github.com:PyDevices/lv_micropython_cmod.git lv_micropython_cmod
 git clone git@github.com:PyDevices/lv_bindings.git lv_bindings
 cd lv_bindings && git submodule update --init lvgl && cd ..
@@ -20,6 +21,8 @@ cd lv_bindings && git submodule update --init lvgl && cd ..
 
 ./build_unix.sh
 ```
+
+The LVGL clone and `regenerate_lvmp.sh` steps are **optional** — use them only when building with LVGL. For other user C modules, clone those repos as siblings instead (see below).
 
 Add more user C modules by cloning them as siblings (each needs `micropython.mk` and optional `manifest.py`).
 

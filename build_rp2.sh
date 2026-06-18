@@ -2,7 +2,7 @@
 
 set -e
 
-BOARD=RPI_PICO
+BOARD=RPI_PICO2_W
 VARIANT=
 
 WORK_DIR=$(pwd)
