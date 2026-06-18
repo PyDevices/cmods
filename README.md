@@ -50,6 +50,21 @@ Add more user C modules by cloning them as siblings (each needs `micropython.mk`
 
 CircuitPython does not use `USER_C_MODULES`. Clone `lv_circuitpython_mod` into this workspace if you want CP and MP trees side by side.
 
+## CircuitPython unix + usdl2
+
+[`usdl2/`](usdl2/) is a unix-only native module exposing a pydisplay-sized subset of libSDL2 as `import usdl2` (not a full SDL2 binding). Requires `libsdl2-dev` at build time.
+
+```bash
+# After circuitpython clone is pinned (see lv_circuitpython_mod README)
+sudo apt install libsdl2-dev   # Debian/Ubuntu
+
+./usdl2/apply_cp_unix_usdl_patches.sh --apply
+./lv_circuitpython_mod/build_cp_unix.sh
+
+./circuitpython/ports/unix/build-coverage/micropython ./usdl2/test_usdl2_cp_unix.py
+./circuitpython/ports/unix/build-coverage/micropython -c "import usdl2; print(usdl2)"
+```
+
 ## Direct build (without cmods)
 
 Create any workspace directory, clone `micropython`, `lv_micropython_cmod`, and `lv_bindings` as siblings, and build from `micropython/` with `USER_C_MODULES` pointing at the workspace root. See [lv_micropython_cmod](https://github.com/PyDevices/lv_micropython_cmod) README.
