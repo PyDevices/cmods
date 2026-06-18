@@ -1,0 +1,9 @@
+generated/
+
+.venv/
+
+lextab.py
+yacctab.py
+
+__pycache__/
+*.pyc

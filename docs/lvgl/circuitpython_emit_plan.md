@@ -182,7 +182,7 @@ Suggested first automated emission: **Phase 1 only** (constants), behind `--targ
 
 ```bash
 # Metadata + stub (today)
-./lv_micropython_cmod/regenerate_lvcp.sh
+./lv_bindings/regenerate_lvcp.sh
 
 # Full CP unix firmware (stock or after apply_cp_lvgl_patches.sh --apply)
 ./build_cp_unix.sh

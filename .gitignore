@@ -1,9 +1,12 @@
-# LVGL MicroPython bindings (run lv_micropython_cmod/regenerate_lvmp.sh to create)
-lv_micropython_cmod/generated/
+# LVGL binding generator (run lv_bindings/regenerate_lvmp.sh to create)
+lv_bindings/generated/
 
 # pycparser table caches (from gcc -E / gen_lv_bindings.py)
 lextab.py
 yacctab.py
+
+# Legacy path (forwarding scripts only)
+lv_micropython_cmod/generated/
 
 # Local MicroPython clone (not a cmods submodule)
 micropython/

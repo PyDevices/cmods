@@ -1,0 +1,3 @@
+# Pin 2.x: pycparser 3.0 changes parsing and breaks LVGL header emission.
+# fake_libc_include/ is vendored from the same release (not shipped in pip wheels).
+pycparser==2.21

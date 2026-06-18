@@ -20,7 +20,7 @@ circuitpython/
 Generated bindings (not copied wholesale):
 
 ```
-cmods/lv_micropython_cmod/generated/lvcp.c   ← regenerate_lvcp.sh
+cmods/lv_bindings/generated/lvcp.c   ← regenerate_lvcp.sh
 ```
 
 ## Build flow
@@ -52,7 +52,7 @@ registered via `MP_REGISTER_MODULE` in `lvcp.c`; they are spliced into the spike
 
 ### Step A — compile `lvcp.c`
 
-`circuitpython.mk` adds `$(CMODS_DIR)/lv_micropython_cmod/generated/lvcp.c` to the port build.
+`circuitpython.mk` adds `$(CMODS_DIR)/lv_bindings/generated/lvcp.c` to the port build.
 Blob/string object definitions in `lvcp.c` must be linked before the spike module references `&mp_<blob>`.
 
 ### Step B — expand the globals table

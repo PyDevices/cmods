@@ -62,7 +62,7 @@ Neither port implements `lv_mem_monitor_core` (no-op).
 
 ## Recommended first CP builds
 
-1. Regenerate bindings: `./lv_micropython_cmod/regenerate_lvcp.sh`
+1. Regenerate bindings: `./lv_bindings/regenerate_lvcp.sh`
 2. Apply patches: `./lv_micropython_cmod/apply_cp_lvgl_patches.sh --apply`
 3. Build: `./build_cp_unix.sh` (unix) or future `build_cp_esp32.sh` (embedded)
 4. REPL: `import lvgl; lvgl.init()` then spot-check one widget API.
@@ -76,6 +76,6 @@ Display bridge remains **ON HOLD** — no flush/tick driver in these builds yet.
 ## Generator / regression (no CP tree needed)
 
 ```bash
-./lv_micropython_cmod/verify_bindings.sh
+./lv_bindings/verify_bindings.sh
 ./micropython/ports/unix/build-standard/micropython ./lv_micropython_cmod/test_lvgl_unix.py
 ```
