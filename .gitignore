@@ -1,11 +1,2 @@
-# pycparser table caches (from gcc -E / gen_lv_bindings.py)
-lextab.py
-yacctab.py
-
-# Local clones (not part of cmods repo — user clones into workspace)
-micropython/
-circuitpython/
-lv_micropython_cmod/
-lv_bindings/
-lv_circuitpython_mod/
-pydisplay_cmods/
+# All cloned repos/directories at workspace root (micropython, user_cmodules, etc.)
+/*/
