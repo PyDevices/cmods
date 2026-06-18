@@ -52,9 +52,10 @@ CircuitPython does not use `USER_C_MODULES`. Clone `lv_circuitpython_mod` into t
 
 ## CircuitPython unix + usdl2
 
-[`usdl2/`](usdl2/) is a unix-only native module exposing a pydisplay-sized subset of libSDL2 as `import usdl2` (not a full SDL2 binding). Requires `libsdl2-dev` at build time.
+[`usdl2`](https://github.com/PyDevices/usdl2) is a unix-only native module exposing a pydisplay-sized subset of libSDL2 as `import usdl2` (not a full SDL2 binding). Requires `libsdl2-dev` at build time. Clone it as a sibling of `circuitpython/` (or into this workspace as `usdl2/`).
 
 ```bash
+git clone https://github.com/PyDevices/usdl2.git
 # After circuitpython clone is pinned (see lv_circuitpython_mod README)
 sudo apt install libsdl2-dev   # Debian/Ubuntu
 
