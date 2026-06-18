@@ -57,8 +57,7 @@ Bindings are **not** committed to the repo. Regenerate after changing:
 
 - `lv_micropython_cmod/lvgl/` (LVGL submodule)
 - `lv_micropython_cmod/lv_conf.h`
-- `lv_micropython_cmod/binding/` (modular generator; primary)
-- `lv_micropython_cmod/gen_mpy.py` (regression reference only)
+- `lv_micropython_cmod/binding/` (modular generator)
 
 ### Generate
 
@@ -66,16 +65,28 @@ Bindings are **not** committed to the repo. Regenerate after changing:
 ./lv_micropython_cmod/regenerate_lvmp.sh
 ```
 
+By default only `lvmp.c` (and `lvcp_module_globals.h` for CP) are kept under `generated/`.
+Set `LV_BINDINGS_DEBUG=1` to also keep preprocessed `.pp` and `.json` metadata files.
+
+```bash
+LV_BINDINGS_DEBUG=1 ./lv_micropython_cmod/regenerate_lvmp.sh
+```
+
 Output (gitignored):
 
 ```
 lv_micropython_cmod/generated/
   lvmp.c          # MicroPython bindings (compiled into firmware)
-  lvmp.c.pp       # preprocessed lvgl.h
-  lvmp.c.json     # API metadata
   lvcp.c          # CircuitPython bindings (phase 7; merge via LVCP_MODULE_GLOBALS)
-  lvcp.c.pp
-  lvcp.c.json
+  lvcp_module_globals.h
+  # with LV_BINDINGS_DEBUG=1 only:
+  lvmp.c.pp, lvmp.c.json, lvcp.c.pp, lvcp.c.json
+```
+
+Clean generated artifacts and pycparser caches:
+
+```bash
+./lv_micropython_cmod/clean_generated.sh
 ```
 
 ### Modular generator
@@ -93,31 +104,21 @@ lv_micropython_cmod/binding/
   runtime.py          shared generation state (sync hub)
   emit_c.py           MicroPython C source emission
   emit_circuitpython.py CircuitPython emission (phases 1–7 → lvcp.c)
-  circuitpython_spike/    Phase 0 templates (copy into CP tree)
-  circuitpython_emit_plan.md  CP emission phases and API mapping
   emit_micropython.py orchestrates analyze + emit_c
   generator.py        wires context, generation, metadata
   metadata.py         JSON export
   util.py             memoize, eprint
 ```
 
-`gen_mpy.py` is kept only for regression testing (`compare_bindings.sh`). Production builds use `gen_lv_bindings.py`.
+Design notes and CP integration docs live under `docs/lvgl/` (see table below).
 
-### Verify generator parity
-
-```bash
-./lv_micropython_cmod/compare_bindings.sh
-```
-
-Compares `gen_mpy.py` vs `gen_lv_bindings.py` output (ignoring the command-line comment).
-
-### Full regression (MicroPython + CircuitPython)
+### Full regression (CircuitPython bindings)
 
 ```bash
 ./lv_micropython_cmod/verify_bindings.sh
 ```
 
-Runs `compare_bindings.sh`, `regenerate_lvcp.sh`, and checks `generated/lvcp.c` size, metadata counts, `LVCP_MODULE_GLOBALS`, and absence of `MP_REGISTER_MODULE`.
+Regenerates `lvmp.c` and `lvcp.c` (with metadata) and checks `lvcp.c` size, metadata counts, `LVCP_MODULE_GLOBALS`, and absence of `MP_REGISTER_MODULE`.
 
 MicroPython unix smoke test (after `./build_unix.sh`):
 
@@ -131,9 +132,9 @@ CircuitPython unix smoke test (after `./build_cp_unix.sh` with LVGL patched):
 ./circuitpython/ports/unix/build-coverage/micropython ./lv_micropython_cmod/test_lvgl_cp_unix.py
 ```
 
-Covers init, headless display, widgets, event callbacks, and GC visibility (see `binding/gc_callback_audit.md`).
+Covers init, headless display, widgets, event callbacks, and GC visibility (see `docs/lvgl/gc_callback_audit.md`).
 
-Before the first CircuitPython build, read `binding/cp_flash_budget.md` (flash partition headroom + allocator notes).
+Before the first CircuitPython build, read `docs/lvgl/cp_flash_budget.md` (flash partition headroom + allocator notes).
 
 ## Builds
 
@@ -169,12 +170,13 @@ Build glue and full emission live in `lv_micropython_cmod/`:
 |------|---------|
 | `circuitpython.mk` | Port Makefile fragment (LVGL + allocator + `lvcp.c`) |
 | `apply_cp_lvgl_patches.sh` | Copy spike + patch CP tree (`--dry-run` / `--apply`) |
-| `circuitpython_board.snippet.mk` | Manual patch checklist (reference) |
-| `binding/gc_callback_audit.md` | GC roots and callback lifetime notes |
-| `binding/cp_flash_budget.md` | Flash/allocator review before first CP build |
+| `clean_generated.sh` | Remove `generated/` artifacts and pycparser caches |
 | `regenerate_lvcp.sh` | Preprocess + `--target circuitpython` → `generated/lvcp.c` |
-| `binding/circuitpython_emit_plan.md` | Phased API mapping from metadata |
-| `circuitpython_spike/` | Hand-written module + merge docs for phase-1 entries |
+| `circuitpython_spike/` | Hand-written module templates (copy into CP tree) |
+| `docs/lvgl/gc_callback_audit.md` | GC roots and callback lifetime notes |
+| `docs/lvgl/cp_flash_budget.md` | Flash/allocator review before first CP build |
+| `docs/lvgl/circuitpython_emit_plan.md` | Phased API mapping from metadata |
+| `docs/lvgl/circuitpython_spike.md` | Spike merge workflow and `lvcp.c` integration |
 
 Current status:
 
