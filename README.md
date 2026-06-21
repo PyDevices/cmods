@@ -60,7 +60,7 @@ git clone https://github.com/PyDevices/usdl2.git
 sudo apt install libsdl2-dev   # Debian/Ubuntu
 
 ./usdl2/apply_cp_unix_usdl_patches.sh --apply
-./lv_circuitpython_mod/build_cp_unix.sh
+./lv_circuitpython_mod/build_any.sh --port unix --variant standard
 
 ./circuitpython/ports/unix/build-coverage/micropython ./usdl2/test_usdl2_cp_unix.py
 ./circuitpython/ports/unix/build-coverage/micropython -c "import usdl2; print(usdl2)"
