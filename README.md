@@ -19,7 +19,7 @@ git clone git@github.com:PyDevices/lv_bindings.git lv_bindings
 cd lv_bindings && git submodule update --init lvgl && cd ..
 ./lv_bindings/regenerate_lvmp.sh
 
-./build_unix.sh
+./build_mp.sh --port unix --variant standard
 ```
 
 The LVGL clone and `regenerate_lvmp.sh` steps are **optional** — use them only when building with LVGL. For other user C modules, clone those repos as siblings instead (see below).
@@ -36,9 +36,16 @@ Add more user C modules by cloning them as siblings (each needs `micropython.mk`
 
 | Script | Port |
 |--------|------|
-| [`build_unix.sh`](build_unix.sh) | MicroPython unix |
-| [`build_esp32.sh`](build_esp32.sh) | ESP32 (CMake) |
-| [`build_rp2.sh`](build_rp2.sh) | RP2 Pico (CMake) |
+| [`build_mp.sh`](build_mp.sh) | Any MicroPython port (interactive or `--port` / `--board` / `--variant`) |
+
+Examples:
+
+```bash
+./build_mp.sh                                          # interactive
+./build_mp.sh --port unix --variant standard
+./build_mp.sh --port rp2 --board RPI_PICO2_W
+./build_mp.sh --port esp32 --board ESP32_GENERIC_P4 --variant C6_WIFI
+```
 
 ## Related repos
 
@@ -60,7 +67,7 @@ git clone https://github.com/PyDevices/usdl2.git
 sudo apt install libsdl2-dev   # Debian/Ubuntu
 
 ./usdl2/apply_cp_unix_usdl_patches.sh --apply
-./lv_circuitpython_mod/build_any.sh --port unix --variant standard
+./lv_circuitpython_mod/build_cp.sh --port unix --variant standard
 
 ./circuitpython/ports/unix/build-coverage/micropython ./usdl2/test_usdl2_cp_unix.py
 ./circuitpython/ports/unix/build-coverage/micropython -c "import usdl2; print(usdl2)"
