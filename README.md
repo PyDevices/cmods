@@ -57,21 +57,33 @@ Examples:
 
 CircuitPython does not use `USER_C_MODULES`. Clone `lv_circuitpython_mod` into this workspace if you want CP and MP trees side by side.
 
-## usdl2 (unix SDL2 subset)
+## usdl2 (desktop SDL2 subset)
 
-[`usdl2`](https://github.com/PyDevices/usdl2) is a unix-only native module exposing a pydisplay-sized subset of libSDL2 as `import usdl2`. Requires `libsdl2-dev` at build time. Clone into this workspace as `usdl2/`.
+[`usdl2`](https://github.com/PyDevices/usdl2) is a native module exposing a pydisplay-sized subset of libSDL2 as `import usdl2`. Builds on MicroPython **unix** and **windows** ports. Clone into this workspace as `usdl2/`.
 
 ```bash
 git clone https://github.com/PyDevices/usdl2.git
-sudo apt install libsdl2-dev   # Debian/Ubuntu
+sudo apt install libsdl2-dev   # Debian/Ubuntu — unix port only
 ```
 
-**MicroPython** (no patching):
+**MicroPython unix** (no patching):
 
 ```bash
 ./build_mp.sh --port unix --variant standard
 ./micropython/ports/unix/build-standard/micropython ./usdl2/test_usdl2.py
 ```
+
+**MicroPython windows** (static SDL2; SDL2 not vendored — use the official MinGW dev ZIP):
+
+```bash
+# Download SDL2-devel-*-mingw.zip from https://github.com/libsdl-org/SDL/releases
+# Unpack outside the repo, e.g. ~/SDL2-2.30.10
+export SDL2_DEV=~/SDL2-2.30.10
+sudo apt install gcc-mingw-w64   # cross-build from Linux/WSL
+./build_mp.sh --port windows --variant standard
+```
+
+See [usdl2/README.md](usdl2/README.md) for `PKG_CONFIG_PATH`, MSYS2, and runtime notes.
 
 **CircuitPython** (requires patch script; see [lv_circuitpython_mod README](lv_circuitpython_mod/README.md) for CP clone setup):
 

@@ -43,6 +43,7 @@ Environment:
   USER_C_MODULES     Path passed to make (default: \$WORKSPACE_DIR)
   FROZEN_MANIFEST    Frozen manifest path (default: \$WORKSPACE_DIR/manifest.py)
   PORT, BOARD, VARIANT  Same as the corresponding options
+  SDL2_DEV           Unpacked SDL2 MinGW development ZIP root (windows port + usdl2)
 EOF
             exit 0
             ;;
@@ -117,6 +118,46 @@ port_kind() {
     fi
 }
 
+ensure_windows_sdl2_env() {
+    [[ "$PORT" == windows ]] || return 0
+    [[ -n "${SDL2_DEV:-}" ]] || return 0
+
+    local triplet=x86_64-w64-mingw32
+    if [[ "${CROSS_COMPILE:-}" == i686-w64-mingw32- ]]; then
+        triplet=i686-w64-mingw32
+    fi
+
+    local prefix="$SDL2_DEV/$triplet"
+    if [[ ! -f "$prefix/include/SDL2/SDL.h" || ! -f "$prefix/lib/libSDL2.a" ]]; then
+        echo "SDL2 MinGW development tree not found under: $prefix" >&2
+        echo "Unpack the SDL2 MinGW development ZIP and set SDL2_DEV to its root." >&2
+        echo "See usdl2/README.md" >&2
+        exit 1
+    fi
+
+    echo "Using SDL2_DEV=$SDL2_DEV (triplet $triplet)"
+}
+
+ensure_windows_cross_compile() {
+    [[ "$PORT" == windows ]] || return 0
+    [[ -n "${CROSS_COMPILE:-}" ]] && return 0
+
+    case "$(uname -s)" in
+        Linux|Darwin)
+            if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+                CROSS_COMPILE=x86_64-w64-mingw32-
+            elif command -v i686-w64-mingw32-gcc >/dev/null 2>&1; then
+                CROSS_COMPILE=i686-w64-mingw32-
+            else
+                echo "Windows port on Linux requires MinGW-w64 cross tools." >&2
+                echo "Install: sudo apt-get install gcc-mingw-w64" >&2
+                exit 1
+            fi
+            echo "Using CROSS_COMPILE=$CROSS_COMPILE for windows port"
+            ;;
+    esac
+}
+
 ensure_idf_env() {
     [[ "$PORT" == esp32 ]] || return 0
 
@@ -140,6 +181,8 @@ make_target_args() {
         USER_C_MODULES="$USER_C_MODULES"
         FROZEN_MANIFEST="$FROZEN_MANIFEST"
     )
+    [[ -n "${CROSS_COMPILE:-}" ]] && args+=(CROSS_COMPILE="$CROSS_COMPILE")
+    [[ -n "${SDL2_DEV:-}" ]] && args+=(SDL2_DEV="$SDL2_DEV")
     case "$PORT_KIND" in
         boards)
             [[ -n "$BOARD" ]] && args+=(BOARD="$BOARD")
@@ -303,6 +346,9 @@ case "$PORT_KIND" in
         ;;
 esac
 
+ensure_windows_cross_compile
+ensure_windows_sdl2_env
+
 print_rerun_hint
 print_make_commands
 
@@ -310,6 +356,8 @@ make_args=(
     USER_C_MODULES="$USER_C_MODULES"
     FROZEN_MANIFEST="$FROZEN_MANIFEST"
 )
+[[ -n "${CROSS_COMPILE:-}" ]] && make_args+=(CROSS_COMPILE="$CROSS_COMPILE")
+[[ -n "${SDL2_DEV:-}" ]] && make_args+=(SDL2_DEV="$SDL2_DEV")
 case "$PORT_KIND" in
     boards)
         [[ -n "$BOARD" ]] && make_args+=(BOARD="$BOARD")
