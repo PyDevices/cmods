@@ -7,15 +7,15 @@ This repo does **not** include MicroPython or any user modules — clone them in
 ## Quick start
 
 ```bash
-git clone git@github.com:PyDevices/cmods.git
+git clone https://github.com/PyDevices/cmods.git
 cd cmods
 
-git clone git@github.com:micropython/micropython.git micropython
+git clone https://github.com/micropython/micropython.git micropython
 cd micropython && git submodule update --init --recursive && cd ..
 
 # Optional — only for LVGL; skip and clone other user C modules instead
-git clone git@github.com:PyDevices/lv_micropython_cmod.git lv_micropython_cmod
-git clone git@github.com:PyDevices/lv_bindings.git lv_bindings
+git clone https://github.com/PyDevices/lv_micropython_cmod.git lv_micropython_cmod
+git clone https://github.com/PyDevices/lv_bindings.git lv_bindings
 cd lv_bindings && git submodule update --init lvgl && cd ..
 ./lv_bindings/regenerate_lvmp.sh
 
