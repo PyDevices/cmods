@@ -57,20 +57,28 @@ Examples:
 
 CircuitPython does not use `USER_C_MODULES`. Clone `lv_circuitpython_mod` into this workspace if you want CP and MP trees side by side.
 
-## CircuitPython unix + usdl2
+## usdl2 (unix SDL2 subset)
 
-[`usdl2`](https://github.com/PyDevices/usdl2) is a unix-only native module exposing a pydisplay-sized subset of libSDL2 as `import usdl2` (not a full SDL2 binding). Requires `libsdl2-dev` at build time. Clone it as a sibling of `circuitpython/` (or into this workspace as `usdl2/`).
+[`usdl2`](https://github.com/PyDevices/usdl2) is a unix-only native module exposing a pydisplay-sized subset of libSDL2 as `import usdl2`. Requires `libsdl2-dev` at build time. Clone into this workspace as `usdl2/`.
 
 ```bash
 git clone https://github.com/PyDevices/usdl2.git
-# After circuitpython clone is pinned (see lv_circuitpython_mod README)
 sudo apt install libsdl2-dev   # Debian/Ubuntu
+```
 
+**MicroPython** (no patching):
+
+```bash
+./build_mp.sh --port unix --variant standard
+./micropython/ports/unix/build-standard/micropython ./usdl2/test_usdl2.py
+```
+
+**CircuitPython** (requires patch script; see [lv_circuitpython_mod README](lv_circuitpython_mod/README.md) for CP clone setup):
+
+```bash
 ./usdl2/apply_cp_unix_usdl_patches.sh --apply
 ./lv_circuitpython_mod/build_cp.sh --port unix --variant standard
-
-./circuitpython/ports/unix/build-coverage/micropython ./usdl2/test_usdl2_cp_unix.py
-./circuitpython/ports/unix/build-coverage/micropython -c "import usdl2; print(usdl2)"
+./circuitpython/ports/unix/build-standard/micropython ./usdl2/test_usdl2.py
 ```
 
 ## Direct build (without cmods)
