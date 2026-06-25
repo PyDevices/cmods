@@ -1,23 +1,24 @@
 import os
 
-# Find all manifest.py files in immediate subdirectories of the current directory
-# and include them.
-for dir in os.listdir("."):
-    if os.path.exists(dir + "/manifest.py"):
-        print(f"Including {dir}/manifest.py")
-        include(dir + "/manifest.py")
-
-
+# PyScript browser builds (webassembly VARIANT=pyscript) need the full frozen stdlib
+# from variants/pyscript/manifest.py (pathlib, os, gzip, logging, …). That file
+# exists only on the webassembly port; other ports fall through to the chain below.
 try:
-    include("$(BOARD_DIR)/manifest.py")
+    include("$(PORT_DIR)/variants/pyscript/manifest.py")
 except Exception:
     try:
-        include("$(PORT_DIR)/boards/manifest.py")
+        include("$(BOARD_DIR)/manifest.py")
     except Exception:
         try:
-            include("$(PORT_DIR)/variants/standard/manifest.py")
+            include("$(PORT_DIR)/boards/manifest.py")
         except Exception:
             try:
-                include("$(PORT_DIR)/variants/manifest.py")
+                include("$(PORT_DIR)/variants/standard/manifest.py")
             except Exception:
-                pass
+                try:
+                    include("$(PORT_DIR)/variants/pyscript/manifest.py")
+                except Exception:
+                    try:
+                        include("$(PORT_DIR)/variants/manifest.py")
+                    except Exception:
+                        pass

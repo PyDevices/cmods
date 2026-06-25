@@ -4,8 +4,15 @@
 # Usage:
 #   ./build_mp.sh [--port PORT] [--board BOARD] [--variant VARIANT]
 #
-# Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, PORT, BOARD, VARIANT,
+# Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, EMSDK_DIR, PORT, BOARD, VARIANT,
 #              USER_C_MODULES, FROZEN_MANIFEST
+#
+# webassembly: sources EMSDK_DIR/emsdk_env.sh (like esp32 + IDF_DIR/export.sh).
+# LVGL user modules set -Wno-unused-function in CFLAGS_USERMOD, but the
+# webassembly port appends -Werror after py.mk merges user-module flags; emcc
+# then treats unused static inlines in generated lvmp.c as errors. The local
+# patch in micropython/ports/webassembly/Makefile appends -Wno-unused-function
+# after -Werror so it takes effect.
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -15,6 +22,7 @@ MP_DIR="${MP_DIR:-$WORKSPACE_DIR/micropython}"
 USER_C_MODULES="${USER_C_MODULES:-$WORKSPACE_DIR}"
 FROZEN_MANIFEST="${FROZEN_MANIFEST:-$WORKSPACE_DIR/manifest.py}"
 IDF_DIR="${IDF_DIR:-$WORKSPACE_DIR/../esp-idf}"
+EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/../emsdk}"
 
 PORT="${PORT:-}"
 BOARD="${BOARD:-}"
@@ -40,6 +48,7 @@ Environment:
   WORKSPACE_DIR      cmods workspace root (default: script directory)
   MP_DIR             MicroPython tree (default: \$WORKSPACE_DIR/micropython)
   IDF_DIR            ESP-IDF install for esp32 (default: \$WORKSPACE_DIR/../esp-idf)
+  EMSDK_DIR          Emscripten SDK for webassembly (default: \$WORKSPACE_DIR/../emsdk)
   USER_C_MODULES     Path passed to make (default: \$WORKSPACE_DIR)
   FROZEN_MANIFEST    Frozen manifest path (default: \$WORKSPACE_DIR/manifest.py)
   PORT, BOARD, VARIANT  Same as the corresponding options
@@ -176,6 +185,25 @@ ensure_idf_env() {
     fi
 }
 
+ensure_emsdk_env() {
+    [[ "$PORT" == webassembly ]] || return 0
+
+    # See header comment: LVGL needs -Wno-unused-function after the port's -Werror.
+    local emsdk_env="$EMSDK_DIR/emsdk_env.sh"
+    [[ -f "$emsdk_env" ]] || {
+        echo "Emscripten emsdk_env.sh not found: $emsdk_env" >&2
+        echo "Set EMSDK_DIR or install emsdk beside the workspace." >&2
+        exit 1
+    }
+
+    echo "Activating Emscripten environment..."
+    # shellcheck disable=SC1090
+    if ! . "$emsdk_env"; then
+        echo "Failed to activate Emscripten from: $emsdk_env" >&2
+        exit 1
+    fi
+}
+
 make_target_args() {
     local -a args=(
         USER_C_MODULES="$USER_C_MODULES"
@@ -231,6 +259,8 @@ print_make_commands() {
     printf '%s  cd %q%s\n' "$dim" "$PORT_DIR" "$reset"
     if [[ "$PORT" == esp32 ]]; then
         printf '%s  . %q/export.sh%s\n' "$dim" "$IDF_DIR" "$reset"
+    elif [[ "$PORT" == webassembly ]]; then
+        printf '%s  . %q/emsdk_env.sh%s\n' "$dim" "$EMSDK_DIR" "$reset"
     fi
     printf '%s  make -j clean %s%s\n' "$dim" "$quoted" "$reset"
     printf '%s  make -j submodules %s%s\n' "$dim" "$quoted" "$reset"
@@ -369,6 +399,7 @@ case "$PORT_KIND" in
 esac
 
 ensure_idf_env
+ensure_emsdk_env
 
 echo "Building: port=$PORT${BOARD:+ board=$BOARD}${VARIANT:+ variant=$VARIANT}"
 echo
