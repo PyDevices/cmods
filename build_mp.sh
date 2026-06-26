@@ -127,13 +127,37 @@ port_kind() {
     fi
 }
 
+find_sdl2_dev_root() {
+    local candidate triplet="${1:-x86_64-w64-mingw32}"
+    for candidate in "${SDL2_DEV:-}" "$HOME"/SDL2-[0-9]* "$HOME"/SDL2; do
+        [[ -n "$candidate" && -d "$candidate" ]] || continue
+        if [[ -f "$candidate/$triplet/include/SDL2/SDL.h" && -f "$candidate/$triplet/lib/libSDL2.a" ]]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
 ensure_windows_sdl2_env() {
     [[ "$PORT" == windows ]] || return 0
-    [[ -n "${SDL2_DEV:-}" ]] || return 0
 
     local triplet=x86_64-w64-mingw32
     if [[ "${CROSS_COMPILE:-}" == i686-w64-mingw32- ]]; then
         triplet=i686-w64-mingw32
+    fi
+
+    if [[ -z "${SDL2_DEV:-}" ]]; then
+        if SDL2_DEV=$(find_sdl2_dev_root "$triplet"); then
+            export SDL2_DEV
+            echo "Auto-detected SDL2_DEV=$SDL2_DEV (triplet $triplet)"
+        else
+            echo "Windows port + usdl2 requires the SDL2 MinGW development ZIP." >&2
+            echo "Unpack it (e.g. to ~/SDL2-2.30.10) and run:" >&2
+            echo "  export SDL2_DEV=~/SDL2-2.30.10" >&2
+            echo "See usdl2/README.md" >&2
+            exit 1
+        fi
     fi
 
     local prefix="$SDL2_DEV/$triplet"
