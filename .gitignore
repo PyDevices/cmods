@@ -1,2 +1,6 @@
+# Personal frozen manifest (local overrides)
+my-manifest.py
+main.py
+
 # All cloned repos/directories at workspace root (micropython, user_cmodules, etc.)
 /*/

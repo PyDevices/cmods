@@ -4,6 +4,11 @@ import os
 # Find all manifest.py files in immediate subdirectories of the current directory
 # and include them.
 try:
+    include("my-manifest.py")
+except Exception:
+    pass
+
+try:
     include("$(PORT_DIR)/variants/pyscript/manifest.py")
 except Exception:
     try:
