@@ -5,7 +5,12 @@
 #   ./build_mp.sh [--port PORT] [--board BOARD] [--variant VARIANT]
 #
 # Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, EMSDK_DIR, PORT, BOARD, VARIANT,
-#              USER_C_MODULES, FROZEN_MANIFEST
+#              USER_C_MODULES, FROZEN_MANIFEST, OS_DUPTERM, OS_DUPTERM_SLOTS
+#
+# OS_DUPTERM defaults to 1 (enabled). Set OS_DUPTERM=0 to disable. On unix,
+# windows, and webassembly this passes -DMICROPY_PY_OS_DUPTERM=<slots> via
+# CFLAGS_EXTRA so os.dupterm() is available (embedded ports usually enable it
+# in mpconfigport.h already).
 #
 # webassembly: sources EMSDK_DIR/emsdk_env.sh (like esp32 + IDF_DIR/export.sh).
 # LVGL user modules set -Wno-unused-function in CFLAGS_USERMOD, but the
@@ -27,12 +32,22 @@ EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/../emsdk}"
 PORT="${PORT:-}"
 BOARD="${BOARD:-}"
 VARIANT="${VARIANT:-}"
+OS_DUPTERM="${OS_DUPTERM:-1}"
+OS_DUPTERM_SLOTS="${OS_DUPTERM_SLOTS:-1}"
+
+is_truthy() {
+    case "${1,,}" in
+        1|true|yes|on) return 0 ;;
+        *) return 1 ;;
+    esac
+}
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --port)    PORT="$2"; shift 2 ;;
         --board)   BOARD="$2"; shift 2 ;;
         --variant) VARIANT="$2"; shift 2 ;;
+        --no-os-dupterm) OS_DUPTERM=0; shift ;;
         -h|--help)
             cat <<EOF
 Usage: $0 [--port PORT] [--board BOARD] [--variant VARIANT]
@@ -52,7 +67,12 @@ Environment:
   USER_C_MODULES     Path passed to make (default: \$WORKSPACE_DIR)
   FROZEN_MANIFEST    Frozen manifest path (default: \$WORKSPACE_DIR/manifest.py)
   PORT, BOARD, VARIANT  Same as the corresponding options
+  OS_DUPTERM         Enable os.dupterm on desktop ports (default: 1)
+  OS_DUPTERM_SLOTS   dupterm slot count for desktop ports (default: 1)
   SDL2_DEV           Unpacked SDL2 MinGW development ZIP root (windows port + usdl2)
+
+Options:
+  --no-os-dupterm    Disable os.dupterm (same as OS_DUPTERM=0)
 EOF
             exit 0
             ;;
@@ -235,6 +255,9 @@ make_target_args() {
     )
     [[ -n "${CROSS_COMPILE:-}" ]] && args+=(CROSS_COMPILE="$CROSS_COMPILE")
     [[ -n "${SDL2_DEV:-}" ]] && args+=(SDL2_DEV="$SDL2_DEV")
+    if is_truthy "$OS_DUPTERM" && [[ "$PORT" == unix || "$PORT" == windows || "$PORT" == webassembly ]]; then
+        args+=(CFLAGS_EXTRA="-DMICROPY_PY_OS_DUPTERM=${OS_DUPTERM_SLOTS}")
+    fi
     case "$PORT_KIND" in
         boards)
             [[ -n "$BOARD" ]] && args+=(BOARD="$BOARD")
@@ -412,6 +435,14 @@ make_args=(
 )
 [[ -n "${CROSS_COMPILE:-}" ]] && make_args+=(CROSS_COMPILE="$CROSS_COMPILE")
 [[ -n "${SDL2_DEV:-}" ]] && make_args+=(SDL2_DEV="$SDL2_DEV")
+if is_truthy "$OS_DUPTERM" && [[ "$PORT" == unix || "$PORT" == windows || "$PORT" == webassembly ]]; then
+    make_args+=(CFLAGS_EXTRA="-DMICROPY_PY_OS_DUPTERM=${OS_DUPTERM_SLOTS}")
+    echo "os.dupterm: enabled (${OS_DUPTERM_SLOTS} slot(s))"
+elif is_truthy "$OS_DUPTERM"; then
+    echo "os.dupterm: enabled in port mpconfig (no CFLAGS override)"
+else
+    echo "os.dupterm: disabled (OS_DUPTERM=0)"
+fi
 case "$PORT_KIND" in
     boards)
         [[ -n "$BOARD" ]] && make_args+=(BOARD="$BOARD")
