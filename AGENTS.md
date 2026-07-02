@@ -137,7 +137,7 @@ Output: `circuitpython/ports/unix/build-coverage/micropython`
 
 ## CPython (`lv_cpython_mod`)
 
-See also `lv_cpython_mod/AGENTS.md` and `lv_cpython_mod/README.md`.
+See also `lv_cpython_mod/BUILDING.md` and `lv_cpython_mod/README.md`.
 
 Both platforms use the **same repo directory** for editable installs. **Never** run `.venv/bin/pip install -e .` and `pip.exe install -e .` concurrently. For “build them all”, step 4 (Unix) runs in **parallel with 1–3**; step 5 (Windows) runs **only after** `wait`.
 

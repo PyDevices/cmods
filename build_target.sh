@@ -150,27 +150,7 @@ build_cpy_unix_body() {
 }
 
 run_cpy_windows_smoke() {
-    # WSL often reports exit 5 from python.exe after successful LVGL teardown (sys.exit(0)).
-    local tmp
-    tmp=$(mktemp)
-    set +e
-    PYTHONPATH="$(wslpath -w "$CPY_MOD")" python.exe "$SMOKE_TEST" 2>&1 | tee "$tmp"
-    local ec=${PIPESTATUS[0]}
-    set -e
-    if grep -q '^FAIL:' "$tmp"; then
-        rm -f "$tmp"
-        return 1
-    fi
-    if grep -q 'All LVGL smoke tests passed' "$tmp"; then
-        rm -f "$tmp"
-        if [[ $ec -ne 0 && $ec -ne 5 ]]; then
-            echo "Smoke tests passed but python.exe exited $ec" >&2
-            return "$ec"
-        fi
-        return 0
-    fi
-    rm -f "$tmp"
-    return "${ec:-1}"
+    PYTHONPATH="$(wslpath -w "$CPY_MOD")" python.exe "$SMOKE_TEST"
 }
 
 smoke_cpy_windows() {
