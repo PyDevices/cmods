@@ -15,7 +15,7 @@
 # webassembly: sources EMSDK_DIR/emsdk_env.sh (like esp32 + IDF_DIR/export.sh).
 # LVGL user modules set -Wno-unused-function in CFLAGS_USERMOD, but the
 # webassembly port appends -Werror after py.mk merges user-module flags; emcc
-# then treats unused static inlines in generated lvmp.c as errors. The local
+# then treats unused static inlines in generated lvgl_micropython.c as errors. The local
 # patch in micropython/ports/webassembly/Makefile appends -Wno-unused-function
 # after -Werror so it takes effect.
 set -euo pipefail

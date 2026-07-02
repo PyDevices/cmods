@@ -2,7 +2,7 @@
 # Build and smoke-test all five LVGL consumer targets.
 #
 # Usage:
-#   ./build_all.sh [--sequential]
+#   ./build_all.sh [--sequential] [--smoke-only]
 #
 # Default: parallel mp-unix, mp-windows, cp-unix, cpy-unix; wait; then cpy-windows alone.
 # cpy-unix and cpy-windows never run concurrently (see build_target.sh flock).
@@ -16,12 +16,14 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 CMODS="${CMODS:-$SCRIPT_DIR}"
 BUILD_TARGET="$SCRIPT_DIR/build_target.sh"
 SEQUENTIAL=0
+SMOKE_ONLY=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --sequential) SEQUENTIAL=1; shift ;;
+        --smoke-only) SMOKE_ONLY=1; shift ;;
         -h|--help)
-            sed -n '2,10p' "$0" | sed 's/^# \?//'
+            sed -n '2,11p' "$0" | sed 's/^# \?//'
             exit 0
             ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
@@ -39,8 +41,10 @@ TARGETS=(mp-unix mp-windows cp-unix cpy-unix cpy-windows)
 run_one() {
     local t=$1
     local log="$LOGDIR/$t.log"
+    local smoke_args=()
+    [[ "$SMOKE_ONLY" == "1" ]] && smoke_args=(--smoke-only)
     echo "==> starting $t (log: $log)"
-    if "$BUILD_TARGET" "$t" >"$log" 2>&1; then
+    if "$BUILD_TARGET" "${smoke_args[@]}" "$t" >"$log" 2>&1; then
         echo 0 >"$LOGDIR/$t.exit"
         echo "==> $t OK"
     else
@@ -56,20 +60,23 @@ run_one_bg() {
     ) &
 }
 
+mode="build"
+[[ "$SMOKE_ONLY" == "1" ]] && mode="smoke"
+
 if [[ "$SEQUENTIAL" == "1" ]]; then
     echo "LOGDIR=$LOGDIR"
-    echo "=== Sequential build: ${TARGETS[*]} ==="
+    echo "=== Sequential $mode: ${TARGETS[*]} ==="
     for t in "${TARGETS[@]}"; do
         run_one "$t"
     done
 else
     echo "LOGDIR=$LOGDIR"
-    echo "=== Phase A: parallel mp-unix mp-windows cp-unix cpy-unix ==="
+    echo "=== Phase A: parallel $mode mp-unix mp-windows cp-unix cpy-unix ==="
     for t in mp-unix mp-windows cp-unix cpy-unix; do
         run_one_bg "$t"
     done
     wait
-    echo "=== Phase B: cpy-windows (alone) ==="
+    echo "=== Phase B: cpy-windows $mode (alone) ==="
     run_one cpy-windows
 fi
 

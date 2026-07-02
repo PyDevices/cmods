@@ -9,9 +9,11 @@ Workspace root: `~/github/cmods`. Bindings are generated in **`lv_bindings/`** a
 ```bash
 cd ~/github/cmods
 ./build_target.sh mp-unix       # one target: build + smoke test
+./build_target.sh --smoke-only mp-unix   # smoke test only (binary must exist)
 ./build_target.sh cpy-windows
 ./build_all.sh                  # all five (safe parallelism)
 ./build_all.sh --sequential     # all five, one at a time
+./build_all.sh --smoke-only     # smoke tests only, all five
 ```
 
 | Target ID | Port | Build | Smoke test |
@@ -26,7 +28,7 @@ When the user says **“build them all”**, run `./build_all.sh` (or `./build_t
 
 **Imperative:** **`cpy-unix` and `cpy-windows` must never run concurrently** — both use editable `pip install -e` on the same `lv_cpython_mod/` tree and clobber `build/`, `*.egg-info`, and in-repo `.so`/`.pyd`. `build_target.sh` uses a flock on `lv_cpython_mod/.build.lock`; `build_all.sh` enforces the phase split above.
 
-CPython targets auto-sync `generated/lvpy.c` (and `lv_conf.h`) from sibling `lv_bindings/` before build (`SYNC_LVPY=0` to skip). MP/CP read bindings directly from `lv_bindings/generated/`.
+CPython targets auto-sync `generated/lvgl_python.c` (and `lv_conf.h`) from sibling `lv_bindings/` before build (`SYNC_LVPY=0` to skip). MP/CP read bindings directly from `lv_bindings/generated/`.
 
 **Do not** use a venv for Windows CPython — use **`pip.exe`** / **`python.exe`**.
 
@@ -145,7 +147,7 @@ Both platforms use the **same repo directory** for editable installs. **Never** 
 cd ~/github/cmods/lv_cpython_mod
 python3 -m venv .venv          # once
 .venv/bin/pip install -r requirements.txt
-.venv/bin/pip install -e .       # rebuild after C or generated/lvpy.c changes
+.venv/bin/pip install -e .       # rebuild after C or generated/lvgl_python.c changes
 
 .venv/bin/python ../lv_bindings/test_lvgl_smoke.py
 .venv/bin/python -c "import lvgl as lv; lv.init(); lv.deinit(); print('ok')"
@@ -175,10 +177,10 @@ After changing `binding/`, `lv_conf.h`, or the `lvgl` submodule:
 cd ~/github/cmods/lv_bindings
 ./regenerate_all.sh              # all three targets + commit + tag (see PUBLISHING.md)
 # or individually:
-./regenerate_lvmp.sh             # → generated/lvmp.c
-./regenerate_lvcp.sh             # → generated/lvcp.c
-./regenerate_lvpy.sh             # → generated/lvpy.c
-./verify_bindings.sh             # regen + regression checks
+./regenerate_lvmp.sh             # → generated/lvgl_micropython.c
+./regenerate_lvcp.sh             # → generated/lvgl_circuitpython.c
+./regenerate_lvpy.sh             # → generated/lvgl_python.c
+./scripts/verify_bindings.sh     # regen + regression checks
 ```
 
 Sync into consumer repos as needed (`lv_cpython_mod/scripts/sync_from_lv_bindings.sh`, or copy `generated/` + `lvgl` pin for MP/CP).
