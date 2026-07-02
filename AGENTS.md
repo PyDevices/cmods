@@ -4,19 +4,33 @@ Workspace root: `~/github/cmods`. Bindings are generated in **`lv_bindings/`** a
 
 ## “Build them all”
 
-When the user says **“build them all”**, run targets **1–4 in parallel** (each: build → smoke test), **`wait` for all to finish**, then run target **5 alone** (Windows CPython). Only step 5 must not overlap step 4 — both use editable `pip install -e` on the same `lv_cpython_mod/` tree and clobber `build/`, `*.egg-info`, and in-repo `.so`/`.pyd`.
+**Primary API:** per-target and full-matrix scripts at the cmods root:
 
-| # | Phase | Target | Build | Test |
-|---|-------|--------|-------|------|
-| 1 | **parallel** | MicroPython **unix / standard** | `./build_mp.sh --port unix --variant standard` | [MP smoke test](#micropython-smoke-test) |
-| 2 | **parallel** | MicroPython **windows / standard** | `./build_mp.sh --port windows --variant standard --no-os-dupterm` | same script; `micropython.exe` |
-| 3 | **parallel** | CircuitPython **unix / coverage** | `./lv_circuitpython_mod/build_cp.sh --port unix --variant coverage` | [CP smoke test](#circuitpython-smoke-test) |
-| 4 | **parallel** | CPython **Unix (WSL)** | `lv_cpython_mod/.venv/bin/pip install -e .` | `.venv/bin/python test_lvgl_cpython.py` |
-| 5 | **after wait** | CPython **Windows** | `pip.exe install -e "$(wslpath -w ~/github/cmods/lv_cpython_mod)"` | `python.exe test_lvgl_cpython.py` |
+```bash
+cd ~/github/cmods
+./build_target.sh mp-unix       # one target: build + smoke test
+./build_target.sh cpy-windows
+./build_all.sh                  # all five (safe parallelism)
+./build_all.sh --sequential     # all five, one at a time
+```
+
+| Target ID | Port | Build | Smoke test |
+|-----------|------|-------|------------|
+| `mp-unix` | MicroPython unix / standard | `./build_mp.sh --port unix --variant standard` | [`lv_bindings/test_lvgl_smoke.py`](lv_bindings/test_lvgl_smoke.py) |
+| `mp-windows` | MicroPython windows / standard | `./build_mp.sh --port windows --variant standard --no-os-dupterm` | same script via `micropython.exe` |
+| `cp-unix` | CircuitPython unix / coverage | `./lv_circuitpython_mod/build_cp.sh --port unix --variant coverage` | same [`test_lvgl_smoke.py`](lv_bindings/test_lvgl_smoke.py) |
+| `cpy-unix` | CPython Unix (WSL) | `lv_cpython_mod/.venv/bin/pip install -e .` | same smoke test (`.venv/bin/python …/lv_bindings/test_lvgl_smoke.py`) |
+| `cpy-windows` | CPython Windows | `pip.exe install -e …` | `python.exe …/lv_bindings/test_lvgl_smoke.py` |
+
+When the user says **“build them all”**, run `./build_all.sh` (or `./build_target.sh` for a single failing target). Default orchestration: targets **1–4 in parallel** (`mp-unix`, `mp-windows`, `cp-unix`, `cpy-unix`), **`wait`**, then **`cpy-windows` alone**.
+
+**Imperative:** **`cpy-unix` and `cpy-windows` must never run concurrently** — both use editable `pip install -e` on the same `lv_cpython_mod/` tree and clobber `build/`, `*.egg-info`, and in-repo `.so`/`.pyd`. `build_target.sh` uses a flock on `lv_cpython_mod/.build.lock`; `build_all.sh` enforces the phase split above.
+
+CPython targets auto-sync `generated/lvpy.c` (and `lv_conf.h`) from sibling `lv_bindings/` before build (`SYNC_LVPY=0` to skip). MP/CP read bindings directly from `lv_bindings/generated/`.
 
 **Do not** use a venv for Windows CPython — use **`pip.exe`** / **`python.exe`**.
 
-### One-shot build script (reference)
+### One-shot build script (reference — equivalent to `./build_all.sh`)
 
 ```bash
 CMODS=~/github/cmods
@@ -26,21 +40,21 @@ CMODS=~/github/cmods
   cd "$CMODS" && \
   ./build_mp.sh --port unix --variant standard && \
   "$CMODS/micropython/ports/unix/build-standard/micropython" \
-    "$CMODS/lv_micropython_cmod/test_lvgl_unix.py"
+    "$CMODS/lv_bindings/test_lvgl_smoke.py"
 ) &
 
 (
   cd "$CMODS" && \
   ./build_mp.sh --port windows --variant standard --no-os-dupterm && \
   "$CMODS/micropython/ports/windows/build-standard/micropython.exe" \
-    "$CMODS/lv_micropython_cmod/test_lvgl_unix.py"
+    "$CMODS/lv_bindings/test_lvgl_smoke.py"
 ) &
 
 (
   cd "$CMODS/lv_circuitpython_mod" && \
   ./build_cp.sh --port unix --variant coverage && \
   "$CMODS/circuitpython/ports/unix/build-coverage/micropython" \
-    "$CMODS/lv_circuitpython_mod/test_lvgl_cp_unix.py"
+    "$CMODS/lv_bindings/test_lvgl_smoke.py"
 ) &
 
 (
@@ -48,7 +62,7 @@ CMODS=~/github/cmods
   { test -d .venv || python3 -m venv .venv; } && \
   .venv/bin/pip install -r requirements.txt && \
   .venv/bin/pip install -e . && \
-  .venv/bin/python test_lvgl_cpython.py
+  .venv/bin/python "$CMODS/lv_bindings/test_lvgl_smoke.py"
 ) &
 
 wait   # all four must finish before step 5
@@ -56,7 +70,7 @@ wait   # all four must finish before step 5
 # Phase 2 — Windows CPython alone (clobbers lv_cpython_mod/ if run with step 4)
 cd "$CMODS/lv_cpython_mod"
 pip.exe install -e "$(wslpath -w "$CMODS/lv_cpython_mod")"
-python.exe test_lvgl_cpython.py
+python.exe "$(wslpath -w "$CMODS/lv_bindings/test_lvgl_smoke.py")"
 ```
 
 ---
@@ -88,11 +102,11 @@ Script: `lv_micropython_cmod/test_lvgl_unix.py` (port-agnostic, headless display
 ```bash
 # Unix
 ~/github/cmods/micropython/ports/unix/build-standard/micropython \
-  ~/github/cmods/lv_micropython_cmod/test_lvgl_unix.py
+  ~/github/cmods/lv_bindings/test_lvgl_smoke.py
 
 # Windows (from WSL)
 ~/github/cmods/micropython/ports/windows/build-standard/micropython.exe \
-  ~/github/cmods/lv_micropython_cmod/test_lvgl_unix.py
+  ~/github/cmods/lv_bindings/test_lvgl_smoke.py
 ```
 
 ---
@@ -114,7 +128,7 @@ Output: `circuitpython/ports/unix/build-coverage/micropython`
 
 ```bash
 ~/github/cmods/circuitpython/ports/unix/build-coverage/micropython \
-  ~/github/cmods/lv_circuitpython_mod/test_lvgl_cp_unix.py
+  ~/github/cmods/lv_bindings/test_lvgl_smoke.py
 ```
 
 ---
@@ -133,7 +147,7 @@ python3 -m venv .venv          # once
 .venv/bin/pip install -r requirements.txt
 .venv/bin/pip install -e .       # rebuild after C or generated/lvpy.c changes
 
-.venv/bin/python test_lvgl_cpython.py
+.venv/bin/python ../lv_bindings/test_lvgl_smoke.py
 .venv/bin/python -c "import lvgl as lv; lv.init(); lv.deinit(); print('ok')"
 ```
 
@@ -145,7 +159,7 @@ Requires MSVC Build Tools on Windows (python.org CPython, not MinGW).
 cd ~/github/cmods/lv_cpython_mod
 
 pip.exe install -e "$(wslpath -w ~/github/cmods/lv_cpython_mod)"
-python.exe test_lvgl_cpython.py
+python.exe "$(wslpath -w ~/github/cmods/lv_bindings/test_lvgl_smoke.py)"
 python.exe -c "import lvgl as lv; lv.init(); lv.deinit(); print('ok')"
 ```
 
@@ -176,6 +190,6 @@ Sync into consumer repos as needed (`lv_cpython_mod/scripts/sync_from_lv_binding
 - **`build_mp.sh` flags** are `--port` / `--variant`, not positional args.
 - **Windows MP**: always `--no-os-dupterm` for `windows` port.
 - **CP test path** lives in `lv_circuitpython_mod/`, not `lv_micropython_cmod/`.
-- **CPython Unix vs Windows**: parallel **1–4**, then **5 alone**; never overlap step 4 and step 5 `pip install -e` on `lv_cpython_mod/`.
+- **CPython Unix vs Windows**: never concurrent; use `./build_all.sh` or `./build_target.sh` (flock + phase split).
 - **Editable CPython install** does not recompile on import; rerun `pip install -e .` after C changes.
 - **Upstream clones** (`micropython/`, `circuitpython/`): do not commit unless the user explicitly overrides workspace rules.
