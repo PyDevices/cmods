@@ -6,10 +6,12 @@
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "remoteUser": "vscode",
   "containerEnv": {
-    "CMODS": "${containerWorkspaceFolder}"
+    "CMODS": "${containerWorkspaceFolder}",
+    "CMODS_PROFILE": "mp,cpy"
   },
   "remoteEnv": {
-    "CMODS": "${containerWorkspaceFolder}"
+    "CMODS": "${containerWorkspaceFolder}",
+    "CMODS_PROFILE": "mp,cpy"
   },
   "customizations": {
     "vscode": {
