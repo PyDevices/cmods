@@ -8,6 +8,13 @@ try:
 except Exception:
     pass
 
+# User C module frozen manifests (paths relative to cmods root manifest).
+package("graphics", base_path="graphics/py", opt=3)
+try:
+    include("lv_micropython_cmod/manifest.py")
+except Exception:
+    pass
+
 try:
     include("$(PORT_DIR)/variants/pyscript/manifest.py")
 except Exception:

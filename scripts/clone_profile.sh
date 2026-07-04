@@ -12,6 +12,7 @@
 #   cp        CircuitPython LVGL stack (defers heavy submodule fetch)
 #   cpy       CPython LVGL extension
 #   display   pydisplay + usdl2 + pydisplay_cmods
+#   graphics  graphics cmod (clone repo only; uses mp stack when building)
 #   mip       micropython-lib
 #   full      all repos + circuitpython submodules + venvs
 #
@@ -104,6 +105,10 @@ profile_display() {
     clone_if_missing pydisplay_cmods https://github.com/PyDevices/pydisplay_cmods.git
 }
 
+profile_graphics() {
+    clone_if_missing graphics https://github.com/PyDevices/graphics.git
+}
+
 profile_mip() {
     clone_if_missing micropython-lib https://github.com/PyDevices/micropython-lib.git
 }
@@ -128,6 +133,7 @@ apply_profile() {
         cp) profile_cp ;;
         cpy) profile_cpy ;;
         display) profile_display ;;
+        graphics) profile_graphics ;;
         mip) profile_mip ;;
         full) profile_full ;;
         *)
