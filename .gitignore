@@ -4,3 +4,6 @@ main.py
 
 # All cloned repos/directories at workspace root (micropython, user_cmodules, etc.)
 /*/
+# Agent-delivered cross-repo patch bundles (not upstream clones)
+!/patches/
+!/scripts/
