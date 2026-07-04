@@ -4,3 +4,5 @@ main.py
 
 # All cloned repos/directories at workspace root (micropython, user_cmodules, etc.)
 /*/
+!/.devcontainer/
+!/.devcontainer/**
