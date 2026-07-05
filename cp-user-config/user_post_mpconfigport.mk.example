@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+#
+# Example CircuitPython user config for frozen asyncio (multimer.AsyncTimer).
+# Copy to cp-user-config/user_post_mpconfigport.mk in the cmods workspace.
+#
+# Clone sibling Adafruit libraries at the cmods workspace root first:
+#   git clone https://github.com/adafruit/Adafruit_CircuitPython_asyncio.git
+#   git clone https://github.com/adafruit/Adafruit_CircuitPython_Ticks.git
+
+# $(TOP) is circuitpython/ports/<port> when make runs in the port directory.
+CFLAGS += \
+	-DMICROPY_PY_ASYNCIO=1 \
+	-DMICROPY_PY_USELECT=1 \
+	-DMICROPY_PY_UTIME_MP_HAL=1
+
+FROZEN_MPY_DIRS += \
+	$(TOP)/../../../Adafruit_CircuitPython_asyncio \
+	$(TOP)/../../../Adafruit_CircuitPython_Ticks
