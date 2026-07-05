@@ -1,0 +1,1202 @@
+From 59f5e8ec08578c1aa93eea443a45babe0e7c5e39 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Sat, 4 Jul 2026 07:11:24 +0000
+Subject: [PATCH 1/3] Add Android support via CPython ctypes usdl2 and p4a
+ recipe
+
+- python/usdl2/: ctypes FFI package matching native usdl2 API (_USE_FFI)
+- setup.py for pip/p4a install; passes test_usdl2.py under Xvfb
+- p4a_recipes/usdl2/: python-for-android recipe (depends on sdl2 bootstrap)
+- android_demo/: buildozer.spec + touch-draw main.py + build_apk.sh
+- README and .gitignore updates for Android workflow
+---
+ .gitignore                    |   7 +
+ README.md                     |  38 ++-
+ android_demo/build_apk.sh     |  17 ++
+ android_demo/buildozer.spec   |  22 ++
+ android_demo/main.py          |  87 +++++++
+ p4a_recipes/usdl2/__init__.py |  34 +++
+ python/usdl2/__init__.py      |  15 ++
+ python/usdl2/_api.py          | 431 ++++++++++++++++++++++++++++++++++
+ python/usdl2/_constants.py    | 145 ++++++++++++
+ python/usdl2/_event.py        | 203 ++++++++++++++++
+ python/usdl2/_lib.py          |  37 +++
+ setup.py                      |  16 ++
+ tools/generate_constants.py   |  19 ++
+ 13 files changed, 1070 insertions(+), 1 deletion(-)
+ create mode 100755 android_demo/build_apk.sh
+ create mode 100644 android_demo/buildozer.spec
+ create mode 100644 android_demo/main.py
+ create mode 100644 p4a_recipes/usdl2/__init__.py
+ create mode 100644 python/usdl2/__init__.py
+ create mode 100644 python/usdl2/_api.py
+ create mode 100644 python/usdl2/_constants.py
+ create mode 100644 python/usdl2/_event.py
+ create mode 100644 python/usdl2/_lib.py
+ create mode 100644 setup.py
+ create mode 100644 tools/generate_constants.py
+
+diff --git a/.gitignore b/.gitignore
+index 8a0971a..aae14fb 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -3,3 +3,10 @@
+ *.so
+ __pycache__/
+ *.pyc
++*.egg-info/
++.eggs/
++dist/
++build/
++.bin/
++android_demo/.buildozer/
++android_demo/bin/
+diff --git a/README.md b/README.md
+index f36c0e8..25f4b51 100644
+--- a/README.md
++++ b/README.md
+@@ -75,12 +75,48 @@ For coverage/gcov builds, use `--variant coverage` with both scripts.
+ 
+ Embedded ports are unaffected (`CIRCUITPY_USDL2` defaults to 0 on CircuitPython).
+ 
++## Android (CPython + python-for-android)
++
++On Android there is no MicroPython port; pydisplay runs under **CPython** in a **python-for-android** APK with the **SDL2 bootstrap**. The same `import usdl2` API is provided by a **ctypes FFI package** in `python/usdl2/` (sets `_USE_FFI = True`). pydisplay's existing `SDLDisplay` backend works unchanged once `usdl2` is installed.
++
++### Quick test (desktop, FFI)
++
++```bash
++pip install -e .
++xvfb-run -a python3 test_usdl2.py   # headless CI / Linux without a display
++```
++
++### Build demo APK
++
++Prerequisites: [Android SDK + NDK](https://python-for-android.readthedocs.io/en/latest/quickstart.html), `pip install buildozer`.
++
++```bash
++cd android_demo
++./build_apk.sh
++# APK: android_demo/bin/usdl2demo-0.1.0-arm64-v8a-debug.apk (name may vary)
++adb install -r bin/*.apk
++```
++
++`build_apk.sh` sets `P4A_usdl2_DIR` to the repo root so the local p4a recipe installs the in-tree FFI package instead of downloading from GitHub.
++
++### pydisplay on Android
++
++1. Add a p4a recipe for [pydisplay](https://github.com/PyDevices/pydisplay) (or vendor `src/lib/` into your app).
++2. Use `board_configs/sdldisplay/board_config.py` (force `SDLDisplay`, not PyGame).
++3. Require `usdl2` and `sdl2` in `buildozer.spec`.
++
++Touch input arrives as SDL mouse events; `sdldisplay.py` already maps them to `eventsys`.
++
+ ## Layout
+ 
+ | File | Role |
+ |------|------|
+ | `usdl2.c`, `usdl2.h`, `usdl2_module_globals.inc` | Native module: SDL bindings, constants, events, timers |
++| `python/usdl2/` | CPython ctypes implementation (`pip install -e .`, Android p4a) |
++| `setup.py` | Editable install for CPython / p4a |
++| `p4a_recipes/usdl2/` | python-for-android recipe (depends on `sdl2`) |
++| `android_demo/` | Sample touch-draw APK (`buildozer.spec`, `main.py`) |
+ | `micropython.mk` | MicroPython user C module glue (`MP_REGISTER_MODULE` in `usdl2.c`) |
+ | `circuitpython.mk` | CircuitPython port Makefile fragment (`usdl2.c` only; module registration in `shared-bindings/usdl2/__init.c`) |
+ | `circuitpython_spike/` | Templates copied into CircuitPython tree |
+-| `test_usdl2.py` | Smoke test (both runtimes) |
++| `test_usdl2.py` | Smoke test (MicroPython native or CPython FFI) |
+diff --git a/android_demo/build_apk.sh b/android_demo/build_apk.sh
+new file mode 100755
+index 0000000..2b955e6
+--- /dev/null
++++ b/android_demo/build_apk.sh
+@@ -0,0 +1,17 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Build the Android demo APK (requires Android SDK/NDK + buildozer).
++set -euo pipefail
++ROOT="$(cd "$(dirname "$0")/.." && pwd)"
++cd "$ROOT/android_demo"
++
++if ! command -v buildozer >/dev/null 2>&1; then
++  echo "Install buildozer: pip install buildozer"
++  echo "Set ANDROID_HOME / ANDROID_NDK_HOME per python-for-android docs."
++  exit 1
++fi
++
++# Use the in-tree usdl2 recipe (editable) instead of downloading from GitHub.
++export P4A_usdl2_DIR="$ROOT"
++
++buildozer android debug "$@"
+diff --git a/android_demo/buildozer.spec b/android_demo/buildozer.spec
+new file mode 100644
+index 0000000..079a955
+--- /dev/null
++++ b/android_demo/buildozer.spec
+@@ -0,0 +1,22 @@
++[app]
++title = usdl2 Android Demo
++package.name = usdl2demo
++package.domain = org.pydevices
++source.dir = .
++source.include_exts = py
++version = 0.1.0
++requirements = python3,sdl2,usdl2
++orientation = landscape
++fullscreen = 0
++android.api = 31
++android.minapi = 24
++android.archs = arm64-v8a, armeabi-v7a
++android.bootstrap = sdl2
++android.permissions = INTERNET
++
++# Point at the usdl2 repo recipe (relative to this spec file).
++p4a.local_recipes = ../p4a_recipes
++
++[buildozer]
++log_level = 2
++warn_on_root = 0
+diff --git a/android_demo/main.py b/android_demo/main.py
+new file mode 100644
+index 0000000..253b247
+--- /dev/null
++++ b/android_demo/main.py
+@@ -0,0 +1,87 @@
++# SPDX-License-Identifier: MIT
++"""Minimal SDL2 touch demo for Android (usdl2 + pydisplay-style loop)."""
++
++import time
++
++import usdl2
++
++WIDTH, HEIGHT = 480, 320
++COLOR_BG = 0x001F  # RGB565 blue
++COLOR_DOT = 0xF800  # red
++
++
++def main():
++    assert usdl2._USE_FFI, "Android build expects ctypes usdl2"
++    usdl2.SDL_Init(usdl2.SDL_INIT_VIDEO)
++    win = usdl2.SDL_CreateWindow(
++        b"pydisplay usdl2",
++        usdl2.SDL_WINDOWPOS_CENTERED,
++        usdl2.SDL_WINDOWPOS_CENTERED,
++        WIDTH,
++        HEIGHT,
++        usdl2.SDL_WINDOW_SHOWN | usdl2.SDL_WINDOW_ALLOW_HIGHDPI,
++    )
++    if not win:
++        raise SystemExit(usdl2.SDL_GetError())
++    renderer = usdl2.SDL_CreateRenderer(
++        win, -1, usdl2.SDL_RENDERER_ACCELERATED | usdl2.SDL_RENDERER_PRESENTVSYNC
++    )
++    if not renderer:
++        raise SystemExit(usdl2.SDL_GetError())
++
++    texture = usdl2.SDL_CreateTexture(
++        renderer,
++        usdl2.SDL_PIXELFORMAT_RGB565,
++        usdl2.SDL_TEXTUREACCESS_STREAMING,
++        WIDTH,
++        HEIGHT,
++    )
++    pitch = WIDTH * 2
++    framebuffer = bytearray(WIDTH * HEIGHT * 2)
++
++    def fill(color):
++        lo = color & 0xFF
++        hi = (color >> 8) & 0xFF
++        for i in range(0, len(framebuffer), 2):
++            framebuffer[i] = lo
++            framebuffer[i + 1] = hi
++
++    def dot(x, y, color, radius=8):
++        lo = color & 0xFF
++        hi = (color >> 8) & 0xFF
++        for dy in range(-radius, radius + 1):
++            for dx in range(-radius, radius + 1):
++                px, py = x + dx, y + dy
++                if 0 <= px < WIDTH and 0 <= py < HEIGHT:
++                    off = (py * WIDTH + px) * 2
++                    framebuffer[off] = lo
++                    framebuffer[off + 1] = hi
++
++    fill(COLOR_BG)
++    event = usdl2.SDL_Event()
++    running = True
++    while running:
++        while usdl2.SDL_PollEvent(event):
++            if event.type == usdl2.SDL_QUIT:
++                running = False
++            elif event.type == usdl2.SDL_MOUSEBUTTONDOWN:
++                dot(event.button.x, event.button.y, COLOR_DOT)
++            elif event.type == usdl2.SDL_MOUSEMOTION:
++                if event.motion.state & usdl2.SDL_BUTTON_LMASK:
++                    dot(event.motion.x, event.motion.y, COLOR_DOT)
++
++        rect = usdl2.SDL_Rect(0, 0, WIDTH, HEIGHT)
++        usdl2.SDL_UpdateTexture(texture, rect, framebuffer, pitch)
++        usdl2.SDL_RenderCopy(renderer, texture, None, None)
++        usdl2.SDL_RenderPresent(renderer)
++        time.sleep(0.001)
++
++    usdl2.SDL_DestroyTexture(texture)
++    usdl2.SDL_DestroyRenderer(renderer)
++    usdl2.SDL_DestroyWindow(win)
++    usdl2.SDL_Quit()
++
++
++if __name__ == "__main__":
++  # p4a SDL2 bootstrap runs main.py as the app entry point.
++    main()
+diff --git a/p4a_recipes/usdl2/__init__.py b/p4a_recipes/usdl2/__init__.py
+new file mode 100644
+index 0000000..d2272ee
+--- /dev/null
++++ b/p4a_recipes/usdl2/__init__.py
+@@ -0,0 +1,34 @@
++# SPDX-License-Identifier: MIT
++"""python-for-android recipe: CPython ctypes usdl2 (links against p4a SDL2 at runtime)."""
++
++import os
++
++from pythonforandroid.recipe import PythonRecipe
++
++
++class Usdl2Recipe(PythonRecipe):
++    version = "main"
++    url = "https://github.com/PyDevices/usdl2/archive/{version}.zip"
++    name = "usdl2"
++    depends = ["sdl2"]
++    call_hostpython_via_targetpython = False
++    install_in_hostpython = False
++
++    def download_if_necessary(self):
++        if os.environ.get("P4A_usdl2_DIR"):
++            return
++        super().download_if_necessary()
++
++    def get_build_dir(self, arch):
++        local = os.environ.get("P4A_usdl2_DIR")
++        if local:
++            return local
++        return super().get_build_dir(arch)
++
++    def get_recipe_env(self, arch, **kwargs):
++        env = super().get_recipe_env(arch, **kwargs)
++        env["USDL2_FFI"] = "1"
++        return env
++
++
++recipe = Usdl2Recipe()
+diff --git a/python/usdl2/__init__.py b/python/usdl2/__init__.py
+new file mode 100644
+index 0000000..1ac39e7
+--- /dev/null
++++ b/python/usdl2/__init__.py
+@@ -0,0 +1,15 @@
++# SPDX-License-Identifier: MIT
++"""
++CPython ctypes implementation of the pydisplay usdl2 API.
++
++Used on Android (python-for-android SDL2 bootstrap) and as a desktop fallback
++when the native MicroPython module is unavailable.
++"""
++
++_USE_FFI = True
++
++from ._api import *  # noqa: F403
++from ._constants import *  # noqa: F403
++from ._event import Event
++
++__all__ = ["Event", "_USE_FFI"]
+diff --git a/python/usdl2/_api.py b/python/usdl2/_api.py
+new file mode 100644
+index 0000000..92c71fe
+--- /dev/null
++++ b/python/usdl2/_api.py
+@@ -0,0 +1,431 @@
++# SPDX-License-Identifier: MIT
++"""ctypes bindings for the pydisplay usdl2 API surface."""
++
++from __future__ import annotations
++
++import ctypes
++import os
++import struct
++import threading
++from ctypes import CFUNCTYPE, POINTER, c_char_p, c_int, c_uint, c_uint8, c_void_p
++from typing import Any
++
++from ._event import EVENT_SIZE, Event
++from ._lib import sdl
++
++_TIMER_MAX = 8
++_timer_lock = threading.Lock()
++_timers: dict[int, dict[str, Any]] = {}
++_next_timer_slot = 0
++
++
++class _Ptr:
++    """Opaque SDL handle returned to Python."""
++
++    __slots__ = ("value",)
++
++    def __init__(self, value: int):
++        self.value = int(value)
++
++    def __int__(self) -> int:
++        return self.value
++
++    def __bool__(self) -> bool:
++        return bool(self.value)
++
++    @property
++    def _as_parameter_(self):
++        return c_void_p(self.value)
++
++
++class _TimerCallback:
++    __slots__ = ("callback",)
++
++    def __init__(self, callback):
++        if not callable(callback):
++            raise TypeError("callback must be callable")
++        self.callback = callback
++
++
++def _ptr(value) -> _Ptr:
++    if isinstance(value, _Ptr):
++        return value
++    if value is None:
++        return _Ptr(0)
++    return _Ptr(int(value))
++
++
++def _none_ptr(obj) -> bool:
++    return obj is None or (isinstance(obj, _Ptr) and not obj.value)
++
++
++def SDL_DEFINE_PIXELFORMAT(type_, order, layout, bits, bytes_):
++    return (1 << 28) | (type_ << 24) | (order << 20) | (layout << 16) | (bits << 8) | bytes_
++
++
++def SDL_Rect(x=0, y=0, w=0, h=0):
++    return struct.pack("<iiii", int(x), int(y), int(w), int(h))
++
++
++def SDL_Point(x=0, y=0):
++    return struct.pack("<ii", int(x), int(y))
++
++
++def SDL_Event(arg=None):
++    if arg is None:
++        return Event()
++    if isinstance(arg, Event):
++        return arg
++    return Event(arg)
++
++
++def process_exit(code: int = 0) -> None:
++    os._exit(int(code))
++
++
++def pump_scheduler(max_pending=None) -> int:
++  # CPython has no MicroPython scheduler; timers run on SDL threads directly.
++    return 0
++
++
++_timer_trampoline_ref = None
++
++
++def _configure_sdl(lib):
++    lib.SDL_Init.argtypes = [c_uint]
++    lib.SDL_Init.restype = c_int
++    lib.SDL_InitSubSystem.argtypes = [c_uint]
++    lib.SDL_InitSubSystem.restype = c_int
++    lib.SDL_Quit.argtypes = []
++    lib.SDL_Quit.restype = None
++    lib.SDL_GetError.argtypes = []
++    lib.SDL_GetError.restype = c_char_p
++
++    lib.SDL_CreateWindow.argtypes = [c_char_p, c_int, c_int, c_int, c_int, c_uint]
++    lib.SDL_CreateWindow.restype = c_void_p
++    lib.SDL_DestroyWindow.argtypes = [c_void_p]
++    lib.SDL_DestroyWindow.restype = None
++    lib.SDL_SetWindowSize.argtypes = [c_void_p, c_int, c_int]
++    lib.SDL_SetWindowSize.restype = c_int
++
++    lib.SDL_CreateRenderer.argtypes = [c_void_p, c_int, c_uint]
++    lib.SDL_CreateRenderer.restype = c_void_p
++    lib.SDL_DestroyRenderer.argtypes = [c_void_p]
++    lib.SDL_DestroyRenderer.restype = None
++    lib.SDL_SetRenderDrawColor.argtypes = [c_void_p, c_uint8, c_uint8, c_uint8, c_uint8]
++    lib.SDL_SetRenderDrawColor.restype = c_int
++    lib.SDL_SetRenderTarget.argtypes = [c_void_p, c_void_p]
++    lib.SDL_SetRenderTarget.restype = c_int
++    lib.SDL_RenderClear.argtypes = [c_void_p]
++    lib.SDL_RenderClear.restype = c_int
++    lib.SDL_RenderPresent.argtypes = [c_void_p]
++    lib.SDL_RenderPresent.restype = None
++    lib.SDL_RenderSetLogicalSize.argtypes = [c_void_p, c_int, c_int]
++    lib.SDL_RenderSetLogicalSize.restype = c_int
++
++    lib.SDL_CreateTexture.argtypes = [c_void_p, c_uint, c_int, c_int, c_int]
++    lib.SDL_CreateTexture.restype = c_void_p
++    lib.SDL_DestroyTexture.argtypes = [c_void_p]
++    lib.SDL_DestroyTexture.restype = None
++    lib.SDL_SetTextureBlendMode.argtypes = [c_void_p, c_int]
++    lib.SDL_SetTextureBlendMode.restype = c_int
++    lib.SDL_UpdateTexture.argtypes = [c_void_p, c_void_p, c_void_p, c_int]
++    lib.SDL_UpdateTexture.restype = c_int
++
++    lib.SDL_PollEvent.argtypes = [c_void_p]
++    lib.SDL_PollEvent.restype = c_int
++    lib.SDL_GetKeyName.argtypes = [c_int]
++    lib.SDL_GetKeyName.restype = c_char_p
++
++    lib.SDL_NumJoysticks.argtypes = []
++    lib.SDL_NumJoysticks.restype = c_int
++    lib.SDL_JoystickOpen.argtypes = [c_int]
++    lib.SDL_JoystickOpen.restype = c_void_p
++    lib.SDL_JoystickClose.argtypes = [c_void_p]
++    lib.SDL_JoystickClose.restype = None
++    lib.SDL_JoystickInstanceID.argtypes = [c_void_p]
++    lib.SDL_JoystickInstanceID.restype = c_int
++
++    global _timer_trampoline_ref
++    _TimerTrampoline = CFUNCTYPE(c_uint, c_uint, c_void_p)
++
++    def _timer_trampoline(interval, param):
++        slot = int(param) if param is not None else 0
++        with _timer_lock:
++            entry = _timers.get(slot)
++        if entry is None:
++            return 0
++        try:
++            entry["callback"](interval, entry.get("user_param"))
++        except Exception:
++            pass
++        return entry.get("interval", interval)
++
++    _timer_trampoline_ref = _TimerTrampoline(_timer_trampoline)
++    lib.SDL_AddTimer.argtypes = [c_uint, _TimerTrampoline, c_void_p]
++    lib.SDL_AddTimer.restype = c_uint
++    lib.SDL_RemoveTimer.argtypes = [c_uint]
++    lib.SDL_RemoveTimer.restype = c_int
++
++    class SDL_Rect(ctypes.Structure):
++        _fields_ = [("x", c_int), ("y", c_int), ("w", c_int), ("h", c_int)]
++
++    lib._SDL_Rect = SDL_Rect
++    lib.SDL_RenderFillRect.argtypes = [c_void_p, POINTER(SDL_Rect)]
++    lib.SDL_RenderFillRect.restype = c_int
++    lib.SDL_RenderCopy.argtypes = [c_void_p, c_void_p, POINTER(SDL_Rect), POINTER(SDL_Rect)]
++    lib.SDL_RenderCopy.restype = c_int
++
++    class SDL_Point(ctypes.Structure):
++        _fields_ = [("x", c_int), ("y", c_int)]
++
++    lib._SDL_Point = SDL_Point
++    lib.SDL_RenderCopyEx.argtypes = [
++        c_void_p,
++        c_void_p,
++        POINTER(SDL_Rect),
++        POINTER(SDL_Rect),
++        ctypes.c_double,
++        POINTER(SDL_Point),
++        c_int,
++    ]
++    lib.SDL_RenderCopyEx.restype = c_int
++    return lib
++
++
++_lib = None
++
++
++def _get_lib():
++    global _lib
++    if _lib is None:
++        _lib = _configure_sdl(sdl())
++    return _lib
++
++
++def _rect_from_bytes(obj) -> Any:
++    if obj is None:
++        return None
++    data = bytes(obj)
++    if len(data) < 16:
++        raise ValueError("rect buffer too small")
++    x, y, w, h = struct.unpack("<iiii", data[:16])
++    rect = _get_lib()._SDL_Rect(x, y, w, h)
++    return rect
++
++
++def _title_bytes(title) -> bytes:
++    if isinstance(title, str):
++        return title.encode()
++    if isinstance(title, (bytes, bytearray)):
++        return bytes(title)
++    return bytes(memoryview(title))
++
++
++def SDL_Init(flags: int) -> int:
++    return _get_lib().SDL_Init(int(flags))
++
++
++def SDL_InitSubSystem(flags: int) -> int:
++    return _get_lib().SDL_InitSubSystem(int(flags))
++
++
++def SDL_Quit() -> None:
++    _get_lib().SDL_Quit()
++
++
++def SDL_GetError() -> str:
++    err = _get_lib().SDL_GetError()
++    if not err:
++        return ""
++    return err.decode("utf-8", "replace")
++
++
++def SDL_CreateWindow(title, x, y, w, h, window_flags) -> _Ptr:
++    win = _get_lib().SDL_CreateWindow(_title_bytes(title), int(x), int(y), int(w), int(h), int(window_flags))
++    return _ptr(win)
++
++
++def SDL_DestroyWindow(window) -> None:
++    _get_lib().SDL_DestroyWindow(c_void_p(_ptr(window).value))
++
++
++def SDL_SetWindowSize(window, w, h) -> None:
++    _get_lib().SDL_SetWindowSize(c_void_p(_ptr(window).value), int(w), int(h))
++
++
++def SDL_CreateRenderer(window, index, flags) -> _Ptr:
++    ren = _get_lib().SDL_CreateRenderer(c_void_p(_ptr(window).value), int(index), int(flags))
++    return _ptr(ren)
++
++
++def SDL_DestroyRenderer(renderer) -> None:
++    _get_lib().SDL_DestroyRenderer(c_void_p(_ptr(renderer).value))
++
++
++def SDL_SetRenderDrawColor(renderer, r, g, b, a) -> int:
++    return _get_lib().SDL_SetRenderDrawColor(
++        c_void_p(_ptr(renderer).value), int(r), int(g), int(b), int(a)
++    )
++
++
++def SDL_SetRenderTarget(renderer, texture) -> int:
++    tex = None if _none_ptr(texture) else c_void_p(_ptr(texture).value)
++    return _get_lib().SDL_SetRenderTarget(c_void_p(_ptr(renderer).value), tex)
++
++
++def SDL_RenderClear(renderer) -> None:
++    _get_lib().SDL_RenderClear(c_void_p(_ptr(renderer).value))
++
++
++def SDL_RenderCopy(renderer, texture, src, dst) -> None:
++    lib = _get_lib()
++    src_ptr = ctypes.byref(_rect_from_bytes(src)) if src is not None else None
++    dst_ptr = ctypes.byref(_rect_from_bytes(dst)) if dst is not None else None
++    lib.SDL_RenderCopy(
++        c_void_p(_ptr(renderer).value),
++        c_void_p(_ptr(texture).value),
++        src_ptr,
++        dst_ptr,
++    )
++
++
++def SDL_RenderCopyEx(renderer, texture, src, dst, angle, center, flip) -> None:
++    lib = _get_lib()
++    src_ptr = ctypes.byref(_rect_from_bytes(src)) if src is not None else None
++    dst_ptr = ctypes.byref(_rect_from_bytes(dst)) if dst is not None else None
++    center_pt = None
++    if center is not None:
++        cx, cy = struct.unpack("<ii", bytes(center)[:8])
++        center_pt = lib._SDL_Point(cx, cy)
++    lib.SDL_RenderCopyEx(
++        c_void_p(_ptr(renderer).value),
++        c_void_p(_ptr(texture).value),
++        src_ptr,
++        dst_ptr,
++        float(angle),
++        center_pt,
++        int(flip),
++    )
++
++
++def SDL_RenderPresent(renderer) -> None:
++    _get_lib().SDL_RenderPresent(c_void_p(_ptr(renderer).value))
++
++
++def SDL_RenderFillRect(renderer, rect_bytes) -> int:
++    rect = _rect_from_bytes(rect_bytes)
++    return _get_lib().SDL_RenderFillRect(c_void_p(_ptr(renderer).value), rect)
++
++
++def SDL_RenderSetLogicalSize(renderer, w, h) -> int:
++    return _get_lib().SDL_RenderSetLogicalSize(c_void_p(_ptr(renderer).value), int(w), int(h))
++
++
++def SDL_CreateTexture(renderer, pixel_format, access, w, h) -> _Ptr:
++    tex = _get_lib().SDL_CreateTexture(
++        c_void_p(_ptr(renderer).value), int(pixel_format), int(access), int(w), int(h)
++    )
++    return _ptr(tex)
++
++
++def SDL_DestroyTexture(texture) -> None:
++    _get_lib().SDL_DestroyTexture(c_void_p(_ptr(texture).value))
++
++
++def SDL_SetTextureBlendMode(texture, mode) -> int:
++    return _get_lib().SDL_SetTextureBlendMode(c_void_p(_ptr(texture).value), int(mode))
++
++
++def SDL_UpdateTexture(texture, rect_bytes, pixels, pitch) -> int:
++    lib = _get_lib()
++    rect_ptr = ctypes.byref(_rect_from_bytes(rect_bytes)) if rect_bytes is not None else None
++    if isinstance(pixels, int):
++        buf = c_void_p(pixels)
++    else:
++        mv = memoryview(pixels)
++        buf = (c_uint8 * len(mv)).from_buffer(mv)
++    return lib.SDL_UpdateTexture(
++        c_void_p(_ptr(texture).value),
++        rect_ptr,
++        buf,
++        int(pitch),
++    )
++
++
++def SDL_PollEvent(event) -> bool:
++    if not isinstance(event, Event):
++        raise TypeError("SDL_PollEvent expects usdl2.Event")
++    raw = (c_uint8 * EVENT_SIZE)()
++    rc = _get_lib().SDL_PollEvent(raw)
++    if rc:
++        event._data[:] = bytes(raw)
++    return bool(rc)
++
++
++def SDL_GetKeyName(sym) -> str:
++    name = _get_lib().SDL_GetKeyName(int(sym))
++    if not name:
++        return ""
++    return name.decode("utf-8", "replace")
++
++
++def SDL_NumJoysticks() -> int:
++    return _get_lib().SDL_NumJoysticks()
++
++
++def SDL_JoystickOpen(index) -> _Ptr:
++    return _ptr(_get_lib().SDL_JoystickOpen(int(index)))
++
++
++def SDL_JoystickClose(joystick) -> None:
++    _get_lib().SDL_JoystickClose(c_void_p(_ptr(joystick).value))
++
++
++def SDL_JoystickInstanceID(joystick) -> int:
++    return _get_lib().SDL_JoystickInstanceID(c_void_p(_ptr(joystick).value))
++
++
++def SDL_TimerCallback(callback) -> _TimerCallback:
++    return _TimerCallback(callback)
++
++
++def SDL_AddTimer(interval, callback_obj, user_param) -> _Ptr:
++    if not isinstance(callback_obj, _TimerCallback):
++        raise TypeError("callback must be from SDL_TimerCallback()")
++    global _next_timer_slot
++    lib = _get_lib()
++    if _timer_trampoline_ref is None:
++        raise RuntimeError("SDL timer trampoline not configured")
++    with _timer_lock:
++        active = sum(1 for e in _timers.values() if isinstance(e, dict))
++        if active >= _TIMER_MAX:
++            raise RuntimeError("too many SDL timers")
++        slot = _next_timer_slot
++        _next_timer_slot += 1
++        entry = {
++            "callback": callback_obj.callback,
++            "user_param": user_param,
++            "interval": int(interval),
++        }
++        timer_id = lib.SDL_AddTimer(int(interval), _timer_trampoline_ref, c_void_p(slot))
++        if not timer_id:
++            raise RuntimeError(SDL_GetError() or "SDL_AddTimer failed")
++        entry["id"] = timer_id
++        _timers[slot] = entry
++        return _ptr(timer_id)
++
++
++def SDL_RemoveTimer(timer) -> int:
++    timer_id = _ptr(timer).value
++    with _timer_lock:
++        entry = None
++        for slot, e in list(_timers.items()):
++            if e.get("id") == timer_id:
++                entry = e
++                del _timers[slot]
++                break
++    if entry is None:
++        return 0
++    removed = _get_lib().SDL_RemoveTimer(timer_id)
++    return 1 if removed else 0
+diff --git a/python/usdl2/_constants.py b/python/usdl2/_constants.py
+new file mode 100644
+index 0000000..3c63d96
+--- /dev/null
++++ b/python/usdl2/_constants.py
+@@ -0,0 +1,145 @@
++# Auto-generated from usdl2.h — do not edit by hand.
++SDL_ARRAYORDER_ABGR = 6
++SDL_ARRAYORDER_ARGB = 3
++SDL_ARRAYORDER_BGR = 4
++SDL_ARRAYORDER_BGRA = 5
++SDL_ARRAYORDER_NONE = 0
++SDL_ARRAYORDER_RGB = 1
++SDL_ARRAYORDER_RGBA = 2
++SDL_BITMAPORDER_1234 = 2
++SDL_BITMAPORDER_4321 = 1
++SDL_BITMAPORDER_NONE = 0
++SDL_BLENDMODE_ADD = 3
++SDL_BLENDMODE_BLEND = 2
++SDL_BLENDMODE_MOD = 4
++SDL_BLENDMODE_MUL = 5
++SDL_BLENDMODE_NONE = 1
++SDL_BUTTON_LMASK = 1
++SDL_BUTTON_MMASK = 2
++SDL_BUTTON_RMASK = 4
++SDL_HAT_CENTERED = 0
++SDL_HAT_DOWN = 4
++SDL_HAT_LEFT = 8
++SDL_HAT_RIGHT = 2
++SDL_HAT_UP = 1
++SDL_INIT_AUDIO = 16
++SDL_INIT_EVENTS = 16384
++SDL_INIT_EVERYTHING = 15
++SDL_INIT_GAMECONTROLLER = 8192
++SDL_INIT_HAPTIC = 4096
++SDL_INIT_JOYSTICK = 512
++SDL_INIT_NOPARACHUTE = 1048576
++SDL_INIT_TIMER = 1
++SDL_INIT_VIDEO = 32
++SDL_JOYAXISMOTION = 1536
++SDL_JOYBALLMOTION = 1537
++SDL_JOYBUTTONDOWN = 1539
++SDL_JOYBUTTONUP = 1540
++SDL_JOYDEVICEADDED = 1541
++SDL_JOYDEVICEREMOVED = 1542
++SDL_JOYHATMOTION = 1538
++SDL_KEYDOWN = 768
++SDL_KEYUP = 769
++SDL_MOUSEBUTTONDOWN = 1025
++SDL_MOUSEBUTTONUP = 1026
++SDL_MOUSEMOTION = 1024
++SDL_MOUSEWHEEL = 1027
++SDL_PACKEDLAYOUT_1010102 = 8
++SDL_PACKEDLAYOUT_1555 = 3
++SDL_PACKEDLAYOUT_2101010 = 7
++SDL_PACKEDLAYOUT_332 = 1
++SDL_PACKEDLAYOUT_4444 = 2
++SDL_PACKEDLAYOUT_5551 = 4
++SDL_PACKEDLAYOUT_565 = 5
++SDL_PACKEDLAYOUT_8888 = 6
++SDL_PACKEDLAYOUT_NONE = 0
++SDL_PACKEDORDER_ABGR = 7
++SDL_PACKEDORDER_ARGB = 3
++SDL_PACKEDORDER_BGRA = 8
++SDL_PACKEDORDER_BGRX = 6
++SDL_PACKEDORDER_NONE = 0
++SDL_PACKEDORDER_RGBA = 4
++SDL_PACKEDORDER_RGBX = 2
++SDL_PACKEDORDER_XBGR = 5
++SDL_PACKEDORDER_XRGB = 1
++SDL_PIXELFORMAT_ABGR1555 = 359862274
++SDL_PIXELFORMAT_ABGR4444 = 359796738
++SDL_PIXELFORMAT_ABGR8888 = 376840196
++SDL_PIXELFORMAT_ARGB1555 = 355667970
++SDL_PIXELFORMAT_ARGB2101010 = 372711428
++SDL_PIXELFORMAT_ARGB4444 = 355602434
++SDL_PIXELFORMAT_ARGB8888 = 372645892
++SDL_PIXELFORMAT_BGR24 = 390076419
++SDL_PIXELFORMAT_BGR444 = 357698562
++SDL_PIXELFORMAT_BGR555 = 357764866
++SDL_PIXELFORMAT_BGR565 = 357896194
++SDL_PIXELFORMAT_BGR888 = 374740996
++SDL_PIXELFORMAT_BGRA4444 = 360845314
++SDL_PIXELFORMAT_BGRA5551 = 360976386
++SDL_PIXELFORMAT_BGRA8888 = 377888772
++SDL_PIXELFORMAT_BGRX8888 = 375789572
++SDL_PIXELFORMAT_INDEX1LSB = 286261504
++SDL_PIXELFORMAT_INDEX1MSB = 287310080
++SDL_PIXELFORMAT_INDEX4LSB = 303039488
++SDL_PIXELFORMAT_INDEX4MSB = 304088064
++SDL_PIXELFORMAT_INDEX8 = 318769153
++SDL_PIXELFORMAT_RGB24 = 386930691
++SDL_PIXELFORMAT_RGB332 = 336660481
++SDL_PIXELFORMAT_RGB444 = 353504258
++SDL_PIXELFORMAT_RGB555 = 353570562
++SDL_PIXELFORMAT_RGB565 = 353701890
++SDL_PIXELFORMAT_RGB888 = 370546692
++SDL_PIXELFORMAT_RGBA4444 = 356651010
++SDL_PIXELFORMAT_RGBA5551 = 356782082
++SDL_PIXELFORMAT_RGBA8888 = 373694468
++SDL_PIXELFORMAT_RGBX8888 = 371595268
++SDL_PIXELFORMAT_UNKNOWN = 0
++SDL_PIXELFORMAT_XBGR1555 = 357764866
++SDL_PIXELFORMAT_XBGR4444 = 357698562
++SDL_PIXELFORMAT_XBGR8888 = 374740996
++SDL_PIXELFORMAT_XRGB1555 = 353570562
++SDL_PIXELFORMAT_XRGB4444 = 353504258
++SDL_PIXELFORMAT_XRGB8888 = 370546692
++SDL_PIXELTYPE_ARRAYF16 = 10
++SDL_PIXELTYPE_ARRAYF32 = 11
++SDL_PIXELTYPE_ARRAYU16 = 8
++SDL_PIXELTYPE_ARRAYU32 = 9
++SDL_PIXELTYPE_ARRAYU8 = 7
++SDL_PIXELTYPE_INDEX1 = 1
++SDL_PIXELTYPE_INDEX4 = 2
++SDL_PIXELTYPE_INDEX8 = 3
++SDL_PIXELTYPE_PACKED16 = 5
++SDL_PIXELTYPE_PACKED32 = 6
++SDL_PIXELTYPE_PACKED8 = 4
++SDL_PIXELTYPE_UNKNOWN = 0
++SDL_POLLSENTINEL = 32512
++SDL_QUIT = 256
++SDL_RENDERER_ACCELERATED = 2
++SDL_RENDERER_PRESENTVSYNC = 4
++SDL_RENDERER_SOFTWARE = 1
++SDL_RENDERER_TARGETTEXTURE = 8
++SDL_TEXTUREACCESS_STATIC = 0
++SDL_TEXTUREACCESS_STREAMING = 1
++SDL_TEXTUREACCESS_TARGET = 2
++SDL_WINDOWPOS_CENTERED = 805240832
++SDL_WINDOWPOS_UNDEFINED = 536805376
++SDL_WINDOW_ALLOW_HIGHDPI = 8192
++SDL_WINDOW_ALWAYS_ON_TOP = 32768
++SDL_WINDOW_BORDERLESS = 16
++SDL_WINDOW_FULLSCREEN = 1
++SDL_WINDOW_FULLSCREEN_DESKTOP = 4097
++SDL_WINDOW_HIDDEN = 8
++SDL_WINDOW_INPUT_FOCUS = 512
++SDL_WINDOW_INPUT_GRABBED = 256
++SDL_WINDOW_MAXIMIZED = 128
++SDL_WINDOW_MINIMIZED = 64
++SDL_WINDOW_MOUSE_CAPTURE = 16384
++SDL_WINDOW_MOUSE_FOCUS = 1024
++SDL_WINDOW_OPENGL = 2
++SDL_WINDOW_POPUP_MENU = 524288
++SDL_WINDOW_RESIZABLE = 32
++SDL_WINDOW_SHOWN = 4
++SDL_WINDOW_SKIP_TASKBAR = 65536
++SDL_WINDOW_TOOLTIP = 262144
++SDL_WINDOW_UTILITY = 131072
++SDL_WINDOW_VULKAN = 268435456
+diff --git a/python/usdl2/_event.py b/python/usdl2/_event.py
+new file mode 100644
+index 0000000..d9770ff
+--- /dev/null
++++ b/python/usdl2/_event.py
+@@ -0,0 +1,203 @@
++# SPDX-License-Identifier: MIT
++"""SDL_Event wrapper matching native usdl2 event layout."""
++
++from __future__ import annotations
++
++import struct
++
++EVENT_SIZE = 56
++
++_JOY_MIN = 1536
++_JOY_MAX = 1542
++
++
++class _SubView:
++    __slots__ = ("_buf", "_base")
++
++    def __init__(self, buf: bytearray, base: int):
++        self._buf = buf
++        self._base = base
++
++    def _u32(self, off: int) -> int:
++        return struct.unpack_from("<I", self._buf, self._base + off)[0]
++
++    def _i32(self, off: int) -> int:
++        return struct.unpack_from("<i", self._buf, self._base + off)[0]
++
++    def _i16(self, off: int) -> int:
++        return struct.unpack_from("<h", self._buf, self._base + off)[0]
++
++    @property
++    def windowID(self) -> int:
++        return self._u32(0)
++
++    @property
++    def which(self) -> int:
++        etype = struct.unpack_from("<I", self._buf, 0)[0]
++        if _JOY_MIN <= etype <= _JOY_MAX:
++            return self._i32(0)
++        return self._u32(4)
++
++    @property
++    def state(self) -> int:
++        etype = struct.unpack_from("<I", self._buf, 0)[0]
++        if self._base == 8 and etype == 1024:  # SDL_MOUSEMOTION
++            return self._u32(8)
++        if etype in (1539, 1540):  # joy button
++            return self._buf[self._base + 5]
++        return self._u32(4)
++
++    @property
++    def x(self) -> int:
++        return self._i32(12)
++
++    @property
++    def y(self) -> int:
++        return self._i32(16)
++
++    @property
++    def xrel(self) -> int:
++        etype = struct.unpack_from("<I", self._buf, 0)[0]
++        if etype == 1537:  # SDL_JOYBALLMOTION
++            return self._i16(8)
++        return self._i32(20)
++
++    @property
++    def yrel(self) -> int:
++        etype = struct.unpack_from("<I", self._buf, 0)[0]
++        if etype == 1537:
++            return self._i16(10)
++        return self._i32(24)
++
++    @property
++    def button(self) -> int:
++        etype = struct.unpack_from("<I", self._buf, 0)[0]
++        if etype in (1539, 1540):
++            return self._buf[self._base + 4]
++        return self._buf[self._base + 8]
++
++    @property
++    def clicks(self) -> int:
++        return self._buf[self._base + 10]
++
++    @property
++    def direction(self) -> int:
++        return self._u32(16)
++
++    @property
++    def preciseX(self) -> float:
++        return struct.unpack_from("<f", self._buf, self._base + 0)[0]
++
++    @property
++    def preciseY(self) -> float:
++        return struct.unpack_from("<f", self._buf, self._base + 4)[0]
++
++    @property
++    def sym(self):
++        return _KeySym(self._buf, self._base)
++
++    @property
++    def axis(self) -> int:
++        return self._buf[self._base + 4]
++
++    @property
++    def value(self) -> int:
++        etype = struct.unpack_from("<I", self._buf, 0)[0]
++        if etype == 1536:  # SDL_JOYAXISMOTION
++            return self._i16(8)
++        if etype == 1538:  # SDL_JOYHATMOTION
++            return self._buf[self._base + 5]
++        return 0
++
++    @property
++    def ball(self) -> int:
++        return self._buf[self._base + 4]
++
++    @property
++    def hat(self) -> int:
++        return self._buf[self._base + 4]
++
++
++class _KeySym:
++    __slots__ = ("_buf", "_base")
++
++    def __init__(self, buf: bytearray, base: int):
++        self._buf = buf
++        self._base = base
++
++    @property
++    def sym(self) -> int:
++        return struct.unpack_from("<i", self._buf, self._base + 0)[0]
++
++    @property
++    def mod(self) -> int:
++        return struct.unpack_from("<H", self._buf, self._base + 4)[0]
++
++    @property
++    def scancode(self) -> int:
++        return struct.unpack_from("<i", self._buf, self._base + 8)[0]
++
++
++class Event:
++    """56-byte SDL event buffer with pydisplay-compatible subviews."""
++
++    __slots__ = ("_data",)
++
++    def __init__(self, data=None):
++        if data is None:
++            self._data = bytearray(EVENT_SIZE)
++        elif isinstance(data, (bytes, bytearray, memoryview)):
++            self._data = bytearray(data[:EVENT_SIZE].ljust(EVENT_SIZE, b"\x00"))
++        elif isinstance(data, Event):
++            self._data = bytearray(data._data)
++        else:
++            raise TypeError("Event() expects bytes-like or Event")
++
++    @property
++    def type(self) -> int:
++        return struct.unpack_from("<I", self._data, 0)[0]
++
++    @type.setter
++    def type(self, value: int) -> None:
++        struct.pack_into("<I", self._data, 0, int(value))
++
++    @property
++    def motion(self) -> _SubView:
++        return _SubView(self._data, 0)
++
++    @property
++    def button(self) -> _SubView:
++        return _SubView(self._data, 0)
++
++    @property
++    def wheel(self) -> _SubView:
++        return _SubView(self._data, 0)
++
++    @property
++    def key(self) -> _SubView:
++        return _SubView(self._data, 0)
++
++    @property
++    def jaxis(self) -> _SubView:
++        return _SubView(self._data, 8)
++
++    @property
++    def jball(self) -> _SubView:
++        return _SubView(self._data, 8)
++
++    @property
++    def jhat(self) -> _SubView:
++        return _SubView(self._data, 8)
++
++    @property
++    def jbutton(self) -> _SubView:
++        return _SubView(self._data, 8)
++
++    def __len__(self) -> int:
++        return EVENT_SIZE
++
++    def __bytes__(self) -> bytes:
++        return bytes(self._data)
++
++    def __buffer__(self, flags):
++        return memoryview(self._data)
+diff --git a/python/usdl2/_lib.py b/python/usdl2/_lib.py
+new file mode 100644
+index 0000000..a882038
+--- /dev/null
++++ b/python/usdl2/_lib.py
+@@ -0,0 +1,37 @@
++# SPDX-License-Identifier: MIT
++"""Load libSDL2 for CPython (desktop and Android p4a)."""
++
++from __future__ import annotations
++
++import ctypes
++import sys
++
++
++def load_sdl2():
++    names = []
++    if sys.platform == "android":
++        names.append("libSDL2.so")
++    elif sys.platform == "win32":
++        names.extend(("SDL2", "libSDL2"))
++    elif sys.platform == "darwin":
++        names.extend(("libSDL2-2.0.0.dylib", "SDL2", "libSDL2.dylib"))
++    else:
++        names.extend(("SDL2", "libSDL2.so.0", "libSDL2.so"))
++
++    last_err = None
++    for name in names:
++        try:
++            return ctypes.CDLL(name)
++        except OSError as exc:
++            last_err = exc
++    raise OSError(f"Could not load SDL2 ({names!r}): {last_err}")
++
++
++_sdl = None
++
++
++def sdl():
++    global _sdl
++    if _sdl is None:
++        _sdl = load_sdl2()
++    return _sdl
+diff --git a/setup.py b/setup.py
+new file mode 100644
+index 0000000..f54a8d9
+--- /dev/null
++++ b/setup.py
+@@ -0,0 +1,16 @@
++# SPDX-License-Identifier: MIT
++from setuptools import find_packages, setup
++
++setup(
++    name="usdl2",
++    version="0.1.0",
++    description="CPython ctypes SDL2 subset for pydisplay (Android and desktop)",
++    license="MIT",
++    packages=find_packages(where="python"),
++    package_dir={"": "python"},
++    python_requires=">=3.8",
++    classifiers=[
++        "Programming Language :: Python :: 3",
++        "Operating System :: OS Independent",
++    ],
++)
+diff --git a/tools/generate_constants.py b/tools/generate_constants.py
+new file mode 100644
+index 0000000..3beec56
+--- /dev/null
++++ b/tools/generate_constants.py
+@@ -0,0 +1,19 @@
++#!/usr/bin/env python3
++# SPDX-License-Identifier: MIT
++"""Regenerate python/usdl2/_constants.py from usdl2.h."""
++
++import re
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++text = (ROOT / "usdl2.h").read_text()
++lines = []
++for m in re.finditer(r"MP_QSTR_(SDL_\w+).*MP_ROM_INT\(([^)]+)\)", text):
++    lines.append(f"{m.group(1)} = {m.group(2)}")
++out = ROOT / "python" / "usdl2" / "_constants.py"
++out.write_text(
++    "# Auto-generated from usdl2.h — run tools/generate_constants.py\n"
++    + "\n".join(lines)
++    + "\n"
++)
++print(f"wrote {len(lines)} constants to {out}")
+-- 
+2.43.0
+

@@ -7,6 +7,8 @@ cp-user-config/user_post_mpconfigport.mk
 
 # All cloned repos/directories at workspace root (micropython, user_cmodules, etc.)
 /*/
-!/cp-user-config/
+# Agent-delivered cross-repo patch bundles (not upstream clones)
+!/patches/
 !/scripts/
 !/.cursor/
+!/cp-user-config/
