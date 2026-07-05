@@ -28,9 +28,29 @@ FETCH_CP_SUBMODULES="${FETCH_CP_SUBMODULES:-0}"
 cd "$CMODS"
 log() { printf '==> %s\n' "$*"; }
 
+multi_repo_root() {
+    [[ -d /agent/repos ]] && printf '%s' /agent/repos
+}
+
+link_multi_repo_sibling() {
+    local dir=$1
+    local root
+    root=$(multi_repo_root)
+    [[ -n "$root" && -d "$root/$dir/.git" ]] || return 1
+    if [[ -e "$CMODS/$dir" ]]; then
+        log "present: $dir"
+        return 0
+    fi
+    log "linking $root/$dir -> $CMODS/$dir"
+    ln -s "$root/$dir" "$CMODS/$dir"
+}
+
 clone_if_missing() {
     local dir=$1 url=$2
     shift 2
+    if link_multi_repo_sibling "$dir"; then
+        return 0
+    fi
     if [[ -d "$dir/.git" ]]; then
         log "present: $dir"
         return 0
@@ -56,9 +76,30 @@ sync_lvgl_pin() {
 ensure_venv() {
     local dir=$1 req=$2
     [[ -f "$req" ]] || return 0
-    if [[ ! -d "$dir/.venv" ]]; then
+
+    if [[ "${SKIP_VENV:-0}" == "1" ]]; then
+        log "skipped venv for $dir (SKIP_VENV=1)"
+        return 0
+    fi
+
+    if ! python3 -c 'import ensurepip' 2>/dev/null; then
+        echo "clone_profile: python3-venv is not installed (broken or missing ensurepip)." >&2
+        echo "  Cloud VM: run ensure_system_deps in cloud_agent_setup.sh or apt install python3-venv" >&2
+        echo "  Skipping venv for $dir; LVGL generator / pip builds will not work until fixed." >&2
+        return 0
+    fi
+
+    if [[ ! -x "$dir/.venv/bin/pip" ]]; then
+        [[ -d "$dir/.venv" ]] && rm -rf "$dir/.venv"
         log "creating $dir/.venv"
-        python3 -m venv "$dir/.venv"
+        if ! python3 -m venv "$dir/.venv"; then
+            echo "clone_profile: failed to create $dir/.venv — install python3-venv" >&2
+            return 1
+        fi
+    fi
+    if [[ ! -x "$dir/.venv/bin/pip" ]]; then
+        echo "clone_profile: $dir/.venv/bin/pip missing after venv create — install python3-venv" >&2
+        return 1
     fi
     "$dir/.venv/bin/pip" install -q -r "$req"
 }

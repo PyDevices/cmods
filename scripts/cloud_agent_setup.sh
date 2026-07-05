@@ -18,6 +18,39 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CMODS="${CMODS:-$ROOT}"
 
+log() { printf 'cloud_agent_setup: %s\n' "$*"; }
+
+ensure_system_deps() {
+    python3 -c 'import ensurepip' 2>/dev/null && return 0
+    command -v apt-get >/dev/null 2>&1 || {
+        log "python3-venv missing and apt-get unavailable; install may fail for mp/cp/cpy profiles"
+        return 0
+    }
+    log "installing python3-venv (required for lv_bindings / CP build venvs)"
+    if [[ "$(id -u)" -eq 0 ]]; then
+        apt-get update -qq
+        apt-get install -y -qq python3-venv python3-pip
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq python3-venv python3-pip
+    else
+        log "cannot install python3-venv (no root/sudo); set CMODS_PROFILE=minimal for pydisplay-only work"
+    fi
+}
+
+default_cmods_profile() {
+    if [[ -n "${CMODS_PROFILE:-}" ]]; then
+        printf '%s' "$CMODS_PROFILE"
+        return
+    fi
+    # Multi-repo cloud VMs already mount siblings at /agent/repos/*.
+    if [[ -d /agent/repos ]]; then
+        printf '%s' "minimal"
+    else
+        printf '%s' "mp,cpy,display"
+    fi
+}
+
 setup_gh() {
     if [[ -z "${PYDEVICES_GH_TOKEN:-}" ]]; then
         echo "cloud_agent_setup: PYDEVICES_GH_TOKEN not set (add in Cloud Agents Secrets)" >&2
@@ -32,9 +65,12 @@ setup_gh() {
 
 cmd_install() {
     setup_gh
+    ensure_system_deps
     cd "$CMODS"
     if [[ -x "$CMODS/scripts/clone_profile.sh" ]]; then
-        CMODS_PROFILE="${CMODS_PROFILE:-mp,cpy,display}" "$CMODS/scripts/clone_profile.sh"
+        profile=$(default_cmods_profile)
+        log "CMODS_PROFILE=$profile"
+        CMODS_PROFILE="$profile" "$CMODS/scripts/clone_profile.sh"
     fi
 }
 
