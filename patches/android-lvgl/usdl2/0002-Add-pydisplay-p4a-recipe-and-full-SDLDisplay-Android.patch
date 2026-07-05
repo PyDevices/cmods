@@ -1,0 +1,482 @@
+From 6591425b590358aae2dddc096f27ba297dadb503 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Sat, 4 Jul 2026 07:17:17 +0000
+Subject: [PATCH 2/3] Add pydisplay p4a recipe and full SDLDisplay Android demo
+
+- p4a_recipes/pydisplay/: installs displaysys/eventsys/multimer/graphics
+- android_demo/board_config.py: SDL landscape config for Android
+- android_demo/main.py: pydisplay touch-paint demo (SDLDisplay + eventsys)
+- android_demo/main_usdl2_raw.py: raw usdl2 reference kept
+- android_demo/test_desktop.sh: Xvfb smoke test with sibling pydisplay clone
+- buildozer.spec: pydisplay requirement, package pydisplaydemo
+---
+ README.md                         | 29 ++++++---
+ android_demo/board_config.py      | 43 ++++++++++++++
+ android_demo/build_apk.sh         |  5 +-
+ android_demo/buildozer.spec       | 10 ++--
+ android_demo/main.py              | 97 ++++++++-----------------------
+ android_demo/main_usdl2_raw.py    | 86 +++++++++++++++++++++++++++
+ android_demo/test_desktop.sh      | 23 ++++++++
+ p4a_recipes/pydisplay/__init__.py | 37 ++++++++++++
+ p4a_recipes/pydisplay/setup.py    | 16 +++++
+ 9 files changed, 261 insertions(+), 85 deletions(-)
+ create mode 100644 android_demo/board_config.py
+ create mode 100644 android_demo/main_usdl2_raw.py
+ create mode 100755 android_demo/test_desktop.sh
+ create mode 100644 p4a_recipes/pydisplay/__init__.py
+ create mode 100644 p4a_recipes/pydisplay/setup.py
+
+diff --git a/README.md b/README.md
+index 25f4b51..64408ae 100644
+--- a/README.md
++++ b/README.md
+@@ -93,19 +93,33 @@ Prerequisites: [Android SDK + NDK](https://python-for-android.readthedocs.io/en/
+ ```bash
+ cd android_demo
+ ./build_apk.sh
+-# APK: android_demo/bin/usdl2demo-0.1.0-arm64-v8a-debug.apk (name may vary)
++# APK: android_demo/bin/pydisplaydemo-0.2.0-*-debug.apk (name may vary)
+ adb install -r bin/*.apk
+ ```
+ 
+-`build_apk.sh` sets `P4A_usdl2_DIR` to the repo root so the local p4a recipe installs the in-tree FFI package instead of downloading from GitHub.
++`build_apk.sh` sets `P4A_usdl2_DIR` to the repo root. If `../pydisplay` exists (sibling clone), it also sets `P4A_pydisplay_DIR` for an in-tree pydisplay build.
+ 
+ ### pydisplay on Android
+ 
+-1. Add a p4a recipe for [pydisplay](https://github.com/PyDevices/pydisplay) (or vendor `src/lib/` into your app).
+-2. Use `board_configs/sdldisplay/board_config.py` (force `SDLDisplay`, not PyGame).
+-3. Require `usdl2` and `sdl2` in `buildozer.spec`.
++The demo APK uses **pydisplay** (`SDLDisplay`, `eventsys`, `multimer`) via the `pydisplay` p4a recipe:
+ 
+-Touch input arrives as SDL mouse events; `sdldisplay.py` already maps them to `eventsys`.
++| File | Role |
++|------|------|
++| `p4a_recipes/pydisplay/` | Installs `displaysys`, `eventsys`, `graphics`, `multimer` from pydisplay `src/lib/` |
++| `android_demo/board_config.py` | SDL display + event broker (landscape, fullscreen on Android) |
++| `android_demo/main.py` | Touch-paint demo using pydisplay APIs |
++| `android_demo/main_usdl2_raw.py` | Raw `usdl2` reference demo (no pydisplay) |
++
++`buildozer.spec` requirements: `python3,sdl2,usdl2,pydisplay`.
++
++Desktop smoke test (Xvfb, requires sibling `pydisplay` clone):
++
++```bash
++git clone https://github.com/PyDevices/pydisplay.git ../pydisplay
++cd android_demo && ./test_desktop.sh
++```
++
++For your own app, copy `board_config.py`, add `pydisplay` + `usdl2` to `buildozer.spec`, and write your main loop with `display_drv` / `broker` as usual.
+ 
+ ## Layout
+ 
+@@ -115,7 +129,8 @@ Touch input arrives as SDL mouse events; `sdldisplay.py` already maps them to `e
+ | `python/usdl2/` | CPython ctypes implementation (`pip install -e .`, Android p4a) |
+ | `setup.py` | Editable install for CPython / p4a |
+ | `p4a_recipes/usdl2/` | python-for-android recipe (depends on `sdl2`) |
+-| `android_demo/` | Sample touch-draw APK (`buildozer.spec`, `main.py`) |
++| `p4a_recipes/pydisplay/` | python-for-android recipe (depends on `usdl2`) |
++| `android_demo/` | pydisplay touch-paint APK + raw usdl2 example |
+ | `micropython.mk` | MicroPython user C module glue (`MP_REGISTER_MODULE` in `usdl2.c`) |
+ | `circuitpython.mk` | CircuitPython port Makefile fragment (`usdl2.c` only; module registration in `shared-bindings/usdl2/__init.c`) |
+ | `circuitpython_spike/` | Templates copied into CircuitPython tree |
+diff --git a/android_demo/board_config.py b/android_demo/board_config.py
+new file mode 100644
+index 0000000..80a93fc
+--- /dev/null
++++ b/android_demo/board_config.py
+@@ -0,0 +1,43 @@
++# SPDX-License-Identifier: MIT
++"""Android / desktop SDL board config for the pydisplay demo APK."""
++
++import sys
++
++import eventsys
++import usdl2
++from displaysys.sdldisplay import SDLDisplay, get_events
++
++# Landscape logical framebuffer (matches buildozer orientation).
++width = 480
++height = 320
++rotation = 0
++scale = 1.0
++
++if sys.platform == "android":
++    title = "pydisplay on Android"
++    window_flags = usdl2.SDL_WINDOW_FULLSCREEN_DESKTOP | usdl2.SDL_WINDOW_ALLOW_HIGHDPI
++else:
++    title = f"pydisplay ({sys.platform})"
++    window_flags = usdl2.SDL_WINDOW_SHOWN | usdl2.SDL_WINDOW_ALLOW_HIGHDPI
++    scale = 1.5
++
++display_drv = SDLDisplay(
++    width=width,
++    height=height,
++    rotation=rotation,
++    title=title,
++    scale=scale,
++    window_flags=window_flags,
++)
++
++broker = eventsys.Broker()
++
++events_dev = broker.create(
++    type=eventsys.QUEUE,
++    read=get_events,
++    data=display_drv,
++)
++
++broker.register_quit_cleanup(display_drv)
++
++display_drv.fill(0)
+diff --git a/android_demo/build_apk.sh b/android_demo/build_apk.sh
+index 2b955e6..9f23303 100755
+--- a/android_demo/build_apk.sh
++++ b/android_demo/build_apk.sh
+@@ -11,7 +11,10 @@ if ! command -v buildozer >/dev/null 2>&1; then
+   exit 1
+ fi
+ 
+-# Use the in-tree usdl2 recipe (editable) instead of downloading from GitHub.
++# Use in-tree recipes instead of downloading from GitHub.
+ export P4A_usdl2_DIR="$ROOT"
++if [[ -d "$ROOT/../pydisplay" ]]; then
++  export P4A_pydisplay_DIR="$ROOT/../pydisplay"
++fi
+ 
+ buildozer android debug "$@"
+diff --git a/android_demo/buildozer.spec b/android_demo/buildozer.spec
+index 079a955..f4f8737 100644
+--- a/android_demo/buildozer.spec
++++ b/android_demo/buildozer.spec
+@@ -1,11 +1,11 @@
+ [app]
+-title = usdl2 Android Demo
+-package.name = usdl2demo
++title = pydisplay Android Demo
++package.name = pydisplaydemo
+ package.domain = org.pydevices
+ source.dir = .
+ source.include_exts = py
+-version = 0.1.0
+-requirements = python3,sdl2,usdl2
++version = 0.2.0
++requirements = python3,sdl2,usdl2,pydisplay
+ orientation = landscape
+ fullscreen = 0
+ android.api = 31
+@@ -14,7 +14,7 @@ android.archs = arm64-v8a, armeabi-v7a
+ android.bootstrap = sdl2
+ android.permissions = INTERNET
+ 
+-# Point at the usdl2 repo recipe (relative to this spec file).
++# Local recipes: usdl2 (ctypes SDL) + pydisplay (src/lib packages).
+ p4a.local_recipes = ../p4a_recipes
+ 
+ [buildozer]
+diff --git a/android_demo/main.py b/android_demo/main.py
+index 253b247..9d1d755 100644
+--- a/android_demo/main.py
++++ b/android_demo/main.py
+@@ -1,87 +1,40 @@
+ # SPDX-License-Identifier: MIT
+-"""Minimal SDL2 touch demo for Android (usdl2 + pydisplay-style loop)."""
++"""
++pydisplay Android demo — SDLDisplay + eventsys + multimer.
+ 
+-import time
++p4a SDL2 bootstrap runs this file as the app entry point.
++"""
+ 
+-import usdl2
++import multimer
++from board_config import broker, display_drv
++from displaysys import color565
++from eventsys import events
+ 
+-WIDTH, HEIGHT = 480, 320
+-COLOR_BG = 0x001F  # RGB565 blue
+-COLOR_DOT = 0xF800  # red
++BG = color565(0, 0, 64)
++DOT = color565(255, 128, 0)
++RADIUS = 10
+ 
+ 
+-def main():
+-    assert usdl2._USE_FFI, "Android build expects ctypes usdl2"
+-    usdl2.SDL_Init(usdl2.SDL_INIT_VIDEO)
+-    win = usdl2.SDL_CreateWindow(
+-        b"pydisplay usdl2",
+-        usdl2.SDL_WINDOWPOS_CENTERED,
+-        usdl2.SDL_WINDOWPOS_CENTERED,
+-        WIDTH,
+-        HEIGHT,
+-        usdl2.SDL_WINDOW_SHOWN | usdl2.SDL_WINDOW_ALLOW_HIGHDPI,
+-    )
+-    if not win:
+-        raise SystemExit(usdl2.SDL_GetError())
+-    renderer = usdl2.SDL_CreateRenderer(
+-        win, -1, usdl2.SDL_RENDERER_ACCELERATED | usdl2.SDL_RENDERER_PRESENTVSYNC
+-    )
+-    if not renderer:
+-        raise SystemExit(usdl2.SDL_GetError())
+-
+-    texture = usdl2.SDL_CreateTexture(
+-        renderer,
+-        usdl2.SDL_PIXELFORMAT_RGB565,
+-        usdl2.SDL_TEXTUREACCESS_STREAMING,
+-        WIDTH,
+-        HEIGHT,
+-    )
+-    pitch = WIDTH * 2
+-    framebuffer = bytearray(WIDTH * HEIGHT * 2)
+-
+-    def fill(color):
+-        lo = color & 0xFF
+-        hi = (color >> 8) & 0xFF
+-        for i in range(0, len(framebuffer), 2):
+-            framebuffer[i] = lo
+-            framebuffer[i + 1] = hi
++def _draw_dot(x, y):
++    x, y = display_drv.translate_point((x, y))
++    display_drv.fill_rect(x - RADIUS, y - RADIUS, RADIUS * 2, RADIUS * 2, DOT)
++    display_drv.show()
+ 
+-    def dot(x, y, color, radius=8):
+-        lo = color & 0xFF
+-        hi = (color >> 8) & 0xFF
+-        for dy in range(-radius, radius + 1):
+-            for dx in range(-radius, radius + 1):
+-                px, py = x + dx, y + dy
+-                if 0 <= px < WIDTH and 0 <= py < HEIGHT:
+-                    off = (py * WIDTH + px) * 2
+-                    framebuffer[off] = lo
+-                    framebuffer[off + 1] = hi
+ 
+-    fill(COLOR_BG)
+-    event = usdl2.SDL_Event()
++def main():
++    display_drv.fill(BG)
++    display_drv.show()
+     running = True
+     while running:
+-        while usdl2.SDL_PollEvent(event):
+-            if event.type == usdl2.SDL_QUIT:
++        for event in broker.poll():
++            if event.type == events.QUIT:
+                 running = False
+-            elif event.type == usdl2.SDL_MOUSEBUTTONDOWN:
+-                dot(event.button.x, event.button.y, COLOR_DOT)
+-            elif event.type == usdl2.SDL_MOUSEMOTION:
+-                if event.motion.state & usdl2.SDL_BUTTON_LMASK:
+-                    dot(event.motion.x, event.motion.y, COLOR_DOT)
+-
+-        rect = usdl2.SDL_Rect(0, 0, WIDTH, HEIGHT)
+-        usdl2.SDL_UpdateTexture(texture, rect, framebuffer, pitch)
+-        usdl2.SDL_RenderCopy(renderer, texture, None, None)
+-        usdl2.SDL_RenderPresent(renderer)
+-        time.sleep(0.001)
+-
+-    usdl2.SDL_DestroyTexture(texture)
+-    usdl2.SDL_DestroyRenderer(renderer)
+-    usdl2.SDL_DestroyWindow(win)
+-    usdl2.SDL_Quit()
++            elif event.type == events.MOUSEBUTTONDOWN:
++                _draw_dot(*event.pos)
++            elif event.type == events.MOUSEMOTION and event.buttons[0]:
++                _draw_dot(*event.pos)
++        multimer.pump()
+ 
+ 
+ if __name__ == "__main__":
+-  # p4a SDL2 bootstrap runs main.py as the app entry point.
+     main()
+diff --git a/android_demo/main_usdl2_raw.py b/android_demo/main_usdl2_raw.py
+new file mode 100644
+index 0000000..4aaf8ab
+--- /dev/null
++++ b/android_demo/main_usdl2_raw.py
+@@ -0,0 +1,86 @@
++# SPDX-License-Identifier: MIT
++"""Minimal SDL2 touch demo (raw usdl2, no pydisplay). Kept as a reference."""
++
++import time
++
++import usdl2
++
++WIDTH, HEIGHT = 480, 320
++COLOR_BG = 0x001F
++COLOR_DOT = 0xF800
++
++
++def main():
++    assert usdl2._USE_FFI, "Android build expects ctypes usdl2"
++    usdl2.SDL_Init(usdl2.SDL_INIT_VIDEO)
++    win = usdl2.SDL_CreateWindow(
++        b"usdl2 raw",
++        usdl2.SDL_WINDOWPOS_CENTERED,
++        usdl2.SDL_WINDOWPOS_CENTERED,
++        WIDTH,
++        HEIGHT,
++        usdl2.SDL_WINDOW_SHOWN | usdl2.SDL_WINDOW_ALLOW_HIGHDPI,
++    )
++    if not win:
++        raise SystemExit(usdl2.SDL_GetError())
++    renderer = usdl2.SDL_CreateRenderer(
++        win, -1, usdl2.SDL_RENDERER_ACCELERATED | usdl2.SDL_RENDERER_PRESENTVSYNC
++    )
++    if not renderer:
++        raise SystemExit(usdl2.SDL_GetError())
++
++    texture = usdl2.SDL_CreateTexture(
++        renderer,
++        usdl2.SDL_PIXELFORMAT_RGB565,
++        usdl2.SDL_TEXTUREACCESS_STREAMING,
++        WIDTH,
++        HEIGHT,
++    )
++    pitch = WIDTH * 2
++    framebuffer = bytearray(WIDTH * HEIGHT * 2)
++
++    def fill(color):
++        lo = color & 0xFF
++        hi = (color >> 8) & 0xFF
++        for i in range(0, len(framebuffer), 2):
++            framebuffer[i] = lo
++            framebuffer[i + 1] = hi
++
++    def dot(x, y, color, radius=8):
++        lo = color & 0xFF
++        hi = (color >> 8) & 0xFF
++        for dy in range(-radius, radius + 1):
++            for dx in range(-radius, radius + 1):
++                px, py = x + dx, y + dy
++                if 0 <= px < WIDTH and 0 <= py < HEIGHT:
++                    off = (py * WIDTH + px) * 2
++                    framebuffer[off] = lo
++                    framebuffer[off + 1] = hi
++
++    fill(COLOR_BG)
++    event = usdl2.SDL_Event()
++    running = True
++    while running:
++        while usdl2.SDL_PollEvent(event):
++            if event.type == usdl2.SDL_QUIT:
++                running = False
++            elif event.type == usdl2.SDL_MOUSEBUTTONDOWN:
++                dot(event.button.x, event.button.y, COLOR_DOT)
++            elif event.type == usdl2.SDL_MOUSEMOTION:
++                if event.motion.state & usdl2.SDL_BUTTON_LMASK:
++                    dot(event.motion.x, event.motion.y, COLOR_DOT)
++
++        rect = usdl2.SDL_Rect(0, 0, WIDTH, HEIGHT)
++        usdl2.SDL_UpdateTexture(texture, rect, framebuffer, pitch)
++        usdl2.SDL_RenderCopy(renderer, texture, None, None)
++        usdl2.SDL_RenderPresent(renderer)
++        time.sleep(0.001)
++
++    usdl2.SDL_DestroyTexture(texture)
++    usdl2.SDL_DestroyRenderer(renderer)
++    usdl2.SDL_DestroyWindow(win)
++    usdl2.SDL_Quit()
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/android_demo/test_desktop.sh b/android_demo/test_desktop.sh
+new file mode 100755
+index 0000000..1a82a3c
+--- /dev/null
++++ b/android_demo/test_desktop.sh
+@@ -0,0 +1,23 @@
++#!/usr/bin/env bash
++# SPDX-License-Identifier: MIT
++# Run the pydisplay demo on desktop (Xvfb) before building an APK.
++set -euo pipefail
++ROOT="$(cd "$(dirname "$0")/.." && pwd)"
++DEMO="$ROOT/android_demo"
++PYDISPLAY="${PYDISPLAY_DIR:-$ROOT/../pydisplay}"
++
++if [[ ! -d "$PYDISPLAY/src/lib/displaysys" ]]; then
++  echo "Clone pydisplay beside usdl2 (or set PYDISPLAY_DIR):"
++  echo "  git clone https://github.com/PyDevices/pydisplay.git $PYDISPLAY"
++  exit 1
++fi
++
++pip install -q -e "$ROOT"
++export PYTHONPATH="$PYDISPLAY/src/lib:${PYTHONPATH:-}"
++cd "$DEMO"
++xvfb-run -a python3 main.py &
++PID=$!
++sleep 2
++kill "$PID" 2>/dev/null || true
++wait "$PID" 2>/dev/null || true
++echo "pydisplay desktop demo exited cleanly (or was stopped after smoke window)"
+diff --git a/p4a_recipes/pydisplay/__init__.py b/p4a_recipes/pydisplay/__init__.py
+new file mode 100644
+index 0000000..5a63338
+--- /dev/null
++++ b/p4a_recipes/pydisplay/__init__.py
+@@ -0,0 +1,37 @@
++# SPDX-License-Identifier: MIT
++"""python-for-android recipe: pydisplay (SDLDisplay stack for Android)."""
++
++import os
++import shutil
++from os.path import dirname, join
++
++from pythonforandroid.recipe import PythonRecipe
++
++
++class PydisplayRecipe(PythonRecipe):
++    version = "main"
++    url = "https://github.com/PyDevices/pydisplay/archive/{version}.zip"
++    name = "pydisplay"
++    depends = ["usdl2"]
++    call_hostpython_via_targetpython = False
++    install_in_hostpython = False
++
++    def download_if_necessary(self):
++        if os.environ.get("P4A_pydisplay_DIR"):
++            return
++        super().download_if_necessary()
++
++    def get_build_dir(self, arch):
++        local = os.environ.get("P4A_pydisplay_DIR")
++        if local:
++            return local
++        return super().get_build_dir(arch)
++
++    def prebuild_arch(self, arch):
++        super().prebuild_arch(arch)
++        build_dir = self.get_build_dir(arch.arch)
++        setup_src = join(dirname(__file__), "setup.py")
++        shutil.copy2(setup_src, join(build_dir, "setup.py"))
++
++
++recipe = PydisplayRecipe()
+diff --git a/p4a_recipes/pydisplay/setup.py b/p4a_recipes/pydisplay/setup.py
+new file mode 100644
+index 0000000..a9ea2c6
+--- /dev/null
++++ b/p4a_recipes/pydisplay/setup.py
+@@ -0,0 +1,16 @@
++# SPDX-License-Identifier: MIT
++"""Install pydisplay library packages from src/lib (used by p4a recipe)."""
++
++from pathlib import Path
++
++from setuptools import find_packages, setup
++
++lib = Path(__file__).resolve().parent / "src" / "lib"
++
++setup(
++    name="pydisplay",
++    version="0.1.0",
++    packages=find_packages(where=str(lib)),
++    package_dir={"": str(lib)},
++    python_requires=">=3.8",
++)
+-- 
+2.43.0
+

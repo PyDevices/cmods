@@ -88,9 +88,25 @@ See [usdl2/README.md](usdl2/README.md) for `PKG_CONFIG_PATH`, MSYS2, and runtime
 **CircuitPython** (requires patch script; see [lv_circuitpython_mod README](lv_circuitpython_mod/README.md) for CP clone setup):
 
 ```bash
+# Frozen asyncio for multimer.AsyncTimer (copy example first):
+cp cp-user-config/user_post_mpconfigport.mk.example cp-user-config/user_post_mpconfigport.mk
+git clone https://github.com/adafruit/Adafruit_CircuitPython_asyncio.git
+git clone https://github.com/adafruit/Adafruit_CircuitPython_Ticks.git
+
 ./usdl2/apply_cp_unix_usdl_patches.sh --apply
 ./lv_circuitpython_mod/build_cp.sh --port unix --variant standard
 ./circuitpython/ports/unix/build-standard/micropython ./usdl2/test_usdl2.py
+```
+
+`build_cp.sh` passes `-I cp-user-config/` when that directory exists so CircuitPython
+picks up `user_post_mpconfigport.mk`. See [multimer building docs](https://github.com/PyDevices/multimer/blob/main/docs/building.md).
+
+**MicroPython frozen asyncio** (required for `multimer.AsyncTimer` on unix/windows):
+
+```bash
+cp my-manifest.py.example my-manifest.py   # if present; or use pydisplay/manifest.py
+./build_mp.sh --port unix --variant standard
+./build_mp.sh --port windows --variant dev
 ```
 
 ## Direct build (without cmods)

@@ -2,9 +2,17 @@
 my-manifest.py
 main.py
 
+# Local CircuitPython user config (copy from .example)
+cp-user-config/user_post_mpconfigport.mk
+
 # All cloned repos/directories at workspace root (micropython, user_cmodules, etc.)
 /*/
+# Agent-delivered cross-repo patch bundles (not upstream clones)
+!/patches/
+# Workspace tooling (not upstream clones)
 !/.devcontainer/
 !/.devcontainer/**
 !/scripts/
 !/scripts/**
+!/.cursor/
+!/cp-user-config/
