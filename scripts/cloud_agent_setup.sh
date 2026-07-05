@@ -44,12 +44,24 @@ cmd_start() {
 
 cmd_verify() {
     setup_gh
+    echo "== PYDEVICES_GH_TOKEN =="
+    if [[ -n "${PYDEVICES_GH_TOKEN:-}" ]]; then
+        echo "set (value hidden)"
+    else
+        echo "not set"
+    fi
     echo "== gh auth =="
     gh auth status 2>&1 || true
     echo "== gh api user =="
     gh api user -q .login 2>&1 || true
-    echo "== workspace siblings =="
-    ls -d "$CMODS"/*/ 2>/dev/null | sed "s|$CMODS/||" | head -20 || true
+    echo "== multi-repo siblings =="
+    if [[ -d /agent/repos ]]; then
+        ls -d /agent/repos/*/ 2>/dev/null | sed 's|/agent/repos/||; s|/$||' | head -20 || true
+    else
+        ls -d "$CMODS"/*/ 2>/dev/null | sed "s|$CMODS/||; s|/$||" | head -20 || true
+    fi
+    echo "== gh repo view PyDevices/multimer =="
+    gh repo view PyDevices/multimer --json name -q .name 2>&1 || true
 }
 
 case "${1:-start}" in
