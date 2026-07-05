@@ -1,0 +1,28 @@
+{
+  "folders": [
+    { "name": "cmods", "path": "." },
+    { "name": "lv_bindings", "path": "lv_bindings" },
+    { "name": "lv_micropython_cmod", "path": "lv_micropython_cmod" },
+    { "name": "lv_circuitpython_mod", "path": "lv_circuitpython_mod" },
+    { "name": "lv_cpython_mod", "path": "lv_cpython_mod" },
+    { "name": "micropython", "path": "micropython" },
+    { "name": "circuitpython", "path": "circuitpython" },
+    { "name": "lvgl", "path": "lvgl" },
+    { "name": "pydisplay", "path": "pydisplay" },
+    { "name": "usdl2", "path": "usdl2" },
+    { "name": "pydisplay_cmods", "path": "pydisplay_cmods" },
+    { "name": "micropython-lib", "path": "micropython-lib" }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "${workspaceFolder:lv_cpython_mod}/.venv/bin/python",
+    "python.analysis.extraPaths": [
+      "${workspaceFolder:pydisplay}/src"
+    ],
+    "files.watcherExclude": {
+      "**/micropython/**": true,
+      "**/circuitpython/**": true,
+      "**/pydisplay/web/**": true,
+      "**/.git/objects/**": true
+    }
+  }
+}
