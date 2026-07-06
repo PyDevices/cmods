@@ -85,6 +85,16 @@ sudo apt install gcc-mingw-w64   # cross-build from Linux/WSL
 
 See [usdl2/README.md](usdl2/README.md) for `PKG_CONFIG_PATH`, MSYS2, and runtime notes.
 
+## pydisplay_android (Android APK)
+
+[`pydisplay_android`](https://github.com/PyDevices/pydisplay_android) holds python-for-android recipes, a buildozer demo APK, and desktop smoke tests for running pydisplay under CPython on Android. Clone into this workspace as `pydisplay_android/` (sibling of `usdl2/` and `pydisplay/`):
+
+```bash
+git clone https://github.com/PyDevices/pydisplay_android.git
+```
+
+usdl2 keeps the ctypes FFI package and `p4a_recipes/usdl2/`; pydisplay_android provides `p4a_recipes/pydisplay/` and `p4a_recipes/lvglcpython/`. See [pydisplay Android platform notes](https://github.com/PyDevices/pydisplay/blob/main/docs/platforms/android.md).
+
 **CircuitPython** (requires patch script; see [lv_circuitpython_mod README](lv_circuitpython_mod/README.md) for CP clone setup):
 
 ```bash
