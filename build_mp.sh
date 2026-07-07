@@ -463,23 +463,43 @@ print_build_outputs() {
     echo
 }
 
+esp32_board_flash_offset() {
+  local board_json offset="0x0"
+  [[ -n "$BOARD" ]] || { echo "$offset"; return 0; }
+  board_json="$PORT_DIR/boards/$BOARD/board.json"
+  [[ -f "$board_json" ]] || { echo "$offset"; return 0; }
+  offset=$(python3 - "$board_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as f:
+    data = json.load(f)
+
+print(data.get("deploy_options", {}).get("flash_offset", "0x0"))
+PY
+) || offset="0x0"
+  echo "$offset"
+}
+
 offer_esp32_flash() {
     [[ "$PORT" == esp32 ]] || return 0
     [[ -t 0 ]] || return 0
 
-    local firmware
+    local firmware flash_offset
     firmware="$(build_dir)/firmware.bin"
     [[ -f "$firmware" ]] || return 0
 
+    flash_offset=$(esp32_board_flash_offset)
+
     echo
     echo "Flash command:"
-    echo "    esptool -b 460800 --before default_reset --after hard_reset write_flash 0x0 $firmware"
+    echo "    esptool -b 460800 --before default_reset --after hard_reset write_flash $flash_offset $firmware"
     echo
     echo "To flash your device now, put it in bootloader mode and press Y."
     read -r -p "[y/N]: " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        esptool -b 460800 --before default_reset --after hard_reset write_flash 0x0 "$firmware"
+        esptool -b 460800 --before default_reset --after hard_reset write_flash "$flash_offset" "$firmware"
     fi
     echo
 }
