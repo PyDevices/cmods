@@ -143,6 +143,7 @@ profile_cpy() {
 profile_display() {
     clone_if_missing pydisplay https://github.com/PyDevices/pydisplay.git
     clone_if_missing usdl2 https://github.com/PyDevices/usdl2.git
+    clone_if_missing pydisplay_android https://github.com/PyDevices/pydisplay_android.git
     clone_if_missing pydisplay_cmods https://github.com/PyDevices/pydisplay_cmods.git
 }
 
@@ -160,6 +161,7 @@ profile_full() {
     clone_if_missing lv_cpython_mod https://github.com/PyDevices/lv_cpython_mod.git --recurse-submodules
     clone_if_missing usdl2 https://github.com/PyDevices/usdl2.git
     clone_if_missing pydisplay https://github.com/PyDevices/pydisplay.git
+    clone_if_missing pydisplay_android https://github.com/PyDevices/pydisplay_android.git
     clone_if_missing pydisplay_cmods https://github.com/PyDevices/pydisplay_cmods.git
     clone_if_missing micropython-lib https://github.com/PyDevices/micropython-lib.git
     profile_cp
