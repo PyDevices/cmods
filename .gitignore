@@ -17,5 +17,7 @@ cp-user-config/user_post_mpconfigport.mk
 !/.devcontainer/**
 !/scripts/
 !/scripts/**
+!/examples/
+!/examples/**
 !/.cursor/
 !/cp-user-config/
