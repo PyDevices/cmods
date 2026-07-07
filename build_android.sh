@@ -255,6 +255,9 @@ if skipped:
     print(f"Skipped {len(skipped)} manifest entr(y/ies); see {report}")
 PY
 
+echo "==> Writing p4a main.py entry (after manifest freeze)"
+"$PYDISPLAY_ANDROID_DIR/scripts/install_apk_main.sh" "$APP_DIR"
+
 echo "==> Building Android APK in $APP_DIR"
 echo "    venv=$VENV_DIR"
 echo "    TestPyPI=$TESTPYPI_INDEX"
