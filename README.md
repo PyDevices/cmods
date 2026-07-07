@@ -49,7 +49,7 @@ Examples:
 
 ## Example: display + touch on hardware
 
-See [`examples/esp32-p4-wifi6-touch-lcd-4b.md`](examples/esp32-p4-wifi6-touch-lcd-4b.md) — full walkthrough for the [Waveshare ESP32-P4-WIFI6-Touch-LCD-4B](https://www.waveshare.com/esp32-p4-wifi6-touch-lcd-4b.htm) using **displayif** + **pydisplay** (build, flash, mip install, smoke tests).
+See [`MP_EXAMPLE.md`](MP_EXAMPLE.md) — full walkthrough for the [Waveshare ESP32-P4-WIFI6-Touch-LCD-4B](https://www.waveshare.com/esp32-p4-wifi6-touch-lcd-4b.htm) using **displayif** + **pydisplay** (build, flash, mip install, smoke tests).
 
 ## Related repos
 

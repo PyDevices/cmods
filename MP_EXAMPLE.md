@@ -38,7 +38,7 @@ git clone https://github.com/PyDevices/displayif.git displayif
 # pydisplay is installed on-device via mip (step 3); clone locally only if you want examples on disk
 ```
 
-displayif is discovered automatically via `USER_C_MODULES` (see [README](../README.md)).
+displayif is discovered automatically via `USER_C_MODULES` (see [README](README.md)).
 
 ---
 
@@ -155,4 +155,4 @@ Tap the screen — you should see touch events.
 
 - [pydisplay board configs](https://github.com/PyDevices/pydisplay/tree/main/board_configs/fbdisplay)
 - [displayif esp32 mipidsi](https://github.com/PyDevices/displayif/tree/main/ports/esp32)
-- [cmods build_mp.sh](../build_mp.sh)
+- [cmods build_mp.sh](build_mp.sh)
