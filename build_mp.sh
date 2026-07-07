@@ -72,6 +72,7 @@ Environment:
   SDL2_DEV           Unpacked SDL2 MinGW development ZIP root (windows port + usdl2)
   PICOTOOL_FETCH_FROM_GIT_PATH  Cache dir for prebuilt picotool (rp2 port)
   picotool_DIR       Prebuilt picotool cmake package dir (rp2 port)
+  DISPLAYIF_SKIP_SPIRAM_CHECK  Set to 1 to skip esp32 PSRAM warning when displayif is present
 
 Options:
   --no-os-dupterm    Disable os.dupterm (same as OS_DUPTERM=0)
@@ -229,6 +230,61 @@ ensure_idf_env() {
         echo "Failed to activate ESP-IDF from: $idf_export" >&2
         exit 1
     fi
+}
+
+esp32_displayif_preflight() {
+    [[ "$PORT" == esp32 ]] || return 0
+    [[ -d "$WORKSPACE_DIR/displayif" ]] || return 0
+
+    local board_dir sdkconfig board_defaults merged
+    board_dir="$PORT_DIR/boards/$BOARD"
+    sdkconfig="$PORT_DIR/build-$BOARD/sdkconfig"
+    board_defaults="$board_dir/sdkconfig.board"
+
+  if [[ -f "$board_defaults" ]]; then
+      merged="$board_defaults"
+  elif [[ -f "$board_dir/sdkconfig.defaults" ]]; then
+      merged="$board_dir/sdkconfig.defaults"
+  else
+      merged=""
+  fi
+
+  local needs_psram=0
+  case "${BOARD:-}" in
+      ESP32_GENERIC_P4|ESP32_GENERIC_S3|*S3*|*P4*) needs_psram=1 ;;
+  esac
+
+  if [[ $needs_psram -eq 0 ]]; then
+      return 0
+  fi
+
+  local spiram_ok=0
+  if [[ -f "$sdkconfig" ]] && grep -qE '^CONFIG_SPIRAM=y' "$sdkconfig" 2>/dev/null; then
+      spiram_ok=1
+  elif [[ -n "$merged" ]] && grep -qE '^CONFIG_SPIRAM=y' "$merged" 2>/dev/null; then
+      spiram_ok=1
+  fi
+
+  if [[ $spiram_ok -eq 1 ]]; then
+      echo "displayif preflight: CONFIG_SPIRAM enabled for $BOARD"
+      return 0
+  fi
+
+  echo "warning: displayif large framebuffers (rgbframebuffer, mipidsi) expect PSRAM on $BOARD." >&2
+  echo "  Enable CONFIG_SPIRAM in the board sdkconfig / menuconfig before building with displayif." >&2
+  if [[ -n "$merged" ]]; then
+      echo "  Checked: $merged" >&2
+  fi
+  if [[ ! -t 0 ]]; then
+      echo "  Non-interactive build continuing (set DISPLAYIF_SKIP_SPIRAM_CHECK=1 to silence)." >&2
+      return 0
+  fi
+  if [[ "${DISPLAYIF_SKIP_SPIRAM_CHECK:-}" == 1 ]]; then
+      return 0
+  fi
+  read -r -p "Continue without SPIRAM check? [y/N]: " -n 1 -r
+  echo
+  [[ $REPLY =~ ^[Yy]$ ]] || exit 1
 }
 
 rp2_picotool_platform_asset() {
@@ -576,6 +632,7 @@ case "$PORT_KIND" in
 esac
 
 ensure_idf_env
+esp32_displayif_preflight
 ensure_emsdk_env
 ensure_rp2_picotool
 
