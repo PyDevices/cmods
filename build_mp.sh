@@ -70,6 +70,8 @@ Environment:
   OS_DUPTERM         Enable os.dupterm on desktop ports (default: 1)
   OS_DUPTERM_SLOTS   dupterm slot count for desktop ports (default: 1)
   SDL2_DEV           Unpacked SDL2 MinGW development ZIP root (windows port + usdl2)
+  PICOTOOL_FETCH_FROM_GIT_PATH  Cache dir for prebuilt picotool (rp2 port)
+  picotool_DIR       Prebuilt picotool cmake package dir (rp2 port)
 
 Options:
   --no-os-dupterm    Disable os.dupterm (same as OS_DUPTERM=0)
@@ -227,6 +229,106 @@ ensure_idf_env() {
         echo "Failed to activate ESP-IDF from: $idf_export" >&2
         exit 1
     fi
+}
+
+rp2_picotool_platform_asset() {
+    local os arch
+    os=$(uname -s)
+    arch=$(uname -m)
+    case "$os" in
+        Linux)
+            case "$arch" in
+                x86_64|amd64) echo "picotool-2.1.1-x86_64-lin.tar.gz" ;;
+                aarch64|arm64) echo "picotool-2.1.1-aarch64-lin.tar.gz" ;;
+            esac
+            ;;
+        Darwin) echo "picotool-2.1.1-mac.zip" ;;
+        MINGW*|MSYS*|CYGWIN*) echo "picotool-2.1.1-x64-win.zip" ;;
+    esac
+}
+
+ensure_rp2_picotool() {
+    [[ "$PORT" == rp2 ]] || return 0
+
+    if [[ -n "${picotool_DIR:-}" && -f "${picotool_DIR}/picotoolConfig.cmake" ]]; then
+        export PICOTOOL_FETCH_FROM_GIT_PATH="${PICOTOOL_FETCH_FROM_GIT_PATH:-$(dirname "$picotool_DIR")}"
+        echo "Using picotool_DIR=$picotool_DIR"
+        return 0
+    fi
+
+    if command -v picotool >/dev/null 2>&1; then
+        if picotool version 2>/dev/null | grep -Eq 'v2\.(1\.[1-9]|[2-9])'; then
+            echo "Using installed picotool: $(command -v picotool)"
+            return 0
+        fi
+    fi
+
+    local cache_root asset url archive extract_dir picotool_cfg
+    cache_root="${PICOTOOL_FETCH_FROM_GIT_PATH:-${WORKSPACE_DIR}/.cache/picotool}"
+    picotool_cfg="$cache_root/picotool/picotoolConfig.cmake"
+    if [[ -f "$picotool_cfg" ]]; then
+        export PICOTOOL_FETCH_FROM_GIT_PATH="$cache_root"
+        export picotool_DIR="$cache_root/picotool"
+        echo "Using cached picotool at $picotool_DIR"
+        return 0
+    fi
+
+    asset=$(rp2_picotool_platform_asset)
+    if [[ -z "$asset" ]]; then
+        echo "No prebuilt picotool for $(uname -s)/$(uname -m); using CC=gcc CXX=g++ for host tools." >&2
+        export CC="${CC:-gcc}"
+        export CXX="${CXX:-g++}"
+        return 0
+    fi
+
+    url="https://github.com/raspberrypi/pico-sdk-tools/releases/download/v2.1.1-0/$asset"
+    echo "Fetching prebuilt picotool ($asset)..."
+    mkdir -p "$cache_root"
+    archive="$cache_root/$asset"
+    if [[ ! -f "$archive" ]]; then
+        if ! curl -fsSL -o "$archive" "$url"; then
+            echo "Failed to download picotool from $url" >&2
+            echo "Falling back to CC=gcc CXX=g++ for host picotool build." >&2
+            export CC="${CC:-gcc}"
+            export CXX="${CXX:-g++}"
+            return 0
+        fi
+    fi
+
+    extract_dir="$cache_root/extract"
+    rm -rf "$extract_dir"
+    mkdir -p "$extract_dir"
+    case "$asset" in
+        *.tar.gz) tar -xzf "$archive" -C "$extract_dir" ;;
+        *.zip)
+            if command -v unzip >/dev/null 2>&1; then
+                unzip -q "$archive" -d "$extract_dir"
+            else
+                echo "unzip required to extract $asset" >&2
+                export CC="${CC:-gcc}"
+                export CXX="${CXX:-g++}"
+                return 0
+            fi
+            ;;
+    esac
+
+    if [[ -d "$extract_dir/picotool" ]]; then
+        rm -rf "$cache_root/picotool"
+        mv "$extract_dir/picotool" "$cache_root/picotool"
+    fi
+    rm -rf "$extract_dir"
+
+    if [[ ! -f "$cache_root/picotool/picotoolConfig.cmake" ]]; then
+        echo "Prebuilt picotool layout not found under $cache_root/picotool" >&2
+        export CC="${CC:-gcc}"
+        export CXX="${CXX:-g++}"
+        return 0
+    fi
+
+    export PICOTOOL_FETCH_FROM_GIT_PATH="$cache_root"
+    export picotool_DIR="$cache_root/picotool"
+    export PATH="$cache_root/picotool:$PATH"
+    echo "Using prebuilt picotool at $picotool_DIR"
 }
 
 ensure_emsdk_env() {
@@ -455,6 +557,7 @@ esac
 
 ensure_idf_env
 ensure_emsdk_env
+ensure_rp2_picotool
 
 echo "Building: port=$PORT${BOARD:+ board=$BOARD}${VARIANT:+ variant=$VARIANT}"
 echo
