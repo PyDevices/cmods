@@ -8,7 +8,7 @@
 #   CMODS                   Workspace root (default: directory containing this script)
 #   PYDISPLAY_ANDROID_DIR   pydisplay_android checkout (default: $CMODS/pydisplay_android)
 #   MANIFEST                frozen module manifest (default: $CMODS/manifest.py)
-#   ANDROID_BUILD_DIR       staging/buildozer dir (default: $PYDISPLAY_ANDROID_DIR/.cmods_build)
+#   ANDROID_BUILD_DIR       staging/buildozer dir (default: $PYDISPLAY_ANDROID_DIR/cmods_build)
 #   VENV_DIR                Host build venv (default: $CMODS/.venv)
 #   ANDROID_HOME            Android SDK (default: ~/.buildozer/android/platform/android-sdk)
 #   ANDROID_NDK_HOME        Android NDK (auto-detected under $ANDROID_HOME/ndk when unset)
@@ -23,7 +23,7 @@ CMODS="${CMODS:-$SCRIPT_DIR}"
 VENV_DIR="${VENV_DIR:-$CMODS/.venv}"
 PYDISPLAY_ANDROID_DIR="${PYDISPLAY_ANDROID_DIR:-$CMODS/pydisplay_android}"
 MANIFEST="${MANIFEST:-$CMODS/manifest.py}"
-ANDROID_BUILD_DIR="${ANDROID_BUILD_DIR:-$PYDISPLAY_ANDROID_DIR/.cmods_build}"
+ANDROID_BUILD_DIR="${ANDROID_BUILD_DIR:-$PYDISPLAY_ANDROID_DIR/cmods_build}"
 REQUIREMENTS_ANDROID="${REQUIREMENTS_ANDROID:-$CMODS/requirements-android.txt}"
 TESTPYPI_INDEX="${TESTPYPI_INDEX:-https://test.pypi.org/simple/}"
 PYPI_INDEX="${PYPI_INDEX:-https://pypi.org/simple/}"
@@ -95,6 +95,7 @@ setup_android_env() {
         export JAVA_HOME
     fi
 
+    export VIRTUAL_ENV="$VENV_DIR"
     export PATH="$VENV_DIR/bin:$PATH"
 }
 
@@ -105,8 +106,15 @@ require_dir "$PYDISPLAY_ANDROID_DIR/android_demo" "pydisplay_android android_dem
 require_dir "$PYDISPLAY_ANDROID_DIR/p4a_recipes" "pydisplay_android p4a_recipes"
 require_file "$MANIFEST" "cmods manifest"
 
+if [[ -d "$APP_DIR/.buildozer" ]]; then
+    rm -rf "$ANDROID_BUILD_DIR/.buildozer-save"
+    mv "$APP_DIR/.buildozer" "$ANDROID_BUILD_DIR/.buildozer-save"
+fi
 rm -rf "$APP_DIR" "$RECIPE_DIR"
 mkdir -p "$APP_DIR" "$RECIPE_DIR"
+if [[ -d "$ANDROID_BUILD_DIR/.buildozer-save" ]]; then
+    mv "$ANDROID_BUILD_DIR/.buildozer-save" "$APP_DIR/.buildozer"
+fi
 
 # Stage the pydisplay_android demo so manifest modules can be baked into the APK
 # without editing the pydisplay_android checkout.
