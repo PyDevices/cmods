@@ -2,6 +2,23 @@
 
 Workspace root: `~/github/cmods`. Bindings are generated in **`lv_bindings/`** and consumed by MicroPython, CircuitPython, and CPython mod repos.
 
+## Sub-repo `AGENTS.md`
+
+This workspace is a collection of sibling git clones. **Before editing files under a sub-repo**, read that repo's root **`AGENTS.md`** when it exists — it may override or extend these workspace instructions for that tree.
+
+1. Run discovery from the cmods root:
+
+```bash
+./scripts/list_subrepo_agents.sh          # markdown index
+./scripts/list_subrepo_agents.sh --paths  # paths to read (existing only)
+```
+
+2. Read every path from `--paths` (or open `<sub-repo>/AGENTS.md` for the repo you are touching).
+
+**Upstream clones** (`micropython/`, `circuitpython/`): an `AGENTS.md` may be present; still read it for port-specific notes, but **do not commit** in those trees unless the user explicitly overrides `.cursor/rules/cmods-upstream-no-commit.mdc`.
+
+Owned PyDevices siblings (`lv_*`, `usdl2`, `graphics`, `displayif`, `pydisplay_android`, …) may add or grow their own `AGENTS.md`; use the script above rather than hard-coding the list.
+
 ## “Build them all”
 
 **Primary API:** per-target and full-matrix scripts at the cmods root:
@@ -19,7 +36,7 @@ cd ~/github/cmods
 | Target ID | Port | Build | Smoke test |
 |-----------|------|-------|------------|
 | `mp-unix` | MicroPython unix / standard | `./build_mp.sh --port unix --variant standard` | [`lv_bindings/test_lvgl_smoke.py`](lv_bindings/test_lvgl_smoke.py) |
-| `mp-windows` | MicroPython windows / standard | `./build_mp.sh --port windows --variant standard --no-os-dupterm` | same script via `micropython.exe` |
+| `mp-windows` | MicroPython windows / standard | `./build_mp.sh --port windows --variant standard` | same script via `micropython.exe` |
 | `cp-unix` | CircuitPython unix / coverage | `./lv_circuitpython_mod/build_cp.sh --port unix --variant coverage` | same [`test_lvgl_smoke.py`](lv_bindings/test_lvgl_smoke.py) |
 | `cpy-unix` | CPython Unix (WSL) | `lv_cpython_mod/.venv/bin/pip install -e .` | same smoke test (`.venv/bin/python …/lv_bindings/test_lvgl_smoke.py`) |
 | `cpy-windows` | CPython Windows | `pip.exe install -e …` | `python.exe …/lv_bindings/test_lvgl_smoke.py` |
@@ -47,7 +64,7 @@ CMODS=~/github/cmods
 
 (
   cd "$CMODS" && \
-  ./build_mp.sh --port windows --variant standard --no-os-dupterm && \
+  ./build_mp.sh --port windows --variant standard && \
   "$CMODS/micropython/ports/windows/build-standard/micropython.exe" \
     "$CMODS/lv_bindings/test_lvgl_smoke.py"
 ) &
@@ -82,13 +99,13 @@ python.exe "$(wslpath -w "$CMODS/lv_bindings/test_lvgl_smoke.py")"
 Script: `~/github/cmods/build_mp.sh`
 
 ```bash
-./build_mp.sh --port PORT [--variant VARIANT] [--no-os-dupterm]
+./build_mp.sh --port PORT [--variant VARIANT] [--no-os-dupterm] [--os-dupterm]
 ```
 
 | Port | Variant | Notes |
 |------|---------|--------|
 | `unix` | `standard` | Default desktop smoke-test port |
-| `windows` | `standard` | **Always** pass `--no-os-dupterm` (windows does not support `os.dupterm`; omitting it fails at link with `mp_interrupt_char`) |
+| `windows` | `standard` | `os.dupterm` is **off by default** (enabling it fails at link with `mp_interrupt_char`); pass `--os-dupterm` or `OS_DUPTERM=1` to force |
 
 Outputs:
 
@@ -190,7 +207,7 @@ Sync into consumer repos as needed (`lv_cpython_mod/scripts/sync_from_lv_binding
 ## Gotchas
 
 - **`build_mp.sh` flags** are `--port` / `--variant`, not positional args.
-- **Windows MP**: always `--no-os-dupterm` for `windows` port.
+- **Windows MP**: `os.dupterm` disabled by default; use `--os-dupterm` only if you intend to fix/port dupterm support.
 - **CP test path** lives in `lv_circuitpython_mod/`, not `lv_micropython_cmod/`.
 - **CPython Unix vs Windows**: never concurrent; use `./build_all.sh` or `./build_target.sh` (flock + phase split).
 - **Editable CPython install** does not recompile on import; rerun `pip install -e .` after C changes.

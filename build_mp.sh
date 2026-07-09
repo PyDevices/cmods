@@ -7,10 +7,11 @@
 # Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, EMSDK_DIR, PORT, BOARD, VARIANT,
 #              USER_C_MODULES, FROZEN_MANIFEST, OS_DUPTERM, OS_DUPTERM_SLOTS
 #
-# OS_DUPTERM defaults to 1 (enabled). Set OS_DUPTERM=0 to disable. On unix,
-# windows, and webassembly this passes -DMICROPY_PY_OS_DUPTERM=<slots> via
-# CFLAGS_EXTRA so os.dupterm() is available (embedded ports usually enable it
-# in mpconfigport.h already).
+# OS_DUPTERM defaults to 1 on unix and webassembly; the windows port disables it
+# by default (link fails with undefined mp_interrupt_char). Set OS_DUPTERM=1 or
+# pass --os-dupterm to force it on windows. On enabled desktop ports this passes
+# -DMICROPY_PY_OS_DUPTERM=<slots> via CFLAGS_EXTRA (embedded ports usually
+# enable it in mpconfigport.h already).
 #
 # webassembly: sources EMSDK_DIR/emsdk_env.sh (like esp32 + IDF_DIR/export.sh).
 # LVGL user modules set -Wno-unused-function in CFLAGS_USERMOD, but the
@@ -32,7 +33,12 @@ EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/../emsdk}"
 PORT="${PORT:-}"
 BOARD="${BOARD:-}"
 VARIANT="${VARIANT:-}"
-OS_DUPTERM="${OS_DUPTERM:-1}"
+OS_DUPTERM_EXPLICIT=0
+if [[ -v OS_DUPTERM ]]; then
+    OS_DUPTERM_EXPLICIT=1
+else
+    OS_DUPTERM=1
+fi
 OS_DUPTERM_SLOTS="${OS_DUPTERM_SLOTS:-1}"
 
 is_truthy() {
@@ -47,7 +53,8 @@ while [[ $# -gt 0 ]]; do
         --port)    PORT="$2"; shift 2 ;;
         --board)   BOARD="$2"; shift 2 ;;
         --variant) VARIANT="$2"; shift 2 ;;
-        --no-os-dupterm) OS_DUPTERM=0; shift ;;
+        --no-os-dupterm) OS_DUPTERM=0; OS_DUPTERM_EXPLICIT=1; shift ;;
+        --os-dupterm) OS_DUPTERM=1; OS_DUPTERM_EXPLICIT=1; shift ;;
         -h|--help)
             cat <<EOF
 Usage: $0 [--port PORT] [--board BOARD] [--variant VARIANT]
@@ -67,7 +74,7 @@ Environment:
   USER_C_MODULES     Path passed to make (default: \$WORKSPACE_DIR)
   FROZEN_MANIFEST    Frozen manifest path (default: \$WORKSPACE_DIR/manifest.py)
   PORT, BOARD, VARIANT  Same as the corresponding options
-  OS_DUPTERM         Enable os.dupterm on desktop ports (default: 1)
+  OS_DUPTERM         Enable os.dupterm on unix/webassembly (default: 1); windows default: 0
   OS_DUPTERM_SLOTS   dupterm slot count for desktop ports (default: 1)
   SDL2_DEV           Unpacked SDL2 MinGW development ZIP root (windows port + usdl2)
   PICOTOOL_FETCH_FROM_GIT_PATH  Cache dir for prebuilt picotool (rp2 port)
@@ -75,6 +82,7 @@ Environment:
 
 Options:
   --no-os-dupterm    Disable os.dupterm (same as OS_DUPTERM=0)
+  --os-dupterm       Enable os.dupterm (override windows default)
 EOF
             exit 0
             ;;
@@ -516,6 +524,10 @@ fi
 PORT_DIR="$MP_DIR/ports/$PORT"
 [[ -f "$PORT_DIR/Makefile" ]] || { echo "Invalid port: $PORT" >&2; exit 1; }
 
+if [[ "$OS_DUPTERM_EXPLICIT" -eq 0 && "$PORT" == windows ]]; then
+    OS_DUPTERM=0
+fi
+
 PORT_KIND=$(port_kind)
 
 # 2) Board or variant selection
@@ -563,7 +575,11 @@ if is_truthy "$OS_DUPTERM" && [[ "$PORT" == unix || "$PORT" == windows || "$PORT
 elif is_truthy "$OS_DUPTERM"; then
     echo "os.dupterm: enabled in port mpconfig (no CFLAGS override)"
 else
-    echo "os.dupterm: disabled (OS_DUPTERM=0)"
+    if [[ "$PORT" == windows && "$OS_DUPTERM_EXPLICIT" -eq 0 ]]; then
+        echo "os.dupterm: disabled (windows port default)"
+    else
+        echo "os.dupterm: disabled (OS_DUPTERM=0)"
+    fi
 fi
 case "$PORT_KIND" in
     boards)

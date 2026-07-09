@@ -130,7 +130,7 @@ build_mp_unix() {
 
 build_mp_windows() {
     cd "$CMODS"
-    ./build_mp.sh --port windows --variant standard --no-os-dupterm
+    ./build_mp.sh --port windows --variant standard
     smoke_mp_windows
 }
 
