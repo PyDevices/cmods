@@ -9,7 +9,7 @@ except Exception:
     pass
 
 # User C module frozen manifests (paths relative to cmods root manifest).
-package("graphics", base_path="graphics/py", opt=3)
+# graphics is provided by the linked C usermod (graphics/micropython.mk), not frozen Python.
 try:
     include("lv_micropython_cmod/manifest.py")
 except Exception:
