@@ -2,7 +2,7 @@
 .venv/
 
 # Personal frozen manifest (local overrides)
-my-manifest.py
+my-manifest.*
 main.py
 
 # Local CircuitPython user config (copy from .example)
