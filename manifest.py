@@ -15,6 +15,13 @@ try:
 except Exception:
     pass
 
+# Windows dev variant manifest is not reached by the fallback chain below (which
+# pulls unix variants/standard). Without this, micropython.exe has no asyncio.
+try:
+    include("$(PORT_DIR)/variants/dev/manifest.py")
+except Exception:
+    pass
+
 try:
     include("$(PORT_DIR)/variants/pyscript/manifest.py")
 except Exception:
