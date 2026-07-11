@@ -1,43 +1,36 @@
+# Frozen Python from cmods user-module repos, plus the MicroPython upstream
+# freeze for the active port/board/variant.
+#
+# ``build_mp.sh`` sets ``FROZEN_MANIFEST_UPSTREAM`` to the same manifest file
+# MicroPython would have selected (most-specific variant/board/port file).
+# This static file includes that path so no generated wrapper is needed.
+#
+# Optional local overrides: ``my-manifest.py`` (gitignored).
+
 import os
 
+_SKIP = frozenset()
 
-# Find all manifest.py files in immediate subdirectories of the current directory
-# and include them.
 try:
     include("my-manifest.py")
 except Exception:
     pass
 
-# User C module frozen manifests (paths relative to cmods root manifest).
-# graphics is provided by the linked C usermod (graphics/micropython.mk), not frozen Python.
-try:
-    include("lv_micropython_cmod/manifest.py")
-except Exception:
-    pass
-
-# Windows dev variant manifest is not reached by the fallback chain below (which
-# pulls unix variants/standard). Without this, micropython.exe has no asyncio.
-try:
-    include("$(PORT_DIR)/variants/dev/manifest.py")
-except Exception:
-    pass
-
-try:
-    include("$(PORT_DIR)/variants/pyscript/manifest.py")
-except Exception:
-    try:
-        include("$(BOARD_DIR)/manifest.py")
-    except Exception:
+for _name in sorted(os.listdir(".")):
+    if _name in _SKIP or _name.startswith("."):
+        continue
+    _path = os.path.join(_name, "manifest.py")
+    if os.path.isfile(_path):
         try:
-            include("$(PORT_DIR)/boards/manifest.py")
+            include(_path)
         except Exception:
-            try:
-                include("$(PORT_DIR)/variants/standard/manifest.py")
-            except Exception:
-                try:
-                    include("$(PORT_DIR)/variants/pyscript/manifest.py")
-                except Exception:
-                    try:
-                        include("$(PORT_DIR)/variants/manifest.py")
-                    except Exception:
-                        pass
+            pass
+
+_upstream = os.environ.get("FROZEN_MANIFEST_UPSTREAM", "").strip()
+if not _upstream:
+    raise Exception(
+        "FROZEN_MANIFEST_UPSTREAM is not set. "
+        "Use ./build_mp.sh, or export FROZEN_MANIFEST_UPSTREAM to the "
+        "MicroPython port/board/variant manifest.py for this build."
+    )
+include(_upstream)

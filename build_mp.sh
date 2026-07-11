@@ -7,6 +7,11 @@
 # Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, EMSDK_DIR, PORT, BOARD, VARIANT,
 #              USER_C_MODULES, FROZEN_MANIFEST, OS_DUPTERM, OS_DUPTERM_SLOTS
 #
+# FROZEN_MANIFEST defaults to this repo's manifest.py. build_mp.sh also exports
+# FROZEN_MANIFEST_UPSTREAM to the MicroPython freeze file for the selected
+# port/board/variant; manifest.py includes that path (no generated wrapper).
+# Set FROZEN_MANIFEST explicitly to use a different top-level manifest.
+#
 # OS_DUPTERM defaults to 1 on unix and webassembly; the windows port disables it
 # by default (link fails with undefined mp_interrupt_char). Set OS_DUPTERM=1 or
 # pass --os-dupterm to force it on windows. On enabled desktop ports this passes
@@ -26,9 +31,16 @@ BUILD_MP="${BUILD_MP:-$SCRIPT_DIR/build_mp.sh}"
 WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 MP_DIR="${MP_DIR:-$WORKSPACE_DIR/micropython}"
 USER_C_MODULES="${USER_C_MODULES:-$WORKSPACE_DIR}"
-FROZEN_MANIFEST="${FROZEN_MANIFEST:-$WORKSPACE_DIR/manifest.py}"
 IDF_DIR="${IDF_DIR:-$WORKSPACE_DIR/../esp-idf}"
 EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/../emsdk}"
+
+# Track explicit FROZEN_MANIFEST before applying a default.
+FROZEN_MANIFEST_EXPLICIT=0
+if [[ -v FROZEN_MANIFEST ]]; then
+    FROZEN_MANIFEST_EXPLICIT=1
+else
+    FROZEN_MANIFEST="$WORKSPACE_DIR/manifest.py"
+fi
 
 PORT="${PORT:-}"
 BOARD="${BOARD:-}"
@@ -72,7 +84,9 @@ Environment:
   IDF_DIR            ESP-IDF install for esp32 (default: \$WORKSPACE_DIR/../esp-idf)
   EMSDK_DIR          Emscripten SDK for webassembly (default: \$WORKSPACE_DIR/../emsdk)
   USER_C_MODULES     Path passed to make (default: \$WORKSPACE_DIR)
-  FROZEN_MANIFEST    Frozen manifest path (default: \$WORKSPACE_DIR/manifest.py)
+  FROZEN_MANIFEST    Top-level frozen manifest (default: \$WORKSPACE_DIR/manifest.py)
+  FROZEN_MANIFEST_UPSTREAM  Set by this script to the MicroPython upstream freeze
+                     file for the selected port/board/variant (read by manifest.py)
   PORT, BOARD, VARIANT  Same as the corresponding options
   OS_DUPTERM         Enable os.dupterm on unix/webassembly (default: 1); windows default: 0
   OS_DUPTERM_SLOTS   dupterm slot count for desktop ports (default: 1)
@@ -155,6 +169,40 @@ port_kind() {
     else
         echo plain
     fi
+}
+
+# Path MicroPython would use for FROZEN_MANIFEST without a cmods override
+# (variant/board mpconfig sets the most-specific file; parents are include()d).
+resolve_upstream_frozen_manifest() {
+    local path=""
+    case "$PORT_KIND" in
+        variants)
+            if [[ -n "$VARIANT" && -f "$PORT_DIR/variants/$VARIANT/manifest.py" ]]; then
+                path="$PORT_DIR/variants/$VARIANT/manifest.py"
+            elif [[ -f "$PORT_DIR/variants/manifest.py" ]]; then
+                path="$PORT_DIR/variants/manifest.py"
+            fi
+            ;;
+        boards)
+            if [[ -n "$BOARD" && -n "$VARIANT" && -f "$PORT_DIR/boards/$BOARD/manifest_${VARIANT}.py" ]]; then
+                path="$PORT_DIR/boards/$BOARD/manifest_${VARIANT}.py"
+            elif [[ -n "$BOARD" && -f "$PORT_DIR/boards/$BOARD/manifest.py" ]]; then
+                path="$PORT_DIR/boards/$BOARD/manifest.py"
+            elif [[ -f "$PORT_DIR/boards/manifest.py" ]]; then
+                path="$PORT_DIR/boards/manifest.py"
+            fi
+            ;;
+        plain)
+            if [[ -f "$PORT_DIR/manifest.py" ]]; then
+                path="$PORT_DIR/manifest.py"
+            fi
+            ;;
+    esac
+    if [[ -z "$path" ]]; then
+        echo "No upstream frozen manifest for port=$PORT${BOARD:+ board=$BOARD}${VARIANT:+ variant=$VARIANT}" >&2
+        exit 1
+    fi
+    (cd "$(dirname "$path")" && echo "$(pwd)/$(basename "$path")")
 }
 
 find_sdl2_dev_root() {
@@ -419,6 +467,9 @@ print_make_commands() {
     elif [[ "$PORT" == webassembly ]]; then
         printf '%s  . %q/emsdk_env.sh%s\n' "$dim" "$EMSDK_DIR" "$reset"
     fi
+    if [[ -n "${FROZEN_MANIFEST_UPSTREAM:-}" ]]; then
+        printf '%s  export FROZEN_MANIFEST_UPSTREAM=%q%s\n' "$dim" "$FROZEN_MANIFEST_UPSTREAM" "$reset"
+    fi
     printf '%s  make -j clean %s%s\n' "$dim" "$quoted" "$reset"
     printf '%s  make -j submodules %s%s\n' "$dim" "$quoted" "$reset"
     printf '%s  make -j all %s%s\n' "$dim" "$quoted" "$reset"
@@ -556,6 +607,15 @@ case "$PORT_KIND" in
         fi
         ;;
 esac
+
+# Point the static cmods/manifest.py at the upstream freeze make would pick.
+export FROZEN_MANIFEST_UPSTREAM
+FROZEN_MANIFEST_UPSTREAM=$(resolve_upstream_frozen_manifest)
+if [[ "$FROZEN_MANIFEST_EXPLICIT" -eq 0 ]]; then
+    FROZEN_MANIFEST="$WORKSPACE_DIR/manifest.py"
+fi
+echo "Frozen manifest: $FROZEN_MANIFEST"
+echo "  FROZEN_MANIFEST_UPSTREAM=$FROZEN_MANIFEST_UPSTREAM"
 
 ensure_windows_cross_compile
 ensure_windows_sdl2_env

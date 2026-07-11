@@ -29,7 +29,8 @@ Add more user C modules by cloning them as siblings (each needs `micropython.mk`
 ## How it works
 
 - `USER_C_MODULES=$(pwd)` — MicroPython discovers `*/micropython.mk` in immediate subdirectories
-- [`manifest.py`](manifest.py) — aggregates `*/manifest.py` from subdirectories
+- [`manifest.py`](manifest.py) — frozen Python from cmod sibling repos, then includes the MicroPython upstream freeze via `FROZEN_MANIFEST_UPSTREAM`
+- [`build_mp.sh`](build_mp.sh) — sets `FROZEN_MANIFEST_UPSTREAM` to the freeze file MicroPython would use for the selected port/board/variant (same as a manual `make` without override)
 - [`micropython.cmake`](micropython.cmake) — aggregates `*/micropython.cmake` for CMake ports (ESP32, RP2)
 
 ## Build scripts
