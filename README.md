@@ -92,10 +92,10 @@ See [usdl2/README.md](usdl2/README.md) for `PKG_CONFIG_PATH`, MSYS2, and runtime
 
 ## pydisplay_android (Android APK)
 
-[`pydisplay_android`](https://github.com/PyDevices/pydisplay_android) holds python-for-android recipes, a buildozer demo APK, and desktop smoke tests for running pydisplay under CPython on Android. It lives as a sibling under `~/gh/pydevices/` (not inside this cmods workspace):
+[`pydisplay_android`](https://github.com/PyDevices/pydisplay_android) holds python-for-android recipes, a buildozer demo APK, and desktop smoke tests for running pydisplay under CPython on Android. It lives as a **sibling of this workspace** (e.g. `../pydisplay_android`), not inside cmods:
 
 ```bash
-cd ~/gh/pydevices
+cd ..
 git clone https://github.com/PyDevices/pydisplay_android.git
 cd pydisplay_android && ./build_android.sh
 ```

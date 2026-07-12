@@ -1,6 +1,8 @@
 # AGENTS.md — cmods LVGL build & test matrix
 
-Workspace root: `~/gh/pydevices/cmods`. Bindings are generated in **`lv_bindings/`** and consumed by MicroPython, CircuitPython, and CPython mod repos.
+Workspace root: **this repository** (directory containing `build_all.sh` / `AGENTS.md`). Bindings are generated in **`lv_bindings/`** and consumed by MicroPython, CircuitPython, and CPython mod repos.
+
+All paths below are relative to the workspace root unless noted. Scripts resolve the root from their own location (`CMODS="$(cd … && pwd)"`); do not hard-code a home directory.
 
 ## Sub-repo `AGENTS.md`
 
@@ -24,7 +26,7 @@ Owned PyDevices siblings (`lv_*`, `usdl2`, `graphics`, `displayif`, …) may add
 **Primary API:** per-target and full-matrix scripts at the cmods root:
 
 ```bash
-cd ~/gh/pydevices/cmods
+# from workspace root
 ./build_target.sh mp-unix       # one target: build + smoke test
 ./build_target.sh --smoke-only mp-unix   # smoke test only (binary must exist)
 ./build_target.sh cpy-windows
@@ -52,7 +54,8 @@ CPython targets auto-sync `generated/lvgl_python.c` (and `lv_conf.h`) from sibli
 ### One-shot build script (reference — equivalent to `./build_all.sh`)
 
 ```bash
-CMODS=~/gh/pydevices/cmods
+# run from workspace root
+CMODS="$(pwd)"
 
 # Phase 1 — parallel (1–4); use $CMODS in every subshell (background jobs do not share cd)
 (
@@ -96,7 +99,7 @@ python.exe "$(wslpath -w "$CMODS/lv_bindings/test_lvgl_smoke.py")"
 
 ## MicroPython (`build_mp.sh`)
 
-Script: `~/gh/pydevices/cmods/build_mp.sh`
+Script: `./build_mp.sh`
 
 ```bash
 ./build_mp.sh --port PORT [--variant VARIANT] [--no-os-dupterm] [--os-dupterm]
@@ -120,22 +123,22 @@ Script: `lv_micropython_cmod/test_lvgl_unix.py` (port-agnostic, headless display
 
 ```bash
 # Unix
-~/gh/pydevices/cmods/micropython/ports/unix/build-standard/micropython \
-  ~/gh/pydevices/cmods/lv_bindings/test_lvgl_smoke.py
+./micropython/ports/unix/build-standard/micropython \
+  ./lv_bindings/test_lvgl_smoke.py
 
 # Windows (from WSL)
-~/gh/pydevices/cmods/micropython/ports/windows/build-standard/micropython.exe \
-  ~/gh/pydevices/cmods/lv_bindings/test_lvgl_smoke.py
+./micropython/ports/windows/build-standard/micropython.exe \
+  ./lv_bindings/test_lvgl_smoke.py
 ```
 
 ---
 
 ## CircuitPython (`build_cp.sh`)
 
-Script: `~/gh/pydevices/cmods/lv_circuitpython_mod/build_cp.sh`
+Script: `./lv_circuitpython_mod/build_cp.sh`
 
 ```bash
-cd ~/gh/pydevices/cmods/lv_circuitpython_mod
+cd lv_circuitpython_mod
 ./build_cp.sh --port unix --variant coverage
 ```
 
@@ -146,8 +149,8 @@ Output: `circuitpython/ports/unix/build-coverage/micropython`
 ### CircuitPython smoke test
 
 ```bash
-~/gh/pydevices/cmods/circuitpython/ports/unix/build-coverage/micropython \
-  ~/gh/pydevices/cmods/lv_bindings/test_lvgl_smoke.py
+./circuitpython/ports/unix/build-coverage/micropython \
+  ./lv_bindings/test_lvgl_smoke.py
 ```
 
 ---
@@ -161,7 +164,7 @@ Both platforms use the **same repo directory** for editable installs. **Never** 
 ### Unix (WSL) — use `.venv`
 
 ```bash
-cd ~/gh/pydevices/cmods/lv_cpython_mod
+cd lv_cpython_mod
 python3 -m venv .venv          # once
 .venv/bin/pip install -r requirements.txt
 .venv/bin/pip install -e .       # rebuild after C or generated/lvgl_python.c changes
@@ -175,10 +178,12 @@ python3 -m venv .venv          # once
 Requires MSVC Build Tools on Windows (python.org CPython, not MinGW).
 
 ```bash
-cd ~/gh/pydevices/cmods/lv_cpython_mod
+# from workspace root
+CMODS="$(pwd)"
+cd lv_cpython_mod
 
-pip.exe install -e "$(wslpath -w ~/gh/pydevices/cmods/lv_cpython_mod)"
-python.exe "$(wslpath -w ~/gh/pydevices/cmods/lv_bindings/test_lvgl_smoke.py)"
+pip.exe install -e "$(wslpath -w "$CMODS/lv_cpython_mod")"
+python.exe "$(wslpath -w "$CMODS/lv_bindings/test_lvgl_smoke.py")"
 python.exe -c "import lvgl as lv; lv.init(); lv.deinit(); print('ok')"
 ```
 
@@ -191,7 +196,7 @@ First Windows build over `\\wsl.localhost\...` can take several minutes.
 After changing `binding/`, `lv_conf.h`, or the `lvgl` submodule:
 
 ```bash
-cd ~/gh/pydevices/cmods/lv_bindings
+cd lv_bindings
 ./regenerate_all.sh              # all three targets + commit + tag (see PUBLISHING.md)
 # or individually:
 ./regenerate_lvmp.sh             # → generated/lvgl_micropython.c

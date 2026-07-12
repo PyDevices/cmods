@@ -12,7 +12,7 @@
 #   cp        CircuitPython LVGL stack (defers heavy submodule fetch)
 #   cpy       CPython LVGL extension
 #   display   pydisplay + usdl2 + displayif
-#             (pydisplay_android lives under ~/gh/pydevices/, not inside cmods)
+#             (pydisplay_android is a sibling of cmods, not inside this workspace)
 #   graphics  graphics cmod (clone repo only; uses mp stack when building)
 #   mip       micropython-lib
 #   full      all repos + circuitpython submodules + venvs
