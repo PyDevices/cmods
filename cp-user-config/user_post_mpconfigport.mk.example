@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: MIT
 #
 # Example CircuitPython user config for frozen asyncio (multimer.AsyncTimer).
-# Copy to cp-user-config/user_post_mpconfigport.mk in the cmods workspace.
+# Copy to cp-user-config/user_post_mpconfigport.mk at the workspace root
+# (sibling of circuitpython/ and lv_circuitpython_mod/).
 #
-# Clone sibling Adafruit libraries at the cmods workspace root first:
+# Clone sibling Adafruit libraries at that same workspace root first:
 #   git clone https://github.com/adafruit/Adafruit_CircuitPython_asyncio.git
 #   git clone https://github.com/adafruit/Adafruit_CircuitPython_Ticks.git
 

@@ -7,12 +7,12 @@
     { "name": "lv_cpython_mod", "path": "lv_cpython_mod" },
     { "name": "micropython", "path": "micropython" },
     { "name": "circuitpython", "path": "circuitpython" },
-    { "name": "lvgl", "path": "lvgl" },
-    { "name": "pydisplay", "path": "pydisplay" },
+    { "name": "lvgl", "path": "lv_bindings/lvgl" },
     { "name": "usdl2", "path": "usdl2" },
     { "name": "displayif", "path": "displayif" },
     { "name": "graphics", "path": "graphics" },
-    { "name": "micropython-lib", "path": "micropython-lib" }
+    { "name": "pydisplay", "path": "../pydisplay" },
+    { "name": "micropython-lib", "path": "../micropython-lib" }
   ],
   "settings": {
     "python.defaultInterpreterPath": "${workspaceFolder:lv_cpython_mod}/.venv/bin/python",
