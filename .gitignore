@@ -1,4 +1,4 @@
-# Android build venv (./build_android.sh)
+# Local Python venv (if present)
 .venv/
 
 # Personal frozen manifest (local overrides)

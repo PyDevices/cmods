@@ -5,15 +5,15 @@ alwaysApply: true
 
 # cmods upstream repos — do not commit
 
-The `~/github/cmods` workspace contains git repos. Two of them are **upstream clones, not owned repos**:
+The `~/gh/pydevices/cmods` workspace contains git repos. Two of them are **upstream clones, not owned repos**:
 
-- `~/github/cmods/circuitpython/`
-- `~/github/cmods/micropython/`
+- `~/gh/pydevices/cmods/circuitpython/`
+- `~/gh/pydevices/cmods/micropython/`
 
 **Never** stage, commit, push, or open PRs for changes inside those directories unless the user explicitly overrides this rule for a specific action.
 
 Local patches there (LVGL integration, board configs, generated parser tables, etc.) are expected to remain uncommitted working-tree changes.
 
-All other repos under `~/github/cmods` (including the `cmods` root repo) may be committed and pushed when the user asks.
+All other repos under `~/gh/pydevices/cmods` (including the `cmods` root repo) may be committed and pushed when the user asks.
 
 To sync owned repos on demand, use the `/push-cmods` slash command.

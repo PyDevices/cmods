@@ -1,6 +1,6 @@
 # AGENTS.md — cmods LVGL build & test matrix
 
-Workspace root: `~/github/cmods`. Bindings are generated in **`lv_bindings/`** and consumed by MicroPython, CircuitPython, and CPython mod repos.
+Workspace root: `~/gh/pydevices/cmods`. Bindings are generated in **`lv_bindings/`** and consumed by MicroPython, CircuitPython, and CPython mod repos.
 
 ## Sub-repo `AGENTS.md`
 
@@ -17,14 +17,14 @@ This workspace is a collection of sibling git clones. **Before editing files und
 
 **Upstream clones** (`micropython/`, `circuitpython/`): an `AGENTS.md` may be present; still read it for port-specific notes, but **do not commit** in those trees unless the user explicitly overrides `.cursor/rules/cmods-upstream-no-commit.mdc`.
 
-Owned PyDevices siblings (`lv_*`, `usdl2`, `graphics`, `displayif`, `pydisplay_android`, …) may add or grow their own `AGENTS.md`; use the script above rather than hard-coding the list.
+Owned PyDevices siblings (`lv_*`, `usdl2`, `graphics`, `displayif`, …) may add or grow their own `AGENTS.md`; use the script above rather than hard-coding the list.
 
 ## “Build them all”
 
 **Primary API:** per-target and full-matrix scripts at the cmods root:
 
 ```bash
-cd ~/github/cmods
+cd ~/gh/pydevices/cmods
 ./build_target.sh mp-unix       # one target: build + smoke test
 ./build_target.sh --smoke-only mp-unix   # smoke test only (binary must exist)
 ./build_target.sh cpy-windows
@@ -52,7 +52,7 @@ CPython targets auto-sync `generated/lvgl_python.c` (and `lv_conf.h`) from sibli
 ### One-shot build script (reference — equivalent to `./build_all.sh`)
 
 ```bash
-CMODS=~/github/cmods
+CMODS=~/gh/pydevices/cmods
 
 # Phase 1 — parallel (1–4); use $CMODS in every subshell (background jobs do not share cd)
 (
@@ -96,7 +96,7 @@ python.exe "$(wslpath -w "$CMODS/lv_bindings/test_lvgl_smoke.py")"
 
 ## MicroPython (`build_mp.sh`)
 
-Script: `~/github/cmods/build_mp.sh`
+Script: `~/gh/pydevices/cmods/build_mp.sh`
 
 ```bash
 ./build_mp.sh --port PORT [--variant VARIANT] [--no-os-dupterm] [--os-dupterm]
@@ -120,22 +120,22 @@ Script: `lv_micropython_cmod/test_lvgl_unix.py` (port-agnostic, headless display
 
 ```bash
 # Unix
-~/github/cmods/micropython/ports/unix/build-standard/micropython \
-  ~/github/cmods/lv_bindings/test_lvgl_smoke.py
+~/gh/pydevices/cmods/micropython/ports/unix/build-standard/micropython \
+  ~/gh/pydevices/cmods/lv_bindings/test_lvgl_smoke.py
 
 # Windows (from WSL)
-~/github/cmods/micropython/ports/windows/build-standard/micropython.exe \
-  ~/github/cmods/lv_bindings/test_lvgl_smoke.py
+~/gh/pydevices/cmods/micropython/ports/windows/build-standard/micropython.exe \
+  ~/gh/pydevices/cmods/lv_bindings/test_lvgl_smoke.py
 ```
 
 ---
 
 ## CircuitPython (`build_cp.sh`)
 
-Script: `~/github/cmods/lv_circuitpython_mod/build_cp.sh`
+Script: `~/gh/pydevices/cmods/lv_circuitpython_mod/build_cp.sh`
 
 ```bash
-cd ~/github/cmods/lv_circuitpython_mod
+cd ~/gh/pydevices/cmods/lv_circuitpython_mod
 ./build_cp.sh --port unix --variant coverage
 ```
 
@@ -146,8 +146,8 @@ Output: `circuitpython/ports/unix/build-coverage/micropython`
 ### CircuitPython smoke test
 
 ```bash
-~/github/cmods/circuitpython/ports/unix/build-coverage/micropython \
-  ~/github/cmods/lv_bindings/test_lvgl_smoke.py
+~/gh/pydevices/cmods/circuitpython/ports/unix/build-coverage/micropython \
+  ~/gh/pydevices/cmods/lv_bindings/test_lvgl_smoke.py
 ```
 
 ---
@@ -161,7 +161,7 @@ Both platforms use the **same repo directory** for editable installs. **Never** 
 ### Unix (WSL) — use `.venv`
 
 ```bash
-cd ~/github/cmods/lv_cpython_mod
+cd ~/gh/pydevices/cmods/lv_cpython_mod
 python3 -m venv .venv          # once
 .venv/bin/pip install -r requirements.txt
 .venv/bin/pip install -e .       # rebuild after C or generated/lvgl_python.c changes
@@ -175,10 +175,10 @@ python3 -m venv .venv          # once
 Requires MSVC Build Tools on Windows (python.org CPython, not MinGW).
 
 ```bash
-cd ~/github/cmods/lv_cpython_mod
+cd ~/gh/pydevices/cmods/lv_cpython_mod
 
-pip.exe install -e "$(wslpath -w ~/github/cmods/lv_cpython_mod)"
-python.exe "$(wslpath -w ~/github/cmods/lv_bindings/test_lvgl_smoke.py)"
+pip.exe install -e "$(wslpath -w ~/gh/pydevices/cmods/lv_cpython_mod)"
+python.exe "$(wslpath -w ~/gh/pydevices/cmods/lv_bindings/test_lvgl_smoke.py)"
 python.exe -c "import lvgl as lv; lv.init(); lv.deinit(); print('ok')"
 ```
 
@@ -191,7 +191,7 @@ First Windows build over `\\wsl.localhost\...` can take several minutes.
 After changing `binding/`, `lv_conf.h`, or the `lvgl` submodule:
 
 ```bash
-cd ~/github/cmods/lv_bindings
+cd ~/gh/pydevices/cmods/lv_bindings
 ./regenerate_all.sh              # all three targets + commit + tag (see PUBLISHING.md)
 # or individually:
 ./regenerate_lvmp.sh             # → generated/lvgl_micropython.c

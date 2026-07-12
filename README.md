@@ -92,10 +92,12 @@ See [usdl2/README.md](usdl2/README.md) for `PKG_CONFIG_PATH`, MSYS2, and runtime
 
 ## pydisplay_android (Android APK)
 
-[`pydisplay_android`](https://github.com/PyDevices/pydisplay_android) holds python-for-android recipes, a buildozer demo APK, and desktop smoke tests for running pydisplay under CPython on Android. Clone into this workspace as `pydisplay_android/` (sibling of `usdl2/` and `pydisplay/`):
+[`pydisplay_android`](https://github.com/PyDevices/pydisplay_android) holds python-for-android recipes, a buildozer demo APK, and desktop smoke tests for running pydisplay under CPython on Android. It lives as a sibling under `~/gh/pydevices/` (not inside this cmods workspace):
 
 ```bash
+cd ~/gh/pydevices
 git clone https://github.com/PyDevices/pydisplay_android.git
+cd pydisplay_android && ./build_android.sh
 ```
 
 usdl2 keeps the ctypes FFI package and `p4a_recipes/usdl2/`; pydisplay_android provides `p4a_recipes/pydisplay/` and `p4a_recipes/lvglcpython/`. See [pydisplay Android platform notes](https://github.com/PyDevices/pydisplay/blob/main/docs/platforms/android.md).
