@@ -1,0 +1,40 @@
+---
+description: Use PyDevices' fixed emoji palette on docs, don't invent new ones
+alwaysApply: true
+---
+
+# Doc heading emoji: fixed palette only
+
+PyDevices docs use a small, fixed set of emoji as landmarks on section
+headings across repos (`pydisplay`, `cmods` and its native cmods, org
+`.github`, etc.). The canonical palette lives in
+[`.github/CONTRIBUTING.md`](https://github.com/PyDevices/.github/blob/main/CONTRIBUTING.md#doc-style-emoji)
+(local clone: `dotgithub/CONTRIBUTING.md`) — read it there rather than
+duplicating the table here, since this rule would drift out of sync
+otherwise.
+
+## When writing or editing docs
+
+- If you add a heading that matches one of the palette's meanings (getting
+  started/install/build, examples/demos, getting help, reporting bugs,
+  contributing, documentation/reference links, troubleshooting/warnings),
+  use that heading's emoji — don't leave it plain just because it's new.
+- Don't invent an eighth emoji, and don't reuse one of the seven for a
+  meaning it doesn't already have.
+- Don't add an emoji to a heading that doesn't genuinely match one of the
+  seven meanings, and don't create a new section just to have somewhere to
+  put one.
+- If a doc has several parallel/alternative headings for the same category
+  (e.g. two different "Build" methods), leave them plain rather than
+  tagging one arbitrarily — see the "rules of thumb" in
+  `.github/CONTRIBUTING.md` for why.
+- Nav/sidebar labels (e.g. `mkdocs.yml` `nav:` entries) are declared
+  separately from in-page headings in this org's docs — the emoji goes on
+  the in-page `#`/`##` heading, not into nav config.
+
+## If the palette needs to change
+
+Editing the palette itself (adding/removing an emoji, changing a meaning)
+is a real decision, not routine doc maintenance — propose it and update
+`.github/CONTRIBUTING.md` first, then re-sweep existing docs for
+consistency rather than letting old and new meanings coexist.

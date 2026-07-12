@@ -4,7 +4,7 @@ Optional workspace wrapper for building MicroPython with multiple user C modules
 
 This repo does **not** include MicroPython or any user modules — clone them into this directory, then run the build scripts. It is not required for LVGL or any other module; each module repo documents direct builds without cmods.
 
-## Quick start
+## 🚀 Quick start
 
 ```bash
 git clone https://github.com/PyDevices/cmods.git
