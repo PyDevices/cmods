@@ -19,3 +19,7 @@ cp-user-config/user_post_mpconfigport.mk
 !/scripts/**
 !/.cursor/
 !/cp-user-config/
+!/.github/
+!/.github/**
+!/web/
+!/web/**
