@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cmods — PyDevices</title>
+  <meta name="description" content="Workspace wrapper for building MicroPython, CircuitPython, and CPython with the LVGL user C modules.">
+  <link rel="icon" type="image/svg+xml" href="https://pydevices.github.io/assets/img/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="https://pydevices.github.io/assets/css/site.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="https://pydevices.github.io/">
+        <span class="logo"><img src="https://pydevices.github.io/assets/img/logo.svg" alt="" width="30" height="30"></span>
+        PyDevices
+      </a>
+      <nav class="nav">
+        <a href="https://pydevices.github.io/pydisplay/">pydisplay</a>
+        <a href="https://pydevices.github.io/lv_bindings/">lv_bindings</a>
+        <a href="https://github.com/PyDevices/cmods">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero wrap">
+    <span class="eyebrow">PyDevices / cmods</span>
+    <h1>Build the LVGL cmods across five targets, one command.</h1>
+    <p>cmods is an optional workspace wrapper that clones MicroPython/CircuitPython/CPython plus their LVGL user-C-modules as siblings, then builds and smoke-tests the whole matrix.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/PyDevices/cmods">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-1-2.6c3-.3 6-1.5 6-6.5a5 5 0 0 0-1.4-3.5 4.6 4.6 0 0 0-.1-3.5s-1.1-.3-3.5 1.3a12 12 0 0 0-6 0C6.6 1.7 5.5 2 5.5 2a4.6 4.6 0 0 0-.1 3.5A5 5 0 0 0 4 9c0 5 3 6.2 6 6.5a3.4 3.4 0 0 0-1 2.6V22"/></svg>
+        Source on GitHub
+      </a>
+      <a class="btn" href="https://pydevices.github.io/lv_bindings/">lv_bindings</a>
+    </div>
+  </section>
+
+  <main class="cards wrap">
+    <div class="section-head">
+      <h2>Build matrix</h2>
+      <span class="hint"><code>./build_all.sh</code> runs all five; <code>./build_target.sh &lt;target&gt;</code> runs one</span>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V7l8-4 8 4v10l-8 4z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg></span>
+        <h3>mp-unix</h3>
+        <p>MicroPython unix / standard. <code>./build_mp.sh --port unix --variant standard</code></p>
+      </div>
+      <div class="card">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg></span>
+        <h3>mp-windows</h3>
+        <p>MicroPython windows / standard. <code>./build_mp.sh --port windows --variant standard</code></p>
+      </div>
+      <div class="card">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3 12h3M18 12h3M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg></span>
+        <h3>cp-unix</h3>
+        <p>CircuitPython unix / coverage, via <code>lv_circuitpython_mod/build_cp.sh</code>.</p>
+      </div>
+      <div class="card">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 3 3v1a4 4 0 0 1-4 4h-1v1a4 4 0 0 1-4 4 4 4 0 0 1-4-4v-1H6a4 4 0 0 1-4-4v-1a3 3 0 0 1 3-3h1V6a4 4 0 0 1 4-4z"/></svg></span>
+        <h3>cpy-unix</h3>
+        <p>CPython on WSL/Linux. Editable install via <code>lv_cpython_mod/.venv</code>.</p>
+      </div>
+      <div class="card">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20"/></svg></span>
+        <h3>cpy-windows</h3>
+        <p>CPython on Windows, via <code>pip.exe</code> / <code>python.exe</code> (no venv). Never concurrent with cpy-unix.</p>
+      </div>
+    </div>
+
+    <div class="section-head" style="margin-top: 36px;">
+      <h2>Quick start</h2>
+    </div>
+    <div class="install-block">
+      <pre><code>git clone https://github.com/PyDevices/cmods.git
+cd cmods
+
+git clone https://github.com/micropython/micropython.git micropython
+cd micropython &amp;&amp; git submodule update --init --recursive &amp;&amp; cd ..
+
+# Optional -- only needed for LVGL
+git clone https://github.com/PyDevices/lv_micropython_cmod.git lv_micropython_cmod
+git clone https://github.com/PyDevices/lv_bindings.git lv_bindings
+cd lv_bindings &amp;&amp; git submodule update --init lvgl &amp;&amp; cd ..
+./lv_bindings/regenerate_lvmp.sh
+
+./build_mp.sh --port unix --variant standard</code></pre>
+    </div>
+
+    <div class="section-head" style="margin-top: 36px;">
+      <h2>Sibling modules</h2>
+      <span class="hint">Clone any of these as siblings inside <code>cmods/</code></span>
+    </div>
+    <ul class="linklist">
+      <li><a href="https://github.com/PyDevices/lv_micropython_cmod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_micropython_cmod — LVGL MicroPython glue</a></li>
+      <li><a href="https://github.com/PyDevices/lv_circuitpython_mod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_circuitpython_mod — LVGL CircuitPython glue</a></li>
+      <li><a href="https://github.com/PyDevices/lv_cpython_mod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_cpython_mod — native CPython <code>import lvgl</code></a></li>
+      <li><a href="https://pydevices.github.io/lv_bindings/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_bindings — the LVGL binding generator</a></li>
+      <li><a href="https://github.com/PyDevices/displayif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>displayif — native display bus/framebuffer modules</a></li>
+      <li><a href="https://github.com/PyDevices/graphics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>graphics — native FrameBuffer/Area module</a></li>
+      <li><a href="https://github.com/PyDevices/usdl2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>usdl2 — native SDL2 subset for desktop</a></li>
+    </ul>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>cmods &middot; <a href="https://github.com/PyDevices/cmods">PyDevices/cmods</a></span>
+      <span><a href="https://pydevices.github.io/">PyDevices</a></span>
+    </div>
+  </footer>
+</body>
+</html>
