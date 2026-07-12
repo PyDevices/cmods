@@ -1,0 +1,42 @@
+---
+description: Keep PyDevices.github.io/docs/github-presence.md in sync with the org's actual state
+alwaysApply: true
+---
+
+# Keep the GitHub presence doc in sync
+
+`PyDevices.github.io/docs/github-presence.md` is the reference doc for "how
+do I / where do I find X" questions about the PyDevices org. It goes stale
+fast because its claims span many sibling repos (`pydisplay`, `cmods`,
+`lv_bindings`, etc.), not just the repo it lives in.
+
+## When to update it
+
+Whenever a change you make affects a claim in that doc, update the doc as
+part of the same piece of work -- don't wait to be asked again. Triggers
+include:
+
+- Editing a `LICENSE` file in any owned repo.
+- Toggling repo settings via `gh api`/`gh repo edit` (`has_wiki`,
+  `has_issues`, `has_discussions`, topics, description, homepage).
+- Setting the org avatar, pinned repos, or other org profile settings.
+- Adding, renaming, archiving, or changing the role/Pages site of a repo.
+- Changing the shared chrome (`assets/css/site.css`,
+  `assets/js/theme-toggle.js`) in a way that changes what the doc describes.
+
+## Verify before writing a claim
+
+Don't assert org/repo state from memory or from what you *think* you just
+set -- check it, e.g. `gh api repos/PyDevices/<repo> --jq '.license,
+.has_wiki, .has_issues, .has_discussions'`. This caught a real bug once: a
+LICENSE simplification that looked like plain MIT still showed
+`NOASSERTION` on GitHub because of one extra trailing paragraph -- only
+caught by re-querying the API, not by re-reading the file.
+
+## Keep it terse
+
+Only document things someone would actually ask "how do I / where do I
+find X" about. Don't add a bullet just because a manual step was recently
+completed (e.g. "avatar: set") or because the user said they'll handle
+something without reminders -- if it's done or being handled, it doesn't
+need a standing mention in this doc.
