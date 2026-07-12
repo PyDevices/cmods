@@ -10,7 +10,8 @@
     { "name": "lvgl", "path": "lvgl" },
     { "name": "pydisplay", "path": "pydisplay" },
     { "name": "usdl2", "path": "usdl2" },
-    { "name": "pydisplay_cmods", "path": "pydisplay_cmods" },
+    { "name": "displayif", "path": "displayif" },
+    { "name": "graphics", "path": "graphics" },
     { "name": "micropython-lib", "path": "micropython-lib" }
   ],
   "settings": {

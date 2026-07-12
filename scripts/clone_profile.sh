@@ -11,7 +11,7 @@
 #   mp        micropython + LVGL MicroPython stack
 #   cp        CircuitPython LVGL stack (defers heavy submodule fetch)
 #   cpy       CPython LVGL extension
-#   display   pydisplay + usdl2 + pydisplay_cmods
+#   display   pydisplay + usdl2 + displayif
 #             (pydisplay_android lives under ~/gh/pydevices/, not inside cmods)
 #   graphics  graphics cmod (clone repo only; uses mp stack when building)
 #   mip       micropython-lib
@@ -144,7 +144,7 @@ profile_cpy() {
 profile_display() {
     clone_if_missing pydisplay https://github.com/PyDevices/pydisplay.git
     clone_if_missing usdl2 https://github.com/PyDevices/usdl2.git
-    clone_if_missing pydisplay_cmods https://github.com/PyDevices/pydisplay_cmods.git
+    clone_if_missing displayif https://github.com/PyDevices/displayif.git
 }
 
 profile_graphics() {
@@ -161,7 +161,7 @@ profile_full() {
     clone_if_missing lv_cpython_mod https://github.com/PyDevices/lv_cpython_mod.git --recurse-submodules
     clone_if_missing usdl2 https://github.com/PyDevices/usdl2.git
     clone_if_missing pydisplay https://github.com/PyDevices/pydisplay.git
-    clone_if_missing pydisplay_cmods https://github.com/PyDevices/pydisplay_cmods.git
+    clone_if_missing displayif https://github.com/PyDevices/displayif.git
     clone_if_missing micropython-lib https://github.com/PyDevices/micropython-lib.git
     profile_cp
     ensure_venv lv_cpython_mod lv_cpython_mod/requirements.txt
