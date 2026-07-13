@@ -38,7 +38,7 @@ Owned PyDevices siblings (`lv_*`, `usdl2`, `graphics`, `displayif`, …) may add
 | Target ID | Port | Build | Smoke test |
 |-----------|------|-------|------------|
 | `mp-unix` | MicroPython unix / standard | `./build_mp.sh --port unix --variant standard` | [`lv_bindings/test_lvgl_smoke.py`](lv_bindings/test_lvgl_smoke.py) |
-| `mp-windows` | MicroPython windows / standard | `./build_mp.sh --port windows --variant standard` | same script via `micropython.exe` |
+| `mp-windows` | MicroPython windows / dev | `./build_mp.sh --port windows --variant dev` | same script via `micropython.exe` |
 | `cp-unix` | CircuitPython unix / coverage | `./lv_circuitpython_mod/build_cp.sh --port unix --variant coverage` | same [`test_lvgl_smoke.py`](lv_bindings/test_lvgl_smoke.py) |
 | `cpy-unix` | CPython Unix (WSL) | `lv_cpython_mod/.venv/bin/pip install -e .` | same smoke test (`.venv/bin/python …/lv_bindings/test_lvgl_smoke.py`) |
 | `cpy-windows` | CPython Windows | `pip.exe install -e …` | `python.exe …/lv_bindings/test_lvgl_smoke.py` |
@@ -67,8 +67,8 @@ CMODS="$(pwd)"
 
 (
   cd "$CMODS" && \
-  ./build_mp.sh --port windows --variant standard && \
-  "$CMODS/micropython/ports/windows/build-standard/micropython.exe" \
+  ./build_mp.sh --port windows --variant dev && \
+  "$CMODS/micropython/ports/windows/build-dev/micropython.exe" \
     "$CMODS/lv_bindings/test_lvgl_smoke.py"
 ) &
 
@@ -108,12 +108,12 @@ Script: `./build_mp.sh`
 | Port | Variant | Notes |
 |------|---------|--------|
 | `unix` | `standard` | Default desktop smoke-test port |
-| `windows` | `standard` | `os.dupterm` is **off by default** (enabling it fails at link with `mp_interrupt_char`); pass `--os-dupterm` or `OS_DUPTERM=1` to force |
+| `windows` | `dev` (matrix) / `standard` | `build_target`/`build_all` use **`dev`**. `os.dupterm` is **off by default** (enabling it fails at link with `mp_interrupt_char`); pass `--os-dupterm` or `OS_DUPTERM=1` to force |
 
 Outputs:
 
 - Unix: `micropython/ports/unix/build-standard/micropython`
-- Windows: `micropython/ports/windows/build-standard/micropython.exe`
+- Windows (matrix): `micropython/ports/windows/build-dev/micropython.exe`
 
 WSL can run the Windows `.exe` directly for tests.
 
@@ -127,7 +127,7 @@ Script: `lv_micropython_cmod/test_lvgl_unix.py` (port-agnostic, headless display
   ./lv_bindings/test_lvgl_smoke.py
 
 # Windows (from WSL)
-./micropython/ports/windows/build-standard/micropython.exe \
+./micropython/ports/windows/build-dev/micropython.exe \
   ./lv_bindings/test_lvgl_smoke.py
 ```
 

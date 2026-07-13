@@ -6,7 +6,7 @@
 #
 # Targets:
 #   mp-unix      MicroPython unix / standard
-#   mp-windows   MicroPython windows / standard
+#   mp-windows   MicroPython windows / dev
 #   cp-unix      CircuitPython unix / coverage
 #   cpy-unix     CPython WSL (.venv)
 #   cpy-windows  CPython Windows (pip.exe / python.exe)
@@ -27,7 +27,7 @@ SYNC_LVPY="${SYNC_LVPY:-1}"
 
 SMOKE_TEST="$LV_BINDINGS_DIR/test_lvgl_smoke.py"
 MP_UNIX="$CMODS/micropython/ports/unix/build-standard/micropython"
-MP_WIN="$CMODS/micropython/ports/windows/build-standard/micropython.exe"
+MP_WIN="$CMODS/micropython/ports/windows/build-dev/micropython.exe"
 CP_UNIX="$CMODS/circuitpython/ports/unix/build-coverage/micropython"
 CPY_MOD="$CMODS/lv_cpython_mod"
 CPY_LOCK="$CPY_MOD/.build.lock"
@@ -130,7 +130,7 @@ build_mp_unix() {
 
 build_mp_windows() {
     cd "$CMODS"
-    ./build_mp.sh --port windows --variant standard
+    ./build_mp.sh --port windows --variant dev
     smoke_mp_windows
 }
 
