@@ -1,14 +1,16 @@
 ---
-description: Keep PyDevices.github.io/docs/github-presence.md in sync with the org's actual state
+description: Keep dotgithub/github-presence.md in sync with the org's actual state
 alwaysApply: true
 ---
 
 # Keep the GitHub presence doc in sync
 
-`PyDevices.github.io/docs/github-presence.md` is the reference doc for "how
-do I / where do I find X" questions about the PyDevices org. It goes stale
-fast because its claims span many sibling repos (`pydisplay`, `cmods`,
-`lv_bindings`, etc.), not just the repo it lives in.
+`dotgithub/github-presence.md` (repo
+[PyDevices/.github](https://github.com/PyDevices/.github), local clone
+`dotgithub/`) is the reference doc for "how do I / where do I find X"
+questions about the PyDevices org. It goes stale fast because its claims
+span many sibling repos (`pydisplay`, `cmods`, `lv_bindings`, etc.), not
+just the repo it lives in.
 
 ## When to update it
 
