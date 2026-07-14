@@ -62,16 +62,8 @@ clone_if_missing() {
 
 sync_lvgl_pin() {
     [[ -d lv_bindings/.git ]] || return 0
-    git -C lv_bindings submodule update --init lvgl
-    local lvgl_pin
-    lvgl_pin=$(git -C lv_bindings submodule status lvgl | awk '{print $1}' | tr -d '+-')
-    [[ -n "$lvgl_pin" ]] || return 0
-
-    if [[ -d lvgl/.git ]]; then
-        log "checking out lvgl @ $lvgl_pin"
-        git -C lvgl fetch --tags origin
-        git -C lvgl checkout --detach "$lvgl_pin"
-    fi
+    log "initializing lv_bindings/lvgl submodule"
+    git -C lv_bindings submodule update --init --depth 1 lvgl
 }
 
 ensure_venv() {
@@ -115,8 +107,6 @@ profile_mp() {
     profile_bindings
     clone_if_missing lv_micropython_cmod https://github.com/PyDevices/lv_micropython_cmod.git
     clone_if_missing micropython https://github.com/micropython/micropython.git
-    clone_if_missing lvgl https://github.com/lvgl/lvgl.git
-    sync_lvgl_pin
     log "initializing micropython submodules"
     git -C micropython submodule update --init --recursive
 }
