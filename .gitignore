@@ -21,8 +21,6 @@ cp-user-config/user_post_mpconfigport.mk
 /micropython
 /circuitpython
 /lvgl
-# Agent-delivered cross-repo patch bundles (not upstream clones)
-!/patches/
 # Workspace tooling (not upstream clones)
 !/scripts/
 !/scripts/**
