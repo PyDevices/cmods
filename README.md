@@ -100,7 +100,7 @@ git clone https://github.com/PyDevices/pydisplay_android.git
 cd pydisplay_android && ./build_android.sh
 ```
 
-usdl2 keeps the ctypes FFI package and `p4a_recipes/usdl2/`; pydisplay_android provides `p4a_recipes/pydisplay/` and `p4a_recipes/lvglcpython/`. See [pydisplay Android platform notes](https://github.com/PyDevices/pydisplay/blob/main/docs/platforms/android.md).
+Runtime packages (including `usdl2`) come from TestPyPI via pydisplay_android’s `p4a_recipes/`. See [pydisplay Android platform notes](https://github.com/PyDevices/pydisplay/blob/main/docs/platforms/android.md).
 
 **CircuitPython** (requires patch script; see [lv_circuitpython_mod README](lv_circuitpython_mod/README.md) for CP clone setup):
 
