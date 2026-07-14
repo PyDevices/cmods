@@ -1,4 +1,4 @@
 {
-  "install": "bash scripts/cloud_agent_setup.sh install",
-  "start": "bash scripts/cloud_agent_setup.sh start"
+  "install": "true",
+  "start": "true"
 }

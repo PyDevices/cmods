@@ -77,7 +77,7 @@ ensure_venv() {
 
     if ! python3 -c 'import ensurepip' 2>/dev/null; then
         echo "clone_profile: python3-venv is not installed (broken or missing ensurepip)." >&2
-        echo "  Cloud VM: run ensure_system_deps in cloud_agent_setup.sh or apt install python3-venv" >&2
+        echo "  Install: apt install python3-venv (or python3 -m venv after fixing ensurepip)" >&2
         echo "  Skipping venv for $dir; LVGL generator / pip builds will not work until fixed." >&2
         return 0
     fi
