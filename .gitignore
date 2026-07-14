@@ -10,6 +10,17 @@ cp-user-config/user_post_mpconfigport.mk
 
 # All cloned repos/directories at workspace root (micropython, user_cmodules, etc.)
 /*/
+# Local multi-repo symlinks (gh/pydevices layout — not committed)
+/displayif
+/graphics
+/lv_bindings
+/lv_circuitpython_mod
+/lv_cpython_mod
+/lv_micropython_cmod
+/usdl2
+/micropython
+/circuitpython
+/lvgl
 # Agent-delivered cross-repo patch bundles (not upstream clones)
 !/patches/
 # Workspace tooling (not upstream clones)
