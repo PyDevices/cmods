@@ -10,6 +10,7 @@
     "github.com/PyDevices/lv_circuitpython_mod",
     "github.com/PyDevices/lv_cpython_mod",
     "github.com/PyDevices/lv_micropython_cmod",
+    "github.com/PyDevices/pdwidgets",
     "github.com/PyDevices/pydisplay",
     "github.com/PyDevices/pydisplay_android",
     "github.com/PyDevices/PyDevices.github.io",
