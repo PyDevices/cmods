@@ -17,7 +17,7 @@ The MicroPython config wires:
 
 - **720×720** ST7703 via `mipidsi.Bus` / `mipidsi.Display` ([displayif](https://github.com/PyDevices/displayif) on ESP32-P4)
 - Full **ST7703 init sequence** from the Waveshare BSP
-- **GT911** touch on I2C (SCL=8, SDA=7) with an `eventsys` touch broker
+- **GT911** touch on I2C (SCL=8, SDA=7) with an `eventsys.Runtime`
 
 This is **not** stock MicroPython — you need firmware built with the displayif `mipidsi` cmod.
 
@@ -104,7 +104,7 @@ mpremote run displayif/tests/test_mipidsi_smoke.py
 ### Quick draw test
 
 ```python
-from board_config import display_drv, broker
+from board_config import display_drv, runtime
 
 display_drv.fill_rect(0, 0, 200, 200, 0xF800)  # red block
 display_drv.show()
@@ -128,12 +128,10 @@ If you mounted pydisplay’s `src/` tree: `import lib.path` first when needed, t
 ### Touch check
 
 ```python
-from board_config import broker
-from eventsys import poll_quit_discarding_others
+from board_config import runtime
 
-while True:
-    e = poll_quit_discarding_others(broker)
-    if e:
+while not runtime.quit_requested:
+    for e in runtime.poll():
         print(e)
 ```
 
