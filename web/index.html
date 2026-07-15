@@ -5,7 +5,7 @@
   <script>try{if(localStorage.getItem('pydevices-theme')==='light'){document.documentElement.setAttribute('data-theme','light');}}catch(e){}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>cmods — PyDevices</title>
-  <meta name="description" content="Workspace wrapper for building MicroPython, CircuitPython, and CPython with the LVGL user C modules.">
+  <meta name="description" content="Optional workspace for building MicroPython, CircuitPython, and CPython with PyDevices user C modules and LVGL.">
   <link rel="icon" type="image/svg+xml" href="https://pydevices.github.io/assets/img/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,17 +33,18 @@
   </header>
 
   <section class="hero wrap">
-    <div class="logo-badge"><img src="https://pydevices.github.io/assets/img/logo.svg" alt="PyDevices logo" width="112" height="112"></div>
+    <div class="logo-badge product-mark"><img src="https://pydevices.github.io/assets/img/products/cmods.svg" alt="cmods" width="112" height="112"></div>
     <span class="eyebrow">PyDevices / cmods</span>
-    <h1>Build the LVGL cmods across five targets, one command.</h1>
-    <p>cmods is the optional workspace that pulls MicroPython, CircuitPython, and the PyDevices native modules together as siblings, then builds and smoke-tests them as one matrix. Instead of hand-rolling five separate firmware trees, you clone the workspace once and drive every target with the same scripts — from unix MicroPython to Windows CPython.</p>
-    <p>The point is confidence across the stack: after you change a binding, a cmod, or a generator pin, <code>./build_all.sh</code> (or a single <code>./build_target.sh</code>) proves the LVGL and graphics natives still compile and import cleanly. Use it when you care about parity; skip it when you only need one module in isolation.</p>
+    <h1>cmods</h1>
+    <p>Optional workspace wrapper for building MicroPython with multiple user C modules — and for smoke-testing LVGL across five runtimes. This repo does not include MicroPython or the modules themselves; clone them as siblings, then drive builds with <code>./build_mp.sh</code>, <code>./build_target.sh</code>, or <code>./build_all.sh</code>.</p>
+    <p>It is not required for LVGL or any other module — each module repo documents a direct build. Use cmods when you want parity confidence after changing a binding, a cmod, or a generator pin.</p>
     <div class="cta">
       <a class="btn primary" href="https://github.com/PyDevices/cmods">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-1-2.6c3-.3 6-1.5 6-6.5a5 5 0 0 0-1.4-3.5 4.6 4.6 0 0 0-.1-3.5s-1.1-.3-3.5 1.3a12 12 0 0 0-6 0C6.6 1.7 5.5 2 5.5 2a4.6 4.6 0 0 0-.1 3.5A5 5 0 0 0 4 9c0 5 3 6.2 6 6.5a3.4 3.4 0 0 0-1 2.6V22"/></svg>
         Source on GitHub
       </a>
       <a class="btn" href="https://pydevices.github.io/lv_bindings/">lv_bindings</a>
+      <a class="btn" href="https://github.com/PyDevices/cmods/blob/main/MP_EXAMPLE.md">Hardware example</a>
     </div>
   </section>
 
@@ -61,7 +62,7 @@
       <div class="card">
         <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg></span>
         <h3>mp-windows</h3>
-        <p>MicroPython windows / standard. <code>./build_mp.sh --port windows --variant standard</code></p>
+        <p>MicroPython windows / <strong>dev</strong>. <code>./build_mp.sh --port windows --variant dev</code></p>
       </div>
       <div class="card">
         <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3 12h3M18 12h3M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg></span>
@@ -76,12 +77,13 @@
       <div class="card">
         <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20"/></svg></span>
         <h3>cpy-windows</h3>
-        <p>CPython on Windows, via <code>pip.exe</code> / <code>python.exe</code> (no venv). Never concurrent with cpy-unix.</p>
+        <p>CPython on Windows via <code>pip.exe</code> / <code>python.exe</code> (no venv). Never concurrent with cpy-unix.</p>
       </div>
     </div>
 
     <div class="section-head" style="margin-top: 36px;">
       <h2>Quick start</h2>
+      <span class="hint">LVGL steps are optional — clone other usermods as siblings instead</span>
     </div>
     <div class="install-block">
       <pre><code>git clone https://github.com/PyDevices/cmods.git
@@ -90,27 +92,32 @@ cd cmods
 git clone https://github.com/micropython/micropython.git micropython
 cd micropython &amp;&amp; git submodule update --init --recursive &amp;&amp; cd ..
 
-# Optional -- only needed for LVGL
+# Optional — only needed for LVGL
 git clone https://github.com/PyDevices/lv_micropython_cmod.git lv_micropython_cmod
 git clone https://github.com/PyDevices/lv_bindings.git lv_bindings
 cd lv_bindings &amp;&amp; git submodule update --init lvgl &amp;&amp; cd ..
 ./lv_bindings/regenerate_lvmp.sh
 
-./build_mp.sh --port unix --variant standard</code></pre>
+./build_mp.sh --port unix --variant standard
+# Full LVGL matrix:
+./build_all.sh</code></pre>
     </div>
 
     <div class="section-head" style="margin-top: 36px;">
       <h2>Sibling modules</h2>
-      <span class="hint">Clone any of these as siblings inside <code>cmods/</code></span>
+      <span class="hint">Clone as siblings inside <code>cmods/</code> (pydisplay_android lives beside the workspace)</span>
     </div>
     <ul class="linklist">
-      <li><a href="https://github.com/PyDevices/lv_micropython_cmod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_micropython_cmod — LVGL MicroPython glue</a></li>
-      <li><a href="https://github.com/PyDevices/lv_circuitpython_mod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_circuitpython_mod — LVGL CircuitPython glue</a></li>
-      <li><a href="https://github.com/PyDevices/lv_cpython_mod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_cpython_mod — native CPython <code>import lvgl</code></a></li>
-      <li><a href="https://pydevices.github.io/lv_bindings/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_bindings — the LVGL binding generator</a></li>
-      <li><a href="https://github.com/PyDevices/displayif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>displayif — native display bus/framebuffer modules</a></li>
-      <li><a href="https://github.com/PyDevices/graphics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>graphics — native FrameBuffer/Area module</a></li>
-      <li><a href="https://github.com/PyDevices/usdl2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>usdl2 — native SDL2 subset for desktop</a></li>
+      <li><a href="https://pydevices.github.io/displayif/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>displayif — native display bus / framebuffer</a></li>
+      <li><a href="https://pydevices.github.io/graphics/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>graphics — native FrameBuffer / Area</a></li>
+      <li><a href="https://pydevices.github.io/usdl2/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>usdl2 — native SDL2 subset</a></li>
+      <li><a href="https://pydevices.github.io/lv_bindings/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_bindings — LVGL binding generator</a></li>
+      <li><a href="https://pydevices.github.io/lv_micropython_cmod/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_micropython_cmod — LVGL MicroPython glue</a></li>
+      <li><a href="https://pydevices.github.io/lv_circuitpython_mod/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_circuitpython_mod — LVGL CircuitPython glue</a></li>
+      <li><a href="https://pydevices.github.io/lv_cpython_mod/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>lv_cpython_mod — native CPython <code>import lvgl</code></a></li>
+      <li><a href="https://pydevices.github.io/pydisplay_android/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>pydisplay_android — Android APK path (sibling of workspace)</a></li>
+      <li><a href="https://pydevices.github.io/pydisplay/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>pydisplay</a></li>
+      <li><a href="https://github.com/PyDevices/cmods/blob/main/MP_EXAMPLE.md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>MP_EXAMPLE.md — ESP32-P4 display + touch bring-up</a></li>
     </ul>
   </main>
 
