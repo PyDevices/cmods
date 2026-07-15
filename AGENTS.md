@@ -97,6 +97,31 @@ python.exe "$(wslpath -w "$CMODS/lv_bindings/test_lvgl_smoke.py")"
 
 ---
 
+## Pydisplay runtimes (`build_pydisplay_runtimes.sh`)
+
+Builds the interpreters pydisplay’s example matrix / PyScript vendor use, then
+installs them (does **not** replace `build_all.sh` — that is the LVGL smoke matrix).
+
+```bash
+./build_pydisplay_runtimes.sh
+./build_pydisplay_runtimes.sh --only mp-unix,mp-wasm
+./build_pydisplay_runtimes.sh --install-only   # copy existing build outputs
+```
+
+| Target | Build | Install |
+|--------|-------|---------|
+| `mp-unix` | `./build_mp.sh --port unix --variant standard` | `../pydisplay/bin/micropython` |
+| `mp-windows` | `./build_mp.sh --port windows --variant dev` | `../pydisplay/bin/micropython.exe` |
+| `mp-wasm` | `./build_mp.sh --port webassembly --variant pyscript` | `../pydisplay/web/pyscript/vendor/micropython/` (`.mjs` + `.wasm`) |
+| `cp-unix` | `./lv_circuitpython_mod/build_cp.sh --port unix --variant coverage` | `../pydisplay/bin/circuitpython` (renamed from build `micropython`) |
+
+**When to run:** after changing any usermod or freeze/config that is compiled into
+these binaries (`graphics`, `usdl2`, `lv_micropython_cmod`, `lv_circuitpython_mod`
+/ regenerated `lv_bindings`, `displayif` when present, `manifest.py` freeze trees,
+or related port patches). Override install root with `PYDISPLAY_DIR` if needed.
+
+---
+
 ## MicroPython (`build_mp.sh`)
 
 Script: `./build_mp.sh`

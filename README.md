@@ -82,8 +82,8 @@ sudo apt install libsdl2-dev   # Debian/Ubuntu — unix port only
 
 ```bash
 # Download SDL2-devel-*-mingw.zip from https://github.com/libsdl-org/SDL/releases
-# Unpack outside the repo, e.g. ~/SDL2-2.30.10
-export SDL2_DEV=~/SDL2-2.30.10
+# Unpack beside emsdk, e.g. ../../other/SDL2-2.30.10 from this repo
+export SDL2_DEV=../../other/SDL2-2.30.10
 sudo apt install gcc-mingw-w64   # cross-build from Linux/WSL
 ./build_mp.sh --port windows --variant standard
 ```

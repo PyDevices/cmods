@@ -19,6 +19,7 @@
 # enable it in mpconfigport.h already).
 #
 # webassembly: sources EMSDK_DIR/emsdk_env.sh (like esp32 + IDF_DIR/export.sh).
+# Default EMSDK_DIR is $WORKSPACE_DIR/../../other/emsdk (gh/other/emsdk).
 # LVGL user modules set -Wno-unused-function in CFLAGS_USERMOD, but the
 # webassembly port appends -Werror after py.mk merges user-module flags; emcc
 # then treats unused static inlines in generated lvgl_micropython.c as errors. The local
@@ -32,7 +33,7 @@ WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 MP_DIR="${MP_DIR:-$WORKSPACE_DIR/micropython}"
 USER_C_MODULES="${USER_C_MODULES:-$WORKSPACE_DIR}"
 IDF_DIR="${IDF_DIR:-$WORKSPACE_DIR/../esp-idf}"
-EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/../emsdk}"
+EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/../../other/emsdk}"
 
 # Track explicit FROZEN_MANIFEST before applying a default.
 FROZEN_MANIFEST_EXPLICIT=0
@@ -82,7 +83,7 @@ Environment:
   WORKSPACE_DIR      cmods workspace root (default: script directory)
   MP_DIR             MicroPython tree (default: \$WORKSPACE_DIR/micropython)
   IDF_DIR            ESP-IDF install for esp32 (default: \$WORKSPACE_DIR/../esp-idf)
-  EMSDK_DIR          Emscripten SDK for webassembly (default: \$WORKSPACE_DIR/../emsdk)
+  EMSDK_DIR          Emscripten SDK for webassembly (default: \$WORKSPACE_DIR/../../other/emsdk)
   USER_C_MODULES     Path passed to make (default: \$WORKSPACE_DIR)
   FROZEN_MANIFEST    Top-level frozen manifest (default: \$WORKSPACE_DIR/manifest.py)
   FROZEN_MANIFEST_UPSTREAM  Set by this script to the MicroPython upstream freeze
@@ -208,10 +209,18 @@ resolve_upstream_frozen_manifest() {
 
 find_sdl2_dev_root() {
     local candidate triplet="${1:-x86_64-w64-mingw32}"
-    for candidate in "${SDL2_DEV:-}" "$HOME"/SDL2-[0-9]* "$HOME"/SDL2; do
+    local other_dir="$WORKSPACE_DIR/../../other"
+    local -a candidates=()
+    [[ -n "${SDL2_DEV:-}" ]] && candidates+=("$SDL2_DEV")
+    shopt -s nullglob
+    candidates+=("$other_dir"/SDL2-[0-9]*)
+    shopt -u nullglob
+    [[ -d "$other_dir/SDL2" ]] && candidates+=("$other_dir/SDL2")
+    for candidate in "${candidates[@]}"; do
         [[ -n "$candidate" && -d "$candidate" ]] || continue
         if [[ -f "$candidate/$triplet/include/SDL2/SDL.h" && -f "$candidate/$triplet/lib/libSDL2.a" ]]; then
-            echo "$candidate"
+            # Canonicalize so make sees an absolute path.
+            (cd "$candidate" && pwd)
             return 0
         fi
     done
@@ -232,8 +241,8 @@ ensure_windows_sdl2_env() {
             echo "Auto-detected SDL2_DEV=$SDL2_DEV (triplet $triplet)"
         else
             echo "Windows port + usdl2 requires the SDL2 MinGW development ZIP." >&2
-            echo "Unpack it (e.g. to ~/SDL2-2.30.10) and run:" >&2
-            echo "  export SDL2_DEV=~/SDL2-2.30.10" >&2
+            echo "Unpack it (e.g. to \$WORKSPACE_DIR/../../other/SDL2-2.30.10) and run:" >&2
+            echo "  export SDL2_DEV=\$WORKSPACE_DIR/../../other/SDL2-2.30.10" >&2
             echo "See usdl2/README.md" >&2
             exit 1
         fi
@@ -450,7 +459,7 @@ ensure_emsdk_env() {
     local emsdk_env="$EMSDK_DIR/emsdk_env.sh"
     [[ -f "$emsdk_env" ]] || {
         echo "Emscripten emsdk_env.sh not found: $emsdk_env" >&2
-        echo "Set EMSDK_DIR or install emsdk beside the workspace." >&2
+        echo "Set EMSDK_DIR (default: \$WORKSPACE_DIR/../../other/emsdk)." >&2
         exit 1
     }
 
