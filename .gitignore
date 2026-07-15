@@ -25,6 +25,9 @@ cp-user-config/user_post_mpconfigport.mk
 !/scripts/
 !/scripts/**
 !/.cursor/
+# Cursor IDE throwaways (rules/environment.json stay trackable)
+.cursor/debug*
+.cursor/plans/
 !/cp-user-config/
 !/.github/
 !/.github/**
