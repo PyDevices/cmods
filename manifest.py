@@ -5,7 +5,15 @@
 # MicroPython would have selected (most-specific variant/board/port file).
 # This static file includes that path so no generated wrapper is needed.
 #
-# Optional local overrides: ``my-manifest.py`` (gitignored).
+# Optional local overrides: ``my-manifest.py`` (gitignored). Use ``package()`` to
+# freeze a tree; paths are relative to the current (workspace) directory. The
+# first argument is the import name; that name must be a folder under
+# ``base_path``. Example::
+#
+#     package("pdwidgets", base_path="../pdwidgets/src", opt=3)
+#
+# freezes ``../pdwidgets/src/pdwidgets/`` as importable ``pdwidgets`` (not
+# ``src``).
 
 import os
 
