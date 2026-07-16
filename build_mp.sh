@@ -471,6 +471,13 @@ ensure_emsdk_env() {
     fi
 }
 
+ensure_host_mpy_cross() {
+    # Port make rebuilds mpy-cross via py/mkrules.mk with only USER_C_MODULES=
+    # cleared. GNU make still forwards FROZEN_MANIFEST from our command line,
+    # so a fresh tree links mpy-cross with frozen qstr flags but no frozen pool.
+    make -C "$MP_DIR/mpy-cross" USER_C_MODULES= FROZEN_MANIFEST=
+}
+
 make_target_args() {
     local -a args=(
         USER_C_MODULES="$USER_C_MODULES"
@@ -720,6 +727,7 @@ ensure_idf_env
 esp32_displayif_preflight
 ensure_emsdk_env
 ensure_rp2_picotool
+ensure_host_mpy_cross
 
 echo "Building: port=$PORT${BOARD:+ board=$BOARD}${VARIANT:+ variant=$VARIANT}"
 echo
