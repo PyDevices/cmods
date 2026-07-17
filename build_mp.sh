@@ -32,7 +32,7 @@ BUILD_MP="${BUILD_MP:-$SCRIPT_DIR/build_mp.sh}"
 WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 MP_DIR="${MP_DIR:-$WORKSPACE_DIR/micropython}"
 USER_C_MODULES="${USER_C_MODULES:-$WORKSPACE_DIR}"
-IDF_DIR="${IDF_DIR:-$WORKSPACE_DIR/../esp-idf}"
+IDF_DIR="${IDF_DIR:-$WORKSPACE_DIR/../../other/esp-idf}"
 EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/../../other/emsdk}"
 
 # Track explicit FROZEN_MANIFEST before applying a default.
@@ -82,7 +82,7 @@ Options:
 Environment:
   WORKSPACE_DIR      cmods workspace root (default: script directory)
   MP_DIR             MicroPython tree (default: \$WORKSPACE_DIR/micropython)
-  IDF_DIR            ESP-IDF install for esp32 (default: \$WORKSPACE_DIR/../esp-idf)
+  IDF_DIR            ESP-IDF install for esp32 (default: \$WORKSPACE_DIR/../../other/esp-idf)
   EMSDK_DIR          Emscripten SDK for webassembly (default: \$WORKSPACE_DIR/../../other/emsdk)
   USER_C_MODULES     Path passed to make (default: \$WORKSPACE_DIR)
   FROZEN_MANIFEST    Top-level frozen manifest (default: \$WORKSPACE_DIR/manifest.py)
@@ -285,7 +285,7 @@ ensure_idf_env() {
     local idf_export="$IDF_DIR/export.sh"
     [[ -f "$idf_export" ]] || {
         echo "ESP-IDF export script not found: $idf_export" >&2
-        echo "Set IDF_DIR or clone ESP-IDF beside the workspace." >&2
+        echo "Set IDF_DIR or clone ESP-IDF under \$WORKSPACE_DIR/../../other/esp-idf." >&2
         exit 1
     }
 
