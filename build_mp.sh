@@ -5,12 +5,15 @@
 #   ./build_mp.sh [--port PORT] [--board BOARD] [--variant VARIANT]
 #
 # Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, EMSDK_DIR, PORT, BOARD, VARIANT,
-#              USER_C_MODULES, FROZEN_MANIFEST, OS_DUPTERM, OS_DUPTERM_SLOTS
+#              OS_DUPTERM, OS_DUPTERM_SLOTS
+#
+# USER_C_MODULES and FROZEN_MANIFEST are always cleared at startup so a prior
+# shell export cannot stick across port/board/variant builds. They then default
+# to \$WORKSPACE_DIR and \$WORKSPACE_DIR/manifest.py.
 #
 # FROZEN_MANIFEST defaults to this repo's manifest.py. build_mp.sh also exports
 # FROZEN_MANIFEST_UPSTREAM to the MicroPython freeze file for the selected
 # port/board/variant; manifest.py includes that path (no generated wrapper).
-# Set FROZEN_MANIFEST explicitly to use a different top-level manifest.
 #
 # OS_DUPTERM defaults to 1 on unix and webassembly; the windows port disables it
 # by default (link fails with undefined mp_interrupt_char). Set OS_DUPTERM=1 or
@@ -27,21 +30,19 @@
 # after -Werror so it takes effect.
 set -euo pipefail
 
+# Drop inherited overrides every run (all ports/boards/variants). Stale exports
+# from a previous slim/custom build must not affect this invocation.
+unset USER_C_MODULES FROZEN_MANIFEST
+
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 BUILD_MP="${BUILD_MP:-$SCRIPT_DIR/build_mp.sh}"
 WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 MP_DIR="${MP_DIR:-$WORKSPACE_DIR/micropython}"
-USER_C_MODULES="${USER_C_MODULES:-$WORKSPACE_DIR}"
+USER_C_MODULES="$WORKSPACE_DIR"
 IDF_DIR="${IDF_DIR:-$WORKSPACE_DIR/../../other/esp-idf}"
 EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/../../other/emsdk}"
-
-# Track explicit FROZEN_MANIFEST before applying a default.
+FROZEN_MANIFEST="$WORKSPACE_DIR/manifest.py"
 FROZEN_MANIFEST_EXPLICIT=0
-if [[ -v FROZEN_MANIFEST ]]; then
-    FROZEN_MANIFEST_EXPLICIT=1
-else
-    FROZEN_MANIFEST="$WORKSPACE_DIR/manifest.py"
-fi
 
 PORT="${PORT:-}"
 BOARD="${BOARD:-}"
@@ -84,8 +85,8 @@ Environment:
   MP_DIR             MicroPython tree (default: \$WORKSPACE_DIR/micropython)
   IDF_DIR            ESP-IDF install for esp32 (default: \$WORKSPACE_DIR/../../other/esp-idf)
   EMSDK_DIR          Emscripten SDK for webassembly (default: \$WORKSPACE_DIR/../../other/emsdk)
-  USER_C_MODULES     Path passed to make (default: \$WORKSPACE_DIR)
-  FROZEN_MANIFEST    Top-level frozen manifest (default: \$WORKSPACE_DIR/manifest.py)
+  USER_C_MODULES     Always \$WORKSPACE_DIR (inherited env is unset at startup)
+  FROZEN_MANIFEST    Always \$WORKSPACE_DIR/manifest.py (inherited env is unset)
   FROZEN_MANIFEST_UPSTREAM  Set by this script to the MicroPython upstream freeze
                      file for the selected port/board/variant (read by manifest.py)
   PORT, BOARD, VARIANT  Same as the corresponding options
@@ -301,18 +302,14 @@ esp32_displayif_preflight() {
     [[ "$PORT" == esp32 ]] || return 0
     [[ -d "$WORKSPACE_DIR/displayif" ]] || return 0
 
-    local board_dir sdkconfig board_defaults merged
+    local board_dir sdkconfig candidates c
     board_dir="$PORT_DIR/boards/$BOARD"
-    sdkconfig="$PORT_DIR/build-$BOARD/sdkconfig"
-    board_defaults="$board_dir/sdkconfig.board"
-
-  if [[ -f "$board_defaults" ]]; then
-      merged="$board_defaults"
-  elif [[ -f "$board_dir/sdkconfig.defaults" ]]; then
-      merged="$board_dir/sdkconfig.defaults"
-  else
-      merged=""
-  fi
+    # Variant builds land in build-$BOARD-$VARIANT/; plain boards use build-$BOARD/.
+    if [[ -n "${VARIANT:-}" && -f "$PORT_DIR/build-$BOARD-$VARIANT/sdkconfig" ]]; then
+        sdkconfig="$PORT_DIR/build-$BOARD-$VARIANT/sdkconfig"
+    else
+        sdkconfig="$PORT_DIR/build-$BOARD/sdkconfig"
+    fi
 
   local needs_psram=0
   case "${BOARD:-}" in
@@ -323,22 +320,36 @@ esp32_displayif_preflight() {
       return 0
   fi
 
-  local spiram_ok=0
-  if [[ -f "$sdkconfig" ]] && grep -qE '^CONFIG_SPIRAM=y' "$sdkconfig" 2>/dev/null; then
-      spiram_ok=1
-  elif [[ -n "$merged" ]] && grep -qE '^CONFIG_SPIRAM=y' "$merged" 2>/dev/null; then
-      spiram_ok=1
-  fi
+  # Board-local defaults, then MicroPython shared targets (P4 SPIRAM lives in
+  # boards/sdkconfig.p4, not ESP32_GENERIC_P4/sdkconfig.board).
+  candidates=()
+  [[ -f "$sdkconfig" ]] && candidates+=("$sdkconfig")
+  [[ -f "$board_dir/sdkconfig.board" ]] && candidates+=("$board_dir/sdkconfig.board")
+  [[ -f "$board_dir/sdkconfig.defaults" ]] && candidates+=("$board_dir/sdkconfig.defaults")
+  case "${BOARD:-}" in
+      ESP32_GENERIC_P4|*P4*)
+          [[ -f "$PORT_DIR/boards/sdkconfig.p4" ]] && candidates+=("$PORT_DIR/boards/sdkconfig.p4")
+          ;;
+      ESP32_GENERIC_S3|*S3*)
+          for c in sdkconfig.spiram_oct sdkconfig.spiram_quad sdkconfig.spiram; do
+              [[ -f "$PORT_DIR/boards/$c" ]] && candidates+=("$PORT_DIR/boards/$c")
+          done
+          ;;
+  esac
 
-  if [[ $spiram_ok -eq 1 ]]; then
-      echo "displayif preflight: CONFIG_SPIRAM enabled for $BOARD"
-      return 0
-  fi
+  local spiram_ok=0
+  for c in "${candidates[@]}"; do
+      if grep -qE '^CONFIG_SPIRAM=y' "$c" 2>/dev/null; then
+          spiram_ok=1
+          echo "displayif preflight: CONFIG_SPIRAM enabled for $BOARD ($c)"
+          return 0
+      fi
+  done
 
   echo "warning: displayif large framebuffers (rgbframebuffer, mipidsi) expect PSRAM on $BOARD." >&2
   echo "  Enable CONFIG_SPIRAM in the board sdkconfig / menuconfig before building with displayif." >&2
-  if [[ -n "$merged" ]]; then
-      echo "  Checked: $merged" >&2
+  if [[ ${#candidates[@]} -gt 0 ]]; then
+      echo "  Checked: ${candidates[*]}" >&2
   fi
   if [[ ! -t 0 ]]; then
       echo "  Non-interactive build continuing (set DISPLAYIF_SKIP_SPIRAM_CHECK=1 to silence)." >&2
