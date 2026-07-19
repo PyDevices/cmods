@@ -19,9 +19,11 @@ import os
 
 _SKIP = frozenset()
 
+# Optional personal overrides. Missing file is fine; errors inside the file
+# must surface (a broad except was silently dropping bad paths).
 try:
     include("my-manifest.py")
-except Exception:
+except OSError:
     pass
 
 for _name in sorted(os.listdir(".")):
