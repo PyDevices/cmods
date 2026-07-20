@@ -20,6 +20,9 @@ cp-user-config/user_post_mpconfigport.mk
 /usdl2
 /micropython
 /circuitpython
+/emsdk
+/esp-idf
+/SDL2-*
 /lvgl
 # Workspace tooling (not upstream clones)
 !/scripts/
