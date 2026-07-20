@@ -169,6 +169,9 @@ cd lv_circuitpython_mod
 
 Uses `lv_circuitpython_mod/.venv` for CircuitPython build tooling (created automatically).
 
+Espressif / Qualia + LVGL build-and-flash lessons (partitions, TinyUF2, WSL COM ports):
+[`lv_circuitpython_mod/BUILD_AND_FLASH.md`](lv_circuitpython_mod/BUILD_AND_FLASH.md).
+
 Output: `circuitpython/ports/unix/build-coverage/micropython`
 
 ### CircuitPython smoke test
