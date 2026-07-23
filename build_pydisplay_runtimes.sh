@@ -4,6 +4,7 @@
 # Targets:
 #   mp-unix     MicroPython unix / standard  → pydisplay/bin/micropython
 #   mp-windows  MicroPython windows / dev    → pydisplay/bin/micropython.exe
+#               and $MP_WINDOWS_INSTALL_DIR/micropython.exe (unless unset empty)
 #   mp-wasm     MicroPython webassembly / pyscript
 #               → pydisplay/web/pyscript/vendor/micropython/{micropython.mjs,micropython.wasm}
 #   cp-unix     CircuitPython unix / coverage → pydisplay/bin/circuitpython
@@ -15,9 +16,12 @@
 #   ./build_pydisplay_runtimes.sh --only mp-unix,mp-wasm
 #
 # Environment:
-#   CMODS           Workspace root (default: directory containing this script)
-#   PYDISPLAY_DIR   pydisplay checkout (default: $CMODS/../pydisplay)
-#   EMSDK_DIR       Emscripten SDK for mp-wasm (see build_mp.sh; default: $CMODS/../../other/emsdk)
+#   CMODS                   Workspace root (default: directory containing this script)
+#   PYDISPLAY_DIR           pydisplay checkout (default: $CMODS/../pydisplay)
+#   EMSDK_DIR               Emscripten SDK for mp-wasm (see build_mp.sh; default: $CMODS/../../other/emsdk)
+#   MP_WINDOWS_INSTALL_DIR  Extra install dir for micropython.exe (WSL path to the
+#                           Windows PATH entry). Default: /mnt/c/Users/bradb/.local/bin
+#                           Set empty to skip the extra copy.
 #
 # Run this after changing any usermod compiled into these binaries (graphics,
 # usdl2, lv_micropython_cmod, lv_circuitpython_mod / regenerated lv_bindings,
@@ -35,6 +39,8 @@ MP_UNIX_SRC="$CMODS/micropython/ports/unix/build-standard/micropython"
 MP_WIN_SRC="$CMODS/micropython/ports/windows/build-dev/micropython.exe"
 MP_WASM_DIR="$CMODS/micropython/ports/webassembly/build-pyscript"
 CP_UNIX_SRC="$CMODS/circuitpython/ports/unix/build-coverage/micropython"
+# Windows PE on PATH for cmd/PowerShell (WSL mount of C:\Users\bradb\.local\bin).
+MP_WINDOWS_INSTALL_DIR="${MP_WINDOWS_INSTALL_DIR-/mnt/c/Users/bradb/.local/bin}"
 
 BIN_DIR=""
 VENDOR_MP=""
@@ -44,7 +50,7 @@ INSTALL_ONLY=0
 ONLY=()
 
 usage() {
-    sed -n '2,28p' "$0" | sed 's/^# \?//'
+    sed -n '2,29p' "$0" | sed 's/^# \?//'
     exit "${1:-0}"
 }
 
@@ -145,6 +151,11 @@ install_one() {
             mkdir -p "$BIN_DIR"
             install -m 755 "$MP_WIN_SRC" "$BIN_DIR/micropython.exe"
             echo "Installed $BIN_DIR/micropython.exe"
+            if [[ -n "$MP_WINDOWS_INSTALL_DIR" ]]; then
+                mkdir -p "$MP_WINDOWS_INSTALL_DIR"
+                install -m 755 "$MP_WIN_SRC" "$MP_WINDOWS_INSTALL_DIR/micropython.exe"
+                echo "Installed $MP_WINDOWS_INSTALL_DIR/micropython.exe"
+            fi
             ;;
         mp-wasm)
             [[ -f "$MP_WASM_DIR/micropython.mjs" && -f "$MP_WASM_DIR/micropython.wasm" ]] || {
