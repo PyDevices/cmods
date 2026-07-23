@@ -29,6 +29,7 @@ variant (`C6_WIFI` in inventory fixture #1).
 | LILYGO T-HMI | `busdisplay/i80/t-hmi` | 240×320 | ST7789 **I80** (`i80bus`) | XPT2046 SPI | GPIO14/10 power | *(not yet a Detect fixture)* |
 | Waveshare RP2040-Touch-LCD-1.28 | `busdisplay/spi/rp2040-touch-lcd-1.28` (+ CP `cp_rp2040-touch-lcd-1.28`) | 240×240 round | GC9A01A **SPI** (`spibus` / FourWire) | CST816 (`cst8xx` / `cst816`) | — | *(not yet a Detect fixture)* |
 | Adafruit Metro M7 + 2.8″ TFT Touch Shield (1947) | `busdisplay/spi/metro_m7_tft_touch_shield_1947` | 240×320 | ILI9341 **SPI** (`spibus` SoftSPI or SPI0) | FT6206 @ `0x38` | Onboard AirLift (NINA) | *(not yet a Detect fixture)* |
+| ST NUCLEO-H743ZI2 + Adafruit 2.8″ TFT Touch Shield (1947) | `busdisplay/spi/nucleo_h743zi2_tft_touch_shield_1947` | 240×320 | ILI9341 **SPI** (`spibus` SPI1 / SoftSPI) | FT6206 @ `0x38` | — | [#25](board-inventory.md) |
 
 ---
 
@@ -253,6 +254,35 @@ variant (`C6_WIFI` in inventory fixture #1).
 - **Setup:** mip / `/setup` `metro_m7_tft_touch_shield_1947` after WiFi is up
   (or `mpftp put` over serial if NINA sockets are still broken).
 
+### ST NUCLEO-H743ZI2 + Adafruit 2.8″ TFT Touch Shield (cap, product 1947)
+
+- **board_config title:** `NUCLEO-H743ZI2 + Adafruit 2.8" TFT Touch Shield (cap) product 1947`
+- **Dir:** `board_configs/busdisplay/spi/nucleo_h743zi2_tft_touch_shield_1947` (MP;
+  package `v0.3`)
+- **Resolution:** 240×320 ILI9341, `bgr=True`, `reverse_bytes_in_word=True`,
+  `rotation=0`
+- **SPI:** Prefer **`USE_SOFTSPI = False`** → `SPIBus(id=1, dc="D9", cs="D10")`
+  @ 24 MHz. `machine.SPI(1)` is already on Arduino **D13/D11/D12** (PA5/PB5/PA6),
+  so the shield’s **11/SO/SI** jumpers work with HW SPI (unlike Metro). SoftSPI
+  on the same pins works but is too slow for Simon / LVGL. Native `spibus`
+  rejects explicit `sck`/`mosi`/`miso` kwargs on HW SPI — omit them.
+- **Pin caveat:** stock MicroPython mapped `D13`→PA7 (ETH CRS_DV); bring-up
+  firmware remaps **`D13`→PA5**. `Pin("A5")` is Arduino **analog** A5 (PF10),
+  not SPI SCK.
+- **Pins:** CS=`D10` (PD14), DC=`D9` (PD15); hold SD `D4` high when unused.
+- **Touch:** FT6206 @ `0x38` on `I2C(1)` (D14/D15); `touch_rotation_table =
+  (6, 3, 0, 5)`. Heap ~**450 KiB** free at idle; Simon / LVGL fit with eventsys
+  + multimer + `display_driver` (~370 KiB free while running).
+- **Firmware:** custom `NUCLEO_H743ZI2` with **displayif** (stm32 port: spibus
+  + notimpl stubs), **graphics**, **lvgl** (`lv_micropython_cmod`). Flash via
+  ST-Link MSD (`NOD_H743ZI2` / `firmware.bin`). Inventory fixture **#25**.
+- **Demos verified:** RGB stripes; `simon.py` (graphics + eventsys); headless
+  `lv_bindings/test_lvgl_smoke.py`; `lvgl_test.py` (tap-count button on real
+  panel via `display_driver`). **`main.py`** boots `lvgl_test.py`.
+- **Setup:** `mpftp put` board_config + `displaysys/{__init__,busdisplay}.py` +
+  `eventsys` + `multimer` + `display_driver.py` + `ili9341`/`ft6x36` + examples
+  (no WiFi on this fixture). Package deps: eventsys + multimer.
+
 ---
 
 ## DotClock knobs (cross-cutting)
@@ -272,6 +302,7 @@ already sets `refresh_cb=display_drv.show`.
 
 *Seeded 2026-07-20 from the pydisplay + displayif bring-up chat; T-Embed /
 T-HMI busdisplay notes expanded 2026-07-21; Waveshare RP2040-Touch-LCD-1.28
-added 2026-07-21; Adafruit Metro M7 + TFT Touch Shield 1947 added 2026-07-21.
+added 2026-07-21; Adafruit Metro M7 + TFT Touch Shield 1947 added 2026-07-21;
+ST NUCLEO-H743ZI2 + TFT Touch Shield 1947 added 2026-07-21.
 Add a row when a new display board is verified; note inventory fixture numbers
 when Detect has captured the silicon.*
