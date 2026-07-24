@@ -2,10 +2,10 @@
 # Build any MicroPython port/board/variant with cmods user C modules.
 #
 # Usage:
-#   ./build_mp.sh [--port PORT] [--board BOARD] [--variant VARIANT]
+#   ./build_mp.sh [--port PORT] [--board BOARD] [--variant VARIANT] [--debug]
 #
 # Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, EMSDK_DIR, PORT, BOARD, VARIANT,
-#              OS_DUPTERM, OS_DUPTERM_SLOTS
+#              OS_DUPTERM, OS_DUPTERM_SLOTS, MP_BUILD_DEBUG
 #
 # USER_C_MODULES and FROZEN_MANIFEST are always cleared at startup so a prior
 # shell export cannot stick across port/board/variant builds. They then default
@@ -47,6 +47,7 @@ FROZEN_MANIFEST_EXPLICIT=0
 PORT="${PORT:-}"
 BOARD="${BOARD:-}"
 VARIANT="${VARIANT:-}"
+MP_BUILD_DEBUG="${MP_BUILD_DEBUG:-0}"
 OS_DUPTERM_EXPLICIT=0
 if [[ -v OS_DUPTERM ]]; then
     OS_DUPTERM_EXPLICIT=1
@@ -67,11 +68,12 @@ while [[ $# -gt 0 ]]; do
         --port)    PORT="$2"; shift 2 ;;
         --board)   BOARD="$2"; shift 2 ;;
         --variant) VARIANT="$2"; shift 2 ;;
+        --debug)   MP_BUILD_DEBUG=1; shift ;;
         --no-os-dupterm) OS_DUPTERM=0; OS_DUPTERM_EXPLICIT=1; shift ;;
         --os-dupterm) OS_DUPTERM=1; OS_DUPTERM_EXPLICIT=1; shift ;;
         -h|--help)
             cat <<EOF
-Usage: $0 [--port PORT] [--board BOARD] [--variant VARIANT]
+Usage: $0 [--port PORT] [--board BOARD] [--variant VARIANT] [--debug]
 
 Build MicroPython with user C modules from the cmods workspace.
 
@@ -79,6 +81,9 @@ Options:
   --port PORT        MicroPython port (e.g. unix, esp32, rp2)
   --board BOARD      Board name for board-based ports
   --variant VARIANT  Board variant (board ports) or build variant (unix, etc.)
+  --debug            esp32: UART REPL + USB Serial/JTAG debug console
+                     (ESP32_GENERIC_S3/SPIRAM_OCT → SPIRAM_OCT_DEBUG).
+                     USB jack = IDF secondary console / ESP_LOG; UART jack = REPL.
 
 Environment:
   WORKSPACE_DIR      cmods workspace root (default: script directory)
@@ -90,6 +95,7 @@ Environment:
   FROZEN_MANIFEST_UPSTREAM  Set by this script to the MicroPython upstream freeze
                      file for the selected port/board/variant (read by manifest.py)
   PORT, BOARD, VARIANT  Same as the corresponding options
+  MP_BUILD_DEBUG     Same as --debug when set to 1/true/yes/on
   OS_DUPTERM         Enable os.dupterm on unix/webassembly (default: 1); windows default: 0
   OS_DUPTERM_SLOTS   dupterm slot count for desktop ports (default: 1)
   SDL2_DEV           Unpacked SDL2 MinGW development ZIP root (windows port + usdl2)
@@ -100,12 +106,19 @@ Environment:
 Options:
   --no-os-dupterm    Disable os.dupterm (same as OS_DUPTERM=0)
   --os-dupterm       Enable os.dupterm (override windows default)
+  --debug            Dual-port debug firmware (esp32; see above)
 EOF
             exit 0
             ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
 done
+
+if is_truthy "$MP_BUILD_DEBUG"; then
+    MP_BUILD_DEBUG=1
+else
+    MP_BUILD_DEBUG=0
+fi
 
 [[ -d "$MP_DIR/ports" ]] || { echo "MicroPython not found: $MP_DIR" >&2; exit 1; }
 
@@ -511,11 +524,66 @@ make_target_args() {
     printf '%q ' "${args[@]}"
 }
 
+apply_esp32_debug_variant() {
+    # Map common variants onto *_DEBUG board cmake overlays (UART REPL +
+    # USB-Serial/JTAG secondary console). See boards/sdkconfig.debug_usb_jtag.
+    [[ "$PORT" == esp32 ]] || {
+        echo "error: --debug is only supported for --port esp32" >&2
+        exit 1
+    }
+    [[ -n "$BOARD" ]] || {
+        echo "error: --debug requires --board (e.g. ESP32_GENERIC_S3)" >&2
+        exit 1
+    }
+
+    local boards="$MP_DIR/ports/esp32/boards"
+    local want=""
+
+    if [[ "$BOARD" == "ESP32_GENERIC_S3" ]]; then
+        if [[ -z "$VARIANT" || "$VARIANT" == "SPIRAM_OCT" ]]; then
+            want="SPIRAM_OCT_DEBUG"
+        elif [[ "$VARIANT" == "SPIRAM" ]]; then
+            want="SPIRAM_DEBUG"
+        elif [[ "$VARIANT" == *_DEBUG ]]; then
+            want="$VARIANT"
+        elif [[ -f "$boards/$BOARD/mpconfigvariant_${VARIANT}_DEBUG.cmake" ]]; then
+            want="${VARIANT}_DEBUG"
+        fi
+    elif [[ -n "$VARIANT" && -f "$boards/$BOARD/mpconfigvariant_${VARIANT}_DEBUG.cmake" ]]; then
+        want="${VARIANT}_DEBUG"
+    elif [[ -n "$VARIANT" && "$VARIANT" == *_DEBUG && -f "$boards/$BOARD/mpconfigvariant_${VARIANT}.cmake" ]]; then
+        want="$VARIANT"
+    fi
+
+    if [[ -z "$want" ]]; then
+        echo "error: --debug: no debug variant for board=$BOARD variant=${VARIANT:-<none>}" >&2
+        echo "  Add boards/$BOARD/mpconfigvariant_<VARIANT>_DEBUG.cmake (see ESP32_GENERIC_S3/SPIRAM_OCT_DEBUG)." >&2
+        exit 1
+    fi
+    if [[ ! -f "$boards/$BOARD/mpconfigvariant_${want}.cmake" ]]; then
+        echo "error: --debug: missing $boards/$BOARD/mpconfigvariant_${want}.cmake" >&2
+        exit 1
+    fi
+    if [[ "$VARIANT" != "$want" ]]; then
+        echo "debug: selecting BOARD_VARIANT=$want (UART REPL + USB Serial/JTAG console)"
+        VARIANT="$want"
+    else
+        echo "debug: BOARD_VARIANT=$VARIANT (UART REPL + USB Serial/JTAG console)"
+    fi
+}
+
 print_rerun_hint() {
     local -a cmd=("$BUILD_MP")
     cmd+=(--port "$PORT")
     [[ -n "$BOARD" ]] && cmd+=(--board "$BOARD")
-    [[ -n "$VARIANT" ]] && cmd+=(--variant "$VARIANT")
+    # Prefer the user-facing base variant in the hint when we auto-selected *_DEBUG.
+    local hint_variant="$VARIANT"
+    if [[ "$MP_BUILD_DEBUG" -eq 1 && "$VARIANT" == *_DEBUG ]]; then
+        hint_variant="${VARIANT%_DEBUG}"
+        [[ -n "$hint_variant" ]] || hint_variant="$VARIANT"
+    fi
+    [[ -n "$hint_variant" ]] && cmd+=(--variant "$hint_variant")
+    [[ "$MP_BUILD_DEBUG" -eq 1 ]] && cmd+=(--debug)
 
     local reset="" bold="" cyan=""
     if [[ -t 1 ]]; then
@@ -690,6 +758,10 @@ case "$PORT_KIND" in
         fi
         ;;
 esac
+
+if [[ "$MP_BUILD_DEBUG" -eq 1 ]]; then
+    apply_esp32_debug_variant
+fi
 
 # Point the static cmods/manifest.py at the upstream freeze make would pick.
 export FROZEN_MANIFEST_UPSTREAM
