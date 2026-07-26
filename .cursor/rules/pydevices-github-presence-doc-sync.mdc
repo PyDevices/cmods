@@ -23,9 +23,8 @@ include:
   `has_issues`, `has_discussions`, topics, description, homepage).
 - Setting the org avatar, pinned repos, or other org profile settings.
 - Adding, renaming, archiving, or changing the role/Pages site of a repo.
-- Changing the shared chrome in `dotgithub/site/assets/` (`site.css`,
-  `theme-toggle.js`, product marks) in a way that changes what the doc
-  describes.
+- Changing the shared chrome (`assets/css/site.css`,
+  `assets/js/theme-toggle.js`) in a way that changes what the doc describes.
 
 ## Verify before writing a claim
 
