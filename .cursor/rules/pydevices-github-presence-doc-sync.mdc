@@ -1,11 +1,11 @@
 ---
-description: Keep dotgithub/github-presence.md in sync with the org's actual state
+description: Keep dotgithub/docs/github-presence.md in sync with the org's actual state
 alwaysApply: true
 ---
 
 # Keep the GitHub presence doc in sync
 
-`dotgithub/github-presence.md` (repo
+`dotgithub/docs/github-presence.md` (repo
 [PyDevices/.github](https://github.com/PyDevices/.github), local clone
 `dotgithub/`) is the reference doc for "how do I / where do I find X"
 questions about the PyDevices org. It goes stale fast because its claims
