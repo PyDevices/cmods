@@ -24,7 +24,7 @@ cp-user-config/user_post_mpconfigport.mk
 /*/
 # Local multi-repo symlinks (gh/pydevices layout — not committed)
 /displayif
-/graphics
+/pygraphics
 /lv_bindings
 /lv_circuitpython_mod
 /lv_cpython_mod

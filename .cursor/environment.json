@@ -5,7 +5,7 @@
     "github.com/PyDevices/.github",
     "github.com/PyDevices/cmods",
     "github.com/PyDevices/displayif",
-    "github.com/PyDevices/graphics",
+    "github.com/PyDevices/pygraphics",
     "github.com/PyDevices/lv_bindings",
     "github.com/PyDevices/lv_circuitpython_mod",
     "github.com/PyDevices/lv_cpython_mod",
