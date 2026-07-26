@@ -25,7 +25,7 @@ CMODS="${CMODS:-$SCRIPT_DIR}"
 LV_BINDINGS_DIR="${LV_BINDINGS_DIR:-$CMODS/lv_bindings}"
 SYNC_LVPY="${SYNC_LVPY:-1}"
 
-SMOKE_TEST="$LV_BINDINGS_DIR/test_lvgl_smoke.py"
+SMOKE_TEST="$LV_BINDINGS_DIR/tools/test_lvgl_smoke.py"
 MP_UNIX="$CMODS/micropython/ports/unix/build-standard/micropython"
 MP_WIN="$CMODS/micropython/ports/windows/build-dev/micropython.exe"
 CP_UNIX="$CMODS/circuitpython/ports/unix/build-coverage/micropython"

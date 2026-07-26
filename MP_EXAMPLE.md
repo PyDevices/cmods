@@ -98,7 +98,7 @@ mip.install(
 ### displayif import (no panel draw)
 
 ```bash
-mpremote run displayif/tests/test_mipidsi_smoke.py
+mpremote run displayif/tools/test_mipidsi_smoke.py
 ```
 
 ### Quick draw test
@@ -152,5 +152,5 @@ Tap the screen — you should see touch events.
 ## Related
 
 - [pydisplay board configs](https://github.com/PyDevices/pydisplay/tree/main/board_configs/fbdisplay)
-- [displayif esp32 mipidsi](https://github.com/PyDevices/displayif/tree/main/ports/esp32)
+- [displayif esp32 mipidsi](https://github.com/PyDevices/displayif/tree/main/src/ports/esp32)
 - [cmods build_mp.sh](build_mp.sh)
