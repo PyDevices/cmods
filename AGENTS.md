@@ -37,11 +37,11 @@ Owned PyDevices siblings (`lv_*`, `usdl2`, `graphics`, `displayif`, …) may add
 
 | Target ID | Port | Build | Smoke test |
 |-----------|------|-------|------------|
-| `mp-unix` | MicroPython unix / standard | `./build_mp.sh --port unix --variant standard` | [`lv_bindings/test_lvgl_smoke.py`](lv_bindings/test_lvgl_smoke.py) |
+| `mp-unix` | MicroPython unix / standard | `./build_mp.sh --port unix --variant standard` | [`lv_bindings/tools/test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py) |
 | `mp-windows` | MicroPython windows / dev | `./build_mp.sh --port windows --variant dev` | same script via `micropython.exe` |
-| `cp-unix` | CircuitPython unix / coverage | `./lv_circuitpython_mod/build_cp.sh --port unix --variant coverage` | same [`test_lvgl_smoke.py`](lv_bindings/test_lvgl_smoke.py) |
-| `cpy-unix` | CPython Unix (WSL) | `lv_cpython_mod/.venv/bin/pip install -e .` | same smoke test (`.venv/bin/python …/lv_bindings/test_lvgl_smoke.py`) |
-| `cpy-windows` | CPython Windows | `pip.exe install -e …` | `python.exe …/lv_bindings/test_lvgl_smoke.py` |
+| `cp-unix` | CircuitPython unix / coverage | `./lv_circuitpython_mod/build_cp.sh --port unix --variant coverage` | same [`test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py) |
+| `cpy-unix` | CPython Unix (WSL) | `lv_cpython_mod/.venv/bin/pip install -e .` | same smoke test (`.venv/bin/python …/lv_bindings/tools/test_lvgl_smoke.py`) |
+| `cpy-windows` | CPython Windows | `pip.exe install -e …` | `python.exe …/lv_bindings/tools/test_lvgl_smoke.py` |
 
 When the user says **“build them all”**, run `./build_all.sh` (or `./build_target.sh` for a single failing target). Default orchestration: targets **1–4 in parallel** (`mp-unix`, `mp-windows`, `cp-unix`, `cpy-unix`), **`wait`**, then **`cpy-windows` alone**.
 
@@ -62,21 +62,21 @@ CMODS="$(pwd)"
   cd "$CMODS" && \
   ./build_mp.sh --port unix --variant standard && \
   "$CMODS/micropython/ports/unix/build-standard/micropython" \
-    "$CMODS/lv_bindings/test_lvgl_smoke.py"
+    "$CMODS/lv_bindings/tools/test_lvgl_smoke.py"
 ) &
 
 (
   cd "$CMODS" && \
   ./build_mp.sh --port windows --variant dev && \
   "$CMODS/micropython/ports/windows/build-dev/micropython.exe" \
-    "$CMODS/lv_bindings/test_lvgl_smoke.py"
+    "$CMODS/lv_bindings/tools/test_lvgl_smoke.py"
 ) &
 
 (
   cd "$CMODS/lv_circuitpython_mod" && \
   ./build_cp.sh --port unix --variant coverage && \
   "$CMODS/circuitpython/ports/unix/build-coverage/micropython" \
-    "$CMODS/lv_bindings/test_lvgl_smoke.py"
+    "$CMODS/lv_bindings/tools/test_lvgl_smoke.py"
 ) &
 
 (
@@ -84,7 +84,7 @@ CMODS="$(pwd)"
   { test -d .venv || python3 -m venv .venv; } && \
   .venv/bin/pip install -r requirements.txt && \
   .venv/bin/pip install -e . && \
-  .venv/bin/python "$CMODS/lv_bindings/test_lvgl_smoke.py"
+  .venv/bin/python "$CMODS/lv_bindings/tools/test_lvgl_smoke.py"
 ) &
 
 wait   # all four must finish before step 5
@@ -92,7 +92,7 @@ wait   # all four must finish before step 5
 # Phase 2 — Windows CPython alone (clobbers lv_cpython_mod/ if run with step 4)
 cd "$CMODS/lv_cpython_mod"
 pip.exe install -e "$(wslpath -w "$CMODS/lv_cpython_mod")"
-python.exe "$(wslpath -w "$CMODS/lv_bindings/test_lvgl_smoke.py")"
+python.exe "$(wslpath -w "$CMODS/lv_bindings/tools/test_lvgl_smoke.py")"
 ```
 
 ---
@@ -144,17 +144,17 @@ WSL can run the Windows `.exe` directly for tests.
 
 ### MicroPython smoke test
 
-Script: `lv_micropython_cmod/tests/test_lvgl_unix.py` (deprecated wrapper;
-prefer [`lv_bindings/test_lvgl_smoke.py`](lv_bindings/test_lvgl_smoke.py)).
+Script: `lv_micropython_cmod/tools/test_lvgl_unix.py` (deprecated wrapper;
+prefer [`lv_bindings/tools/test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py)).
 
 ```bash
 # Unix
 ./micropython/ports/unix/build-standard/micropython \
-  ./lv_bindings/test_lvgl_smoke.py
+  ./lv_bindings/tools/test_lvgl_smoke.py
 
 # Windows (from WSL)
 ./micropython/ports/windows/build-dev/micropython.exe \
-  ./lv_bindings/test_lvgl_smoke.py
+  ./lv_bindings/tools/test_lvgl_smoke.py
 ```
 
 ---
@@ -179,7 +179,7 @@ Output: `circuitpython/ports/unix/build-coverage/micropython`
 
 ```bash
 ./circuitpython/ports/unix/build-coverage/micropython \
-  ./lv_bindings/test_lvgl_smoke.py
+  ./lv_bindings/tools/test_lvgl_smoke.py
 ```
 
 ---
@@ -198,7 +198,7 @@ python3 -m venv .venv          # once
 .venv/bin/pip install -r requirements.txt
 .venv/bin/pip install -e .       # rebuild after C or generated/lvgl_python.c changes
 
-.venv/bin/python ../lv_bindings/test_lvgl_smoke.py
+.venv/bin/python ../lv_bindings/tools/test_lvgl_smoke.py
 .venv/bin/python -c "import lvgl as lv; lv.init(); lv.deinit(); print('ok')"
 ```
 
@@ -212,7 +212,7 @@ CMODS="$(pwd)"
 cd lv_cpython_mod
 
 pip.exe install -e "$(wslpath -w "$CMODS/lv_cpython_mod")"
-python.exe "$(wslpath -w "$CMODS/lv_bindings/test_lvgl_smoke.py")"
+python.exe "$(wslpath -w "$CMODS/lv_bindings/tools/test_lvgl_smoke.py")"
 python.exe -c "import lvgl as lv; lv.init(); lv.deinit(); print('ok')"
 ```
 
