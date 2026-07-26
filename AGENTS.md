@@ -171,7 +171,7 @@ cd lv_circuitpython_mod
 Uses `lv_circuitpython_mod/.venv` for CircuitPython build tooling (created automatically).
 
 Espressif / Qualia + LVGL build-and-flash lessons (partitions, TinyUF2, WSL COM ports):
-[`lv_circuitpython_mod/BUILD_AND_FLASH.md`](lv_circuitpython_mod/BUILD_AND_FLASH.md).
+[`lv_circuitpython_mod/docs/BUILD_AND_FLASH.md`](lv_circuitpython_mod/docs/BUILD_AND_FLASH.md).
 
 Output: `circuitpython/ports/unix/build-coverage/micropython`
 
@@ -186,7 +186,7 @@ Output: `circuitpython/ports/unix/build-coverage/micropython`
 
 ## CPython (`lv_cpython_mod`)
 
-See also `lv_cpython_mod/BUILDING.md` and `lv_cpython_mod/README.md`.
+See also `lv_cpython_mod/docs/BUILDING.md` and `lv_cpython_mod/README.md`.
 
 Both platforms use the **same repo directory** for editable installs. **Never** run `.venv/bin/pip install -e .` and `pip.exe install -e .` concurrently. For “build them all”, step 4 (Unix) runs in **parallel with 1–3**; step 5 (Windows) runs **only after** `wait`.
 
@@ -226,7 +226,7 @@ After changing `binding/`, `lv_conf.h`, or the `lvgl` submodule:
 
 ```bash
 cd lv_bindings
-./regenerate_all.sh              # all three targets + commit + tag (see PUBLISHING.md)
+./regenerate_all.sh              # all three targets + commit + tag (see lv_bindings/docs/PUBLISHING.md)
 # or individually:
 ./regenerate_lvmp.sh             # → generated/lvgl_micropython.c
 ./regenerate_lvcp.sh             # → generated/lvgl_circuitpython.c
