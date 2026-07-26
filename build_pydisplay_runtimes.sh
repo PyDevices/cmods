@@ -19,9 +19,10 @@
 #   CMODS                   Workspace root (default: directory containing this script)
 #   PYDISPLAY_DIR           pydisplay checkout (default: $CMODS/../pydisplay)
 #   EMSDK_DIR               Emscripten SDK for mp-wasm (see build_mp.sh; default: $CMODS/../../other/emsdk)
-#   MP_WINDOWS_INSTALL_DIR  Extra install dir for micropython.exe (WSL path to the
-#                           Windows PATH entry). Default: /mnt/c/Users/bradb/.local/bin
-#                           Set empty to skip the extra copy.
+#   MP_WINDOWS_INSTALL_DIR  Optional extra install dir for micropython.exe
+#                           (WSL path to a Windows PATH entry, e.g.
+#                           /mnt/c/Users/<you>/.local/bin). Unset/empty skips
+#                           the extra copy (pydisplay/bin/ is always updated).
 #
 # Run this after changing any usermod compiled into these binaries (graphics,
 # usdl2, lv_micropython_cmod, lv_circuitpython_mod / regenerated lv_bindings,
@@ -39,8 +40,8 @@ MP_UNIX_SRC="$CMODS/micropython/ports/unix/build-standard/micropython"
 MP_WIN_SRC="$CMODS/micropython/ports/windows/build-dev/micropython.exe"
 MP_WASM_DIR="$CMODS/micropython/ports/webassembly/build-pyscript"
 CP_UNIX_SRC="$CMODS/circuitpython/ports/unix/build-coverage/micropython"
-# Windows PE on PATH for cmd/PowerShell (WSL mount of C:\Users\bradb\.local\bin).
-MP_WINDOWS_INSTALL_DIR="${MP_WINDOWS_INSTALL_DIR-/mnt/c/Users/bradb/.local/bin}"
+# Optional extra Windows PATH install; default empty (skip).
+MP_WINDOWS_INSTALL_DIR="${MP_WINDOWS_INSTALL_DIR-}"
 
 BIN_DIR=""
 VENDOR_MP=""
