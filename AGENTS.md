@@ -144,7 +144,8 @@ WSL can run the Windows `.exe` directly for tests.
 
 ### MicroPython smoke test
 
-Script: `lv_micropython_cmod/test_lvgl_unix.py` (port-agnostic, headless display).
+Script: `lv_micropython_cmod/tests/test_lvgl_unix.py` (deprecated wrapper;
+prefer [`lv_bindings/test_lvgl_smoke.py`](lv_bindings/test_lvgl_smoke.py)).
 
 ```bash
 # Unix
