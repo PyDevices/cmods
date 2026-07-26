@@ -75,7 +75,7 @@ sudo apt install libsdl2-dev   # Debian/Ubuntu — unix port only
 
 ```bash
 ./build_mp.sh --port unix --variant standard
-./micropython/ports/unix/build-standard/micropython ./usdl2/test_usdl2.py
+./micropython/ports/unix/build-standard/micropython ./usdl2/tests/test_usdl2.py
 ```
 
 **MicroPython windows** (static SDL2; SDL2 not vendored — use the official MinGW dev ZIP):
@@ -112,7 +112,7 @@ git clone https://github.com/adafruit/Adafruit_CircuitPython_Ticks.git
 
 ./usdl2/apply_cp_unix_usdl_patches.sh --apply
 ./lv_circuitpython_mod/build_cp.sh --port unix --variant standard
-./circuitpython/ports/unix/build-standard/micropython ./usdl2/test_usdl2.py
+./circuitpython/ports/unix/build-standard/micropython ./usdl2/tests/test_usdl2.py
 ```
 
 `build_cp.sh` passes `-I cp-user-config/` when that directory exists so CircuitPython
