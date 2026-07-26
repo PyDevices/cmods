@@ -27,6 +27,8 @@ cp-user-config/user_post_mpconfigport.mk
 # Workspace tooling (not upstream clones)
 !/scripts/
 !/scripts/**
+!/docs/
+!/docs/**
 !/.cursor/
 # Cursor IDE throwaways (rules/environment.json stay trackable)
 .cursor/debug*
