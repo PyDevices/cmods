@@ -82,7 +82,7 @@ CMODS="$(pwd)"
 (
   cd "$CMODS/lv_cpython_mod" && \
   { test -d .venv || python3 -m venv .venv; } && \
-  .venv/bin/pip install -r requirements.txt && \
+  .venv/bin/pip install -r requirements-dev.txt && \
   .venv/bin/pip install -e . && \
   .venv/bin/python "$CMODS/lv_bindings/tools/test_lvgl_smoke.py"
 ) &
@@ -195,7 +195,7 @@ Both platforms use the **same repo directory** for editable installs. **Never** 
 ```bash
 cd lv_cpython_mod
 python3 -m venv .venv          # once
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pip install -e .       # rebuild after C or generated/lvgl_python.c changes
 
 .venv/bin/python ../lv_bindings/tools/test_lvgl_smoke.py

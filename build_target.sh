@@ -144,7 +144,7 @@ build_cpy_unix_body() {
     sync_lvpy_from_bindings
     cd "$CPY_MOD"
     { test -d .venv || python3 -m venv .venv; }
-    .venv/bin/pip install -q -r requirements.txt
+    .venv/bin/pip install -q -r requirements-dev.txt
     .venv/bin/pip install -q -e .
     smoke_cpy_unix
 }
