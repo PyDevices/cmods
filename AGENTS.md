@@ -19,7 +19,7 @@ This workspace is a collection of sibling git clones. **Before editing files und
 
 **Upstream clones** (`micropython/`, `circuitpython/`): an `AGENTS.md` may be present; still read it for port-specific notes, but **do not commit** in those trees unless the user explicitly overrides `.cursor/rules/cmods-upstream-no-commit.mdc`.
 
-Owned PyDevices siblings (`lv_*`, `usdl2`, `graphics`, `displayif`, …) may add or grow their own `AGENTS.md`; use the script above rather than hard-coding the list.
+Owned PyDevices siblings (`lv_*`, `usdl2`, `pygraphics`, `displayif`, …) may add or grow their own `AGENTS.md`; use the script above rather than hard-coding the list.
 
 ## “Build them all”
 
@@ -116,7 +116,7 @@ installs them (does **not** replace `build_all.sh` — that is the LVGL smoke ma
 | `cp-unix` | `./lv_circuitpython_mod/build_cp.sh --port unix --variant coverage` | `../pydisplay/bin/circuitpython` (renamed from build `micropython`) |
 
 **When to run:** after changing any usermod or freeze/config that is compiled into
-these binaries (`graphics`, `usdl2`, `lv_micropython_cmod`, `lv_circuitpython_mod`
+these binaries (`pygraphics`, `usdl2`, `lv_micropython_cmod`, `lv_circuitpython_mod`
 / regenerated `lv_bindings`, `displayif` when present, `manifest.py` freeze trees,
 or related port patches). Override install root with `PYDISPLAY_DIR` if needed.
 

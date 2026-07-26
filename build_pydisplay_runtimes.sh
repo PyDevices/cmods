@@ -24,7 +24,7 @@
 #                           /mnt/c/Users/<you>/.local/bin). Unset/empty skips
 #                           the extra copy (pydisplay/bin/ is always updated).
 #
-# Run this after changing any usermod compiled into these binaries (graphics,
+# Run this after changing any usermod compiled into these binaries (pygraphics,
 # usdl2, lv_micropython_cmod, lv_circuitpython_mod / regenerated lv_bindings,
 # displayif when present, frozen manifest trees, or port/build config that
 # affects them). Distinct from build_all.sh (LVGL smoke matrix; no install).
