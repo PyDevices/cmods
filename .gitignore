@@ -1,7 +1,19 @@
-# Local Python venv (if present)
+# Shared minimum (PyDevices package / cmod repos)
 .venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+*.so
+*.pyd
 
-# Personal frozen manifest (local overrides)
+# Cursor IDE throwaways (do not ignore the whole .cursor/ tree)
+.cursor/debug*
+.cursor/plans/
+
+# Workspace-specific — personal frozen manifest / entry
 my-manifest.*
 main.py
 
@@ -30,9 +42,6 @@ cp-user-config/user_post_mpconfigport.mk
 !/docs/
 !/docs/**
 !/.cursor/
-# Cursor IDE throwaways (rules/environment.json stay trackable)
-.cursor/debug*
-.cursor/plans/
 !/cp-user-config/
 !/.github/
 !/.github/**
