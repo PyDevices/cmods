@@ -10,10 +10,10 @@
 # first argument is the import name; that name must be a folder under
 # ``base_path``. Example::
 #
-#     package("pdwidgets", base_path="../pdwidgets/src", opt=3)
+#     package("pdwidgets", base_path="../pdwidgets/lib", opt=3)
 #
-# freezes ``../pdwidgets/src/pdwidgets/`` as importable ``pdwidgets`` (not
-# ``src``).
+# freezes ``../pdwidgets/lib/pdwidgets/`` as importable ``pdwidgets`` (not
+# ``lib``).
 
 import os
 
