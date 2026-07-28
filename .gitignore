@@ -41,6 +41,8 @@ cp-user-config/user_post_mpconfigport.mk
 !/scripts/**
 !/docs/
 !/docs/**
+!/patches/
+!/patches/**
 !/.cursor/
 !/cp-user-config/
 !/.github/

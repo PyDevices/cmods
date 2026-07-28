@@ -28,6 +28,11 @@
 # then treats unused static inlines in generated lvgl_micropython.c as errors. The local
 # patch in micropython/ports/webassembly/Makefile appends -Wno-unused-function
 # after -Werror so it takes effect.
+#
+# patches/micropython/*.patch — git am onto stock micropython/micropython for
+# Windows networking (+ SSL/MSVC/tests) and unix scheduler depth. Skipped when
+# the reverse of a patch already applies (fork tip or prior am). See
+# patches/micropython/README.md.
 set -euo pipefail
 
 # Drop inherited overrides every run (all ports/boards/variants). Stale exports
@@ -502,6 +507,46 @@ ensure_host_mpy_cross() {
     make -C "$MP_DIR/mpy-cross" USER_C_MODULES= FROZEN_MANIFEST=
 }
 
+apply_micropython_cmods_patches() {
+    # Apply patches/micropython/*.patch with git am when not already present.
+    local patch_dir="$WORKSPACE_DIR/patches/micropython"
+    [[ -d "$patch_dir" ]] || return 0
+    [[ -d "$MP_DIR/.git" ]] || {
+        echo "error: MP_DIR is not a git checkout (need git am): $MP_DIR" >&2
+        exit 1
+    }
+
+    local -a patches=()
+    local p
+    shopt -s nullglob
+    patches=("$patch_dir"/[0-9]*.patch)
+    shopt -u nullglob
+    [[ ${#patches[@]} -gt 0 ]] || return 0
+
+    echo "MicroPython cmods patches:"
+    for p in "${patches[@]}"; do
+        local base
+        base=$(basename "$p")
+        if git -C "$MP_DIR" apply --reverse --check "$p" >/dev/null 2>&1; then
+            echo "  skip (already applied): $base"
+            continue
+        fi
+        if ! git -C "$MP_DIR" apply --check "$p" >/dev/null 2>&1; then
+            echo "error: cannot apply $base to $MP_DIR" >&2
+            git -C "$MP_DIR" apply --check "$p" 2>&1 | head -30 >&2
+            echo "Use a stock micropython/micropython tree, or see patches/micropython/README.md" >&2
+            exit 1
+        fi
+        if git -C "$MP_DIR" am --3way "$p"; then
+            echo "  applied: $base"
+        else
+            echo "error: git am failed for $base" >&2
+            git -C "$MP_DIR" am --abort >/dev/null 2>&1 || true
+            exit 1
+        fi
+    done
+}
+
 make_target_args() {
     local -a args=(
         USER_C_MODULES="$USER_C_MODULES"
@@ -774,6 +819,7 @@ echo "  FROZEN_MANIFEST_UPSTREAM=$FROZEN_MANIFEST_UPSTREAM"
 
 ensure_windows_cross_compile
 ensure_windows_sdl2_env
+apply_micropython_cmods_patches
 
 print_rerun_hint
 print_make_commands
