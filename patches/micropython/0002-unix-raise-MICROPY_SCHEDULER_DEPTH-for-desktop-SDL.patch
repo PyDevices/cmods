@@ -1,0 +1,33 @@
+From 4f1817942472429922948901a63b58fe9b5f1faa Mon Sep 17 00:00:00 2001
+From: Brad Barnett <bbarnett@gmail.com>
+Date: Tue, 28 Jul 2026 00:18:18 -0500
+Subject: [PATCH 2/2] unix: raise MICROPY_SCHEDULER_DEPTH for desktop SDL.
+
+Host SDL / display timers enqueue via mp_sched_schedule; depth 4 overflows.
+Must be a power of 2.
+
+Based-on: micropython e0e9fbb17 (tag v1.28.0)
+---
+ ports/unix/mpconfigport.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/ports/unix/mpconfigport.h b/ports/unix/mpconfigport.h
+index 44e840209..f424e2edd 100644
+--- a/ports/unix/mpconfigport.h
++++ b/ports/unix/mpconfigport.h
+@@ -104,6 +104,12 @@ typedef long mp_off_t;
+ #define MICROPY_GCREGS_SETJMP (1)
+ #endif
+ 
++// Host SDL / display timers enqueue via mp_sched_schedule; depth 4 overflows
++// under auto-refresh + app timers. Must be a power of 2.
++#ifndef MICROPY_SCHEDULER_DEPTH
++#define MICROPY_SCHEDULER_DEPTH     (16)
++#endif
++
+ // Enable the VFS, and enable the posix "filesystem".
+ #define MICROPY_ENABLE_FINALISER    (1)
+ #define MICROPY_VFS                 (1)
+-- 
+2.43.0
+

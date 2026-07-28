@@ -29,10 +29,10 @@
 # patch in micropython/ports/webassembly/Makefile appends -Wno-unused-function
 # after -Werror so it takes effect.
 #
-# patches/micropython/*.patch — git am onto stock micropython/micropython for
-# Windows networking (+ SSL/MSVC/tests) and unix scheduler depth. Skipped when
-# the reverse of a patch already applies (fork tip or prior am). See
-# patches/micropython/README.md.
+# patches/micropython/*.patch — git am onto stock micropython/micropython only
+# for ports that need them (windows: networking/SSL/MSVC; unix: scheduler
+# depth). Other ports (e.g. esp32) skip entirely and do not require the patch
+# directory. See patches/micropython/README.md.
 set -euo pipefail
 
 # Drop inherited overrides every run (all ports/boards/variants). Stale exports
@@ -508,22 +508,32 @@ ensure_host_mpy_cross() {
 }
 
 apply_micropython_cmods_patches() {
-    # Apply patches/micropython/*.patch with git am when not already present.
+    # Apply only the patches needed for this PORT (git am when not already present).
+    # esp32 / webassembly / etc. return immediately — patch dir need not exist.
     local patch_dir="$WORKSPACE_DIR/patches/micropython"
-    [[ -d "$patch_dir" ]] || return 0
+    local -a globs=()
+    case "$PORT" in
+        windows) globs=("$patch_dir"/[0-9]*windows*.patch) ;;
+        unix) globs=("$patch_dir"/[0-9]*MICROPY_SCHEDULER_DEPTH*.patch) ;;
+        *) return 0 ;;
+    esac
+
+    local -a patches=()
+    local p
+    shopt -s nullglob
+    patches=("${globs[@]}")
+    shopt -u nullglob
+    [[ ${#patches[@]} -gt 0 ]] || {
+        echo "error: no cmods patches for port=$PORT under $patch_dir" >&2
+        echo "See patches/micropython/README.md" >&2
+        exit 1
+    }
     [[ -d "$MP_DIR/.git" ]] || {
         echo "error: MP_DIR is not a git checkout (need git am): $MP_DIR" >&2
         exit 1
     }
 
-    local -a patches=()
-    local p
-    shopt -s nullglob
-    patches=("$patch_dir"/[0-9]*.patch)
-    shopt -u nullglob
-    [[ ${#patches[@]} -gt 0 ]] || return 0
-
-    echo "MicroPython cmods patches:"
+    echo "MicroPython cmods patches (port=$PORT):"
     for p in "${patches[@]}"; do
         local base
         base=$(basename "$p")
