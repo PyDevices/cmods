@@ -123,7 +123,7 @@ mpremote run examples/displaysys_fill_rect_test.py
 import pydisplay_demo
 ```
 
-If you mounted pydisplay’s `src/` tree: `import lib.path` first when needed, then `import pydisplay_demo`.
+If you mounted pydisplay’s `src/` tree: `import utils.path` first when needed, then `import pydisplay_demo`.
 
 ### Touch check
 
