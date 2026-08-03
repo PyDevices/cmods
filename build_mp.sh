@@ -5,7 +5,7 @@
 #   ./build_mp.sh [--port PORT] [--board BOARD] [--variant VARIANT] [--debug]
 #
 # Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, EMSDK_DIR, PORT, BOARD, VARIANT,
-#              OS_DUPTERM, OS_DUPTERM_SLOTS, MP_BUILD_DEBUG
+#              OS_DUPTERM, OS_DUPTERM_SLOTS, MP_BUILD_DEBUG, MP_AUTOSIZE
 #
 # USER_C_MODULES and FROZEN_MANIFEST are always cleared at startup so a prior
 # shell export cannot stick across port/board/variant builds. They then default
@@ -60,6 +60,7 @@ else
     OS_DUPTERM=1
 fi
 OS_DUPTERM_SLOTS="${OS_DUPTERM_SLOTS:-1}"
+MP_AUTOSIZE="${MP_AUTOSIZE:-1}"
 
 is_truthy() {
     case "${1,,}" in
@@ -107,6 +108,7 @@ Environment:
   PICOTOOL_FETCH_FROM_GIT_PATH  Cache dir for prebuilt picotool (rp2 port)
   picotool_DIR       Prebuilt picotool cmake package dir (rp2 port)
   DISPLAYIF_SKIP_SPIRAM_CHECK  Set to 1 to skip esp32 PSRAM warning when displayif is present
+  MP_AUTOSIZE        Grow an overflowing esp32 app partition and rebuild once (default: 1)
 
 Options:
   --no-os-dupterm    Disable os.dupterm (same as OS_DUPTERM=0)
@@ -642,9 +644,9 @@ print_rerun_hint() {
 
     local reset="" bold="" cyan=""
     if [[ -t 1 ]]; then
-        reset=$(tput sgr0)
-        bold=$(tput bold)
-        cyan=$(tput setaf 6)
+        reset=$(tput sgr0 2>/dev/null || true)
+        bold=$(tput bold 2>/dev/null || true)
+        cyan=$(tput setaf 6 2>/dev/null || true)
     fi
 
     printf '\n\n'
@@ -659,10 +661,10 @@ print_make_commands() {
 
     local reset="" bold="" yellow="" dim=""
     if [[ -t 1 ]]; then
-        reset=$(tput sgr0)
-        bold=$(tput bold)
-        yellow=$(tput setaf 3)
-        dim=$(tput dim)
+        reset=$(tput sgr0 2>/dev/null || true)
+        bold=$(tput bold 2>/dev/null || true)
+        yellow=$(tput setaf 3 2>/dev/null || true)
+        dim=$(tput dim 2>/dev/null || true)
     fi
 
     printf '\n\n'
@@ -698,6 +700,124 @@ build_dir() {
             echo "$PORT_DIR/build"
             ;;
     esac
+}
+
+esp32_partition_override() {
+    local suffix="$BOARD"
+    [[ -n "$VARIANT" ]] && suffix="${suffix}_${VARIANT}"
+    echo "$WORKSPACE_DIR/esp32_partitions/${suffix}.csv"
+}
+
+esp32_patch_partition_sdkconfig() {
+    local build_path="$1" override="$2"
+    python3 - "$build_path" "$override" <<'PY'
+import os
+import sys
+from pathlib import Path
+
+build = Path(sys.argv[1])
+override = Path(sys.argv[2])
+sdk = build / "sdkconfig"
+lines = sdk.read_text("utf-8").splitlines() if sdk.is_file() else []
+rel = Path(os.path.relpath(override, build.parent)).as_posix()
+drop = ("CONFIG_PARTITION_TABLE_CUSTOM", "CONFIG_PARTITION_TABLE_FILENAME")
+lines = [line for line in lines if not line.startswith(drop)]
+lines.extend(
+    [
+        "CONFIG_PARTITION_TABLE_CUSTOM=y",
+        f'CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="{rel}"',
+        f'CONFIG_PARTITION_TABLE_FILENAME="{rel}"',
+    ]
+)
+fragment = override.with_suffix(".sdkconfig")
+if fragment.is_file():
+    lines.extend(
+        line.strip()
+        for line in fragment.read_text("utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    )
+sdk.parent.mkdir(parents=True, exist_ok=True)
+sdk.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
+}
+
+esp32_autosize_partition() {
+    local log_file="$1" override="$2" build_path="$3"
+    python3 - "$log_file" "$override" "$build_path" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+log_path, override, build = map(Path, sys.argv[1:])
+text = log_path.read_text("utf-8", "replace")
+image_match = re.search(
+    r"app partition is too small for binary \S+ size (0x[0-9a-fA-F]+)", text
+)
+if not image_match:
+    raise SystemExit(1)
+part_match = re.search(
+    r"Part '([^']+)'.*?@\s*(0x[0-9a-fA-F]+)\s+size\s+"
+    r"(0x[0-9a-fA-F]+)\s+\(overflow\s+(0x[0-9a-fA-F]+)\)",
+    text,
+)
+part_name = part_match.group(1) if part_match else "factory"
+
+source = override if override.is_file() else None
+if source is None:
+    sdk = build / "sdkconfig"
+    if sdk.is_file():
+        match = re.search(
+            r'^CONFIG_PARTITION_TABLE_FILENAME="([^"]+)"',
+            sdk.read_text("utf-8", "replace"),
+            re.MULTILINE,
+        )
+        if match:
+            candidate = (build.parent / match.group(1)).resolve()
+            if candidate.is_file():
+                source = candidate
+if source is None:
+    raise SystemExit(1)
+
+def number(value):
+    value = value.strip()
+    if value.lower().endswith("k"):
+        return int(value[:-1], 0) * 1024
+    if value.lower().endswith("m"):
+        return int(value[:-1], 0) * 1024 * 1024
+    return int(value, 0)
+
+rows = []
+for raw in source.read_text("utf-8").splitlines():
+    line = raw.strip()
+    if not line or line.startswith("#"):
+        continue
+    fields = [field.strip() for field in line.split(",")]
+    fields.extend([""] * (6 - len(fields)))
+    rows.append(fields[:6])
+
+index = next((i for i, row in enumerate(rows) if row[0] == part_name), None)
+if index is None:
+    index = next((i for i, row in enumerate(rows) if row[1] == "app"), None)
+if index is None:
+    raise SystemExit(1)
+
+align = 0x10000
+headroom = 0x40000
+image_size = int(image_match.group(1), 16)
+new_size = (image_size + align - 1) & ~(align - 1)
+new_size = (new_size + headroom + align - 1) & ~(align - 1)
+rows[index][4] = hex(new_size)
+cursor = number(rows[index][3]) + new_size
+for row in rows[index + 1 :]:
+    row[3] = hex(cursor)
+    cursor += number(row[4])
+
+override.parent.mkdir(parents=True, exist_ok=True)
+body = ["# Name, Type, SubType, Offset, Size, Flags", ""]
+body.extend(", ".join(row).rstrip(", ") for row in rows)
+override.write_text("\n".join(body) + "\n", encoding="utf-8")
+print(hex(new_size))
+PY
 }
 
 print_build_outputs() {
@@ -874,8 +994,38 @@ echo
 pushd "$PORT_DIR" >/dev/null
 make -j clean "${make_args[@]}"
 make -j submodules "${make_args[@]}"
-make -j all "${make_args[@]}"
+build_rc=0
+if [[ "$PORT" == esp32 ]]; then
+    esp32_build_dir=$(build_dir)
+    esp32_override=$(esp32_partition_override)
+    if [[ -f "$esp32_override" ]]; then
+        echo "esp32 partition override: $esp32_override"
+        esp32_patch_partition_sdkconfig "$esp32_build_dir" "$esp32_override"
+    fi
+    esp32_build_log=$(mktemp /tmp/build-mp-esp32.XXXXXX.log)
+    set +e
+    make -j all "${make_args[@]}" 2>&1 | tee "$esp32_build_log"
+    build_rc=${PIPESTATUS[0]}
+    set -e
+    if [[ "$build_rc" -ne 0 ]] && is_truthy "$MP_AUTOSIZE"; then
+        if new_app_size=$(esp32_autosize_partition "$esp32_build_log" "$esp32_override" "$esp32_build_dir"); then
+            echo "esp32 autosize: app -> $new_app_size; rebuilding once"
+            esp32_patch_partition_sdkconfig "$esp32_build_dir" "$esp32_override"
+            set +e
+            make -j all "${make_args[@]}"
+            build_rc=$?
+            set -e
+        fi
+    fi
+    unlink "$esp32_build_log"
+else
+    make -j all "${make_args[@]}"
+fi
 popd >/dev/null
+
+if [[ "$build_rc" -ne 0 ]]; then
+    exit "$build_rc"
+fi
 
 print_build_outputs
 offer_esp32_flash
