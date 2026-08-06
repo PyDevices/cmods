@@ -17,7 +17,7 @@ This workspace is a collection of sibling git clones. **Before editing files und
 
 2. Read every path from `--paths` (or open `<sub-repo>/AGENTS.md` for the repo you are touching).
 
-**Upstream clones** (`micropython/`, `circuitpython/`): an `AGENTS.md` may be present; still read it for port-specific notes, but **do not commit** in those trees unless the user explicitly overrides `.cursor/rules/cmods-upstream-no-commit.mdc`.
+**Upstream clones** (`micropython/`, `circuitpython/`): an `AGENTS.md` may be present; still read it for port-specific notes, but **do not commit** in those trees unless the user explicitly overrides the user Cursor rule `cmods-upstream-no-commit` (`~/.cursor/rules/cmods-upstream-no-commit.mdc`).
 
 Owned PyDevices siblings (`lv_*`, `usdl2`, `pygraphics`, `displayif`, …) may add or grow their own `AGENTS.md`; use the script above rather than hard-coding the list.
 
