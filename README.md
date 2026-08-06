@@ -111,7 +111,7 @@ git clone https://github.com/adafruit/Adafruit_CircuitPython_asyncio.git
 git clone https://github.com/adafruit/Adafruit_CircuitPython_Ticks.git
 
 ./usdl2/apply_cp_unix_usdl_patches.sh --apply
-./lv_circuitpython_mod/build_cp.sh --port unix --variant standard
+./build_cp.sh --port unix --variant standard
 ./circuitpython/ports/unix/build-standard/micropython ./usdl2/tools/test_usdl2.py
 ```
 

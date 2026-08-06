@@ -39,7 +39,7 @@ Owned PyDevices siblings (`lv_*`, `usdl2`, `pygraphics`, `displayif`, …) may a
 |-----------|------|-------|------------|
 | `mp-unix` | MicroPython unix / standard | `./build_mp.sh --port unix --variant standard` | [`lv_bindings/tools/test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py) |
 | `mp-windows` | MicroPython windows / dev | `./build_mp.sh --port windows --variant dev` | same script via `micropython.exe` |
-| `cp-unix` | CircuitPython unix / coverage | `./lv_circuitpython_mod/build_cp.sh --port unix --variant coverage` | same [`test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py) |
+| `cp-unix` | CircuitPython unix / coverage | `./build_cp.sh --port unix --variant coverage` | same [`test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py) |
 | `cpy-unix` | CPython Unix (WSL) | `lv_cpython_mod/.venv/bin/pip install -e .` | same smoke test (`.venv/bin/python …/lv_bindings/tools/test_lvgl_smoke.py`) |
 | `cpy-windows` | CPython Windows | `pip.exe install -e …` | `python.exe …/lv_bindings/tools/test_lvgl_smoke.py` |
 
@@ -73,7 +73,7 @@ CMODS="$(pwd)"
 ) &
 
 (
-  cd "$CMODS/lv_circuitpython_mod" && \
+  cd "$CMODS" && \
   ./build_cp.sh --port unix --variant coverage && \
   "$CMODS/circuitpython/ports/unix/build-coverage/micropython" \
     "$CMODS/lv_bindings/tools/test_lvgl_smoke.py"
@@ -113,7 +113,7 @@ installs them (does **not** replace `build_all.sh` — that is the LVGL smoke ma
 | `mp-unix` | `./build_mp.sh --port unix --variant standard` | `../pydisplay/bin/micropython` |
 | `mp-windows` | `./build_mp.sh --port windows --variant dev` | `../pydisplay/bin/micropython.exe` |
 | `mp-wasm` | `./build_mp.sh --port webassembly --variant pyscript` | `../pydisplay/web/pyscript/vendor/micropython/` (`.mjs` + `.wasm`) |
-| `cp-unix` | `./lv_circuitpython_mod/build_cp.sh --port unix --variant coverage` | `../pydisplay/bin/circuitpython` (renamed from build `micropython`) |
+| `cp-unix` | `./build_cp.sh --port unix --variant coverage` | `../pydisplay/bin/circuitpython` (renamed from build `micropython`) |
 
 **When to run:** after changing any usermod or freeze/config that is compiled into
 these binaries (`pygraphics`, `usdl2`, `lv_micropython_cmod`, `lv_circuitpython_mod`
@@ -161,14 +161,22 @@ prefer [`lv_bindings/tools/test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smok
 
 ## CircuitPython (`build_cp.sh`)
 
-Script: `./lv_circuitpython_mod/build_cp.sh`
+Script: `./build_cp.sh` (cmods orchestrator — applies all three patch scripts, then make)
 
 ```bash
-cd lv_circuitpython_mod
 ./build_cp.sh --port unix --variant coverage
 ```
 
+Before `make`, always runs:
+
+1. `usdl2/apply_cp_unix_usdl_patches.sh --apply` (unix)
+2. `pygraphics/apply_cp_unix_pygraphics_patches.sh --apply` (unix)
+3. `lv_circuitpython_mod/apply_cp_lvgl_patches.sh --apply`
+
+Each apply script also works **standalone** (clone `circuitpython` + that one repo as siblings; set `CP_DIR` if needed) with plain `make` afterward — no cmods required.
+
 Uses `lv_circuitpython_mod/.venv` for CircuitPython build tooling (created automatically).
+Applies LVGL, usdl2, and pygraphics patches before `make`.
 
 Espressif / Qualia + LVGL build-and-flash lessons (partitions, TinyUF2, WSL COM ports):
 [`lv_circuitpython_mod/docs/BUILD_AND_FLASH.md`](lv_circuitpython_mod/docs/BUILD_AND_FLASH.md).

@@ -135,7 +135,7 @@ build_mp_windows() {
 }
 
 build_cp_unix() {
-    cd "$CMODS/lv_circuitpython_mod"
+    cd "$CMODS"
     ./build_cp.sh --port unix --variant coverage
     smoke_cp_unix
 }

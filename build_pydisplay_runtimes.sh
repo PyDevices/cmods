@@ -34,7 +34,7 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 CMODS="${CMODS:-$SCRIPT_DIR}"
 PYDISPLAY_DIR="${PYDISPLAY_DIR:-$CMODS/../pydisplay}"
 BUILD_MP="$CMODS/build_mp.sh"
-BUILD_CP="$CMODS/lv_circuitpython_mod/build_cp.sh"
+BUILD_CP="$CMODS/build_cp.sh"
 
 MP_UNIX_SRC="$CMODS/micropython/ports/unix/build-standard/micropython"
 MP_WIN_SRC="$CMODS/micropython/ports/windows/build-dev/micropython.exe"
@@ -127,7 +127,7 @@ build_one() {
             (cd "$CMODS" && "$BUILD_MP" --port webassembly --variant pyscript)
             ;;
         cp-unix)
-            (cd "$CMODS/lv_circuitpython_mod" && "$BUILD_CP" --port unix --variant coverage)
+            (cd "$CMODS" && "$BUILD_CP" --port unix --variant coverage)
             ;;
     esac
 }

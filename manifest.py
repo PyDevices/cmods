@@ -17,7 +17,8 @@
 
 import os
 
-# CircuitPython's freeze is applied by lv_circuitpython_mod/build_cp.sh, not this
+# CircuitPython's freeze is applied by build_cp.sh, not this
+# MicroPython manifest.
 # MicroPython aggregator. Including both LVGL mod manifests here double-freezes
 # display_driver.py and breaks the unix/windows MP build.
 _SKIP = frozenset({"lv_circuitpython_mod"})
