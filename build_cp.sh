@@ -2,6 +2,7 @@
 # Build any CircuitPython port/board/variant (cmods workspace orchestrator).
 #
 # Usage:
+#   ./build_cp.sh                                          # interactive
 #   ./build_cp.sh [--port PORT] [--board BOARD] [--variant VARIANT]
 #
 # Environment: WORKSPACE_DIR, CP_DIR, PORT, BOARD, VARIANT, CP_BUILD_VENV
@@ -40,6 +41,7 @@ while [[ $# -gt 0 ]]; do
         --variant) VARIANT="$2"; shift 2 ;;
         -h|--help)
             echo "Usage: $0 [--port PORT] [--board BOARD] [--variant VARIANT]"
+            echo "  With no args (and a TTY), prompts for port / board / variant."
             exit 0
             ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
@@ -315,24 +317,32 @@ ensure_mcu_generated_manifest() {
 }
 
 # 1) Port
-if [[ -z "$PORT" ]]; then
+if [[ -z "$PORT" && -t 0 ]]; then
     mapfile -t _ports < <(list_ports | sort)
     [[ ${#_ports[@]} -gt 0 ]] || { echo "No ports found." >&2; exit 1; }
     PORT=$(pick "Ports:" "${_ports[@]}")
+elif [[ -z "$PORT" ]]; then
+    echo "Port required (use --port or run interactively)." >&2
+    exit 1
 fi
 PORT_DIR="$CP_DIR/ports/$PORT"
 [[ -f "$PORT_DIR/Makefile" ]] || { echo "Invalid port: $PORT" >&2; exit 1; }
 
 # 2) Board (only if this port has boards)
 mapfile -t _boards < <(list_boards | sort)
-if [[ ${#_boards[@]} -gt 0 && -z "$BOARD" ]]; then
-    BOARD=$(pick "Boards for $PORT:" "${_boards[@]}")
+if [[ ${#_boards[@]} -gt 0 ]]; then
+    if [[ -z "$BOARD" && -t 0 ]]; then
+        BOARD=$(pick "Boards for $PORT:" "${_boards[@]}")
+    elif [[ -z "$BOARD" ]]; then
+        echo "Board required for port $PORT (use --board or run interactively)." >&2
+        exit 1
+    fi
 fi
 
 # 3) Variant (only if a variants directory exists)
 if _vdir=$(variants_dir); then
     mapfile -t _variants < <(list_variants "$_vdir" | sort)
-    if [[ ${#_variants[@]} -gt 0 && -z "$VARIANT" ]]; then
+    if [[ ${#_variants[@]} -gt 0 && -z "$VARIANT" && -t 0 ]]; then
         VARIANT=$(pick "Variants:" "${_variants[@]}")
     fi
 fi

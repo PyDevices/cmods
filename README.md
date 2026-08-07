@@ -87,8 +87,8 @@ symlinks) instead.
 | Script | Role |
 |--------|------|
 | [`build_mp.sh`](build_mp.sh) | Any [MicroPython](https://github.com/micropython/micropython) port (interactive or `--port` / `--board` / `--variant`) |
-| [`build_cp.sh`](build_cp.sh) | [CircuitPython](https://github.com/adafruit/circuitpython) ports (`--port` / `--board` / `--variant`) |
-| [`build_runtimes.sh`](build_runtimes.sh) | Build + install desktop/wasm runtimes into `bin/` (and sibling [pydisplay](https://github.com/PyDevices/pydisplay) when present) |
+| [`build_cp.sh`](build_cp.sh) | [CircuitPython](https://github.com/adafruit/circuitpython) ports (interactive or `--port` / `--board` / `--variant`) |
+| [`build_runtimes.sh`](build_runtimes.sh) | Desktop/wasm interpreters for local [pydisplay](https://github.com/PyDevices/pydisplay) work — see below |
 
 Examples:
 
@@ -97,9 +97,20 @@ Examples:
 ./build_mp.sh --port unix --variant standard
 ./build_mp.sh --port rp2 --board RPI_PICO2_W
 ./build_mp.sh --port esp32 --board ESP32_GENERIC_P4 --variant C6_WIFI
+./build_cp.sh                                          # interactive
 ./build_cp.sh --port unix --variant coverage
 ./build_runtimes.sh --only mp-unix,cp-unix
 ```
+
+[`build_runtimes.sh`](build_runtimes.sh) builds the host interpreters used by the
+[pydisplay](https://github.com/PyDevices/pydisplay) example matrix and installs them under
+`bin/` (`micropython`, `micropython.exe`, `circuitpython`, and the wasm
+`micropython.{mjs,wasm}` pair). Targets are `mp-unix`, `mp-windows`, `mp-wasm`,
+and `cp-unix`. When a [pydisplay](https://github.com/PyDevices/pydisplay) checkout sits as a
+**sibling** of this workspace, it also copies those binaries into pydisplay’s
+`bin/` and the PyScript gallery vendor tree. Use `--only` to build a subset, or
+`--install-only` to refresh installs from an existing build. Re-run after
+changing usermods (or frozen manifests) that link into these binaries.
 
 ## 🎨 Hardware example: ESP32-P4 display + touch
 
@@ -109,12 +120,12 @@ End-to-end bring-up for the
 This is **not** stock [MicroPython](https://github.com/micropython/micropython) — firmware must include the [displayif](https://github.com/PyDevices/displayif) `mipidsi`
 cmod.
 
-**Board configs** ([pydisplay](https://github.com/PyDevices/pydisplay)):
+**Board configs** ([micropython-hardware](https://github.com/PyDevices/micropython-hardware)):
 
 | Runtime | Path |
 |---------|------|
-| [MicroPython](https://github.com/micropython/micropython) | [`board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/pydisplay/blob/main/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
-| [CircuitPython](https://github.com/adafruit/circuitpython) | [`board_configs/fbdisplay/cp_esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/pydisplay/blob/main/board_configs/fbdisplay/cp_esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
+| [MicroPython](https://github.com/micropython/micropython) | [`board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/micropython-hardware/blob/main/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
+| [CircuitPython](https://github.com/adafruit/circuitpython) | [`board_configs/cp/fbdisplay/esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/micropython-hardware/blob/main/board_configs/cp/fbdisplay/esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
 
 ```bash
 git clone https://github.com/PyDevices/displayif.git displayif
@@ -136,7 +147,7 @@ Install [pydisplay](https://github.com/PyDevices/pydisplay) on the device ([mpre
 ```bash
 mpremote mip install --target "." "github:PyDevices/pydisplay/packages/pydisplay-bundle.json"
 mpremote mip install --target "." \
-  "github:PyDevices/pydisplay/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b"
+  "github:PyDevices/micropython-hardware/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b"
 # optional: mpremote mip install --target "./examples" "github:PyDevices/pydisplay/packages/examples.json"
 ```
 
@@ -199,18 +210,6 @@ sudo apt install gcc-mingw-w64   # cross-build from Linux/WSL
 ```
 
 See [usdl2/README.md](usdl2/README.md) for `PKG_CONFIG_PATH`, MSYS2, and runtime notes.
-
-## [pydisplay_android](https://github.com/PyDevices/pydisplay_android) (Android APK)
-
-[pydisplay_android](https://github.com/PyDevices/pydisplay_android) holds python-for-android recipes, a buildozer demo APK, and desktop smoke tests for running [pydisplay](https://github.com/PyDevices/pydisplay) under CPython on Android. It lives as a **sibling of this workspace** (e.g. `../pydisplay_android`), not inside [cmods](https://github.com/PyDevices/cmods):
-
-```bash
-cd ..
-git clone https://github.com/PyDevices/pydisplay_android.git
-cd pydisplay_android && ./build_android.sh
-```
-
-Runtime packages (including [usdl2](https://github.com/PyDevices/usdl2)) come from TestPyPI via [pydisplay_android](https://github.com/PyDevices/pydisplay_android)’s `p4a_recipes/`. See [pydisplay Android platform notes](https://github.com/PyDevices/pydisplay/blob/main/docs/platforms/android.md).
 
 **[CircuitPython](https://github.com/adafruit/circuitpython)** (optional extensions; see [lv_circuitpython_mod README](lv_circuitpython_mod/README.md) for CP clone setup):
 
