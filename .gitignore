@@ -9,43 +9,32 @@ dist/
 *.so
 *.pyd
 
-# Cursor IDE throwaways (do not ignore the whole .cursor/ tree)
+# Cursor IDE throwaways
 .cursor/debug*
 .cursor/plans/
 
-# Workspace-specific — personal frozen manifest / entry
-my-manifest.*
+# Workspace-specific personal files at root
+manifest-user.*
 main.py
+user_post_mpconfigport.mk
 
-# Local CircuitPython user config (copy from .example)
-cp-user-config/user_post_mpconfigport.mk
-
-# All cloned repos/directories at workspace root (micropython, user_cmodules, etc.)
+# Ignore all top-level directories (root files stay trackable by default)…
 /*/
-# Local multi-repo symlinks (gh/pydevices layout — not committed)
+# …except the tracked workspace tooling trees
+!/.github/
+!/.github/**
+!/patches/
+!/patches/**
+
+# Top-level symlinks to clones/siblings (/* / does not match symlinks)
 /displayif
 /pygraphics
-/lv_bindings
-/lv_circuitpython_mod
-/lv_cpython_mod
-/lv_micropython_cmod
 /usdl2
+/lv_*
 /micropython
 /circuitpython
 /emsdk
 /esp-idf
 /SDL2-*
 /lvgl
-# Workspace tooling (not upstream clones)
-!/scripts/
-!/scripts/**
-!/docs/
-!/docs/**
-!/patches/
-!/patches/**
-!/.cursor/
-!/cp-user-config/
-!/.github/
-!/.github/**
-!/web/
-!/web/**
+/esp32_partitions

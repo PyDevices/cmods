@@ -4,18 +4,18 @@
 # Usage:
 #   ./build_cp.sh [--port PORT] [--board BOARD] [--variant VARIANT]
 #
-# Environment: WORKSPACE_DIR, CP_DIR, LV_CP_MOD_DIR, PORT, BOARD, VARIANT,
-#              CP_BUILD_VENV
+# Environment: WORKSPACE_DIR, CP_DIR, PORT, BOARD, VARIANT, CP_BUILD_VENV
 #
-# Before make, always applies (when present / required):
-#   1. usdl2/apply_cp_unix_usdl_patches.sh          (unix only)
-#   2. pygraphics/apply_cp_unix_pygraphics_patches.sh (unix only)
-#   3. lv_circuitpython_mod/apply_cp_lvgl_patches.sh
+# Before make, auto-discovers and runs every sibling ``*/apply_cp_patches.sh``
+# (optional — missing extensions are skipped). Each script also works
+# standalone (circuitpython + that one repo as siblings; set CP_DIR if needed).
 #
-# Each apply script also works standalone (circuitpython + that one repo as
-# siblings; set CP_DIR if needed) — no cmods required for manual patch+make.
+# Frozen Python: always uses \$WORKSPACE_DIR/manifest-circuitpython.py, which
+# includes manifest-user.py, optional sibling ``*/manifest.py`` files, then
+# FROZEN_MANIFEST_UPSTREAM (unix variant/port manifest, or generated
+# BUILD/manifest.py when FROZEN_MPY_DIRS is nonempty).
 #
-# Creates $LV_CP_MOD_DIR/.venv and installs circuitpython/requirements-dev.txt
+# Creates \$WORKSPACE_DIR/.venv and installs circuitpython/requirements-dev.txt
 # if needed.
 set -euo pipefail
 
@@ -23,12 +23,10 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 BUILD_CP="${BUILD_CP:-$SCRIPT_DIR/build_cp.sh}"
 WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 CP_DIR="${CP_DIR:-$WORKSPACE_DIR/circuitpython}"
-LV_CP_MOD_DIR="${LV_CP_MOD_DIR:-$WORKSPACE_DIR/lv_circuitpython_mod}"
+export WORKSPACE_DIR CP_DIR
 
 # CircuitPython uses shared-bindings + circuitpython.mk, not MicroPython
-# USER_C_MODULES. Clear a leaked env from sibling build_mp.sh / shells so
-# lv_micropython_cmod is not pulled into the CP compile.
-# FROZEN_MANIFEST is re-set below for unix only (see resolve_unix_frozen_manifest).
+# USER_C_MODULES. Clear a leaked env from sibling build_mp.sh / shells.
 unset USER_C_MODULES FROZEN_MANIFEST
 
 PORT="${PORT:-}"
@@ -51,7 +49,8 @@ done
 [[ -d "$CP_DIR/ports" ]] || { echo "CircuitPython not found: $CP_DIR" >&2; exit 1; }
 
 CP_REQUIREMENTS_DEV="${CP_REQUIREMENTS_DEV:-$CP_DIR/requirements-dev.txt}"
-CP_BUILD_VENV="${CP_BUILD_VENV:-$LV_CP_MOD_DIR/.venv}"
+CP_BUILD_VENV="${CP_BUILD_VENV:-$WORKSPACE_DIR/.venv}"
+FROZEN_MANIFEST="$WORKSPACE_DIR/manifest-circuitpython.py"
 
 ensure_espressif_env() {
     [[ "$PORT" == espressif ]] || return 0
@@ -168,9 +167,12 @@ print_rerun_hint() {
 }
 
 cp_user_config_make_opts() {
-    CP_USER_CONFIG="${CP_USER_CONFIG:-$WORKSPACE_DIR/cp-user-config}"
-    if [[ -d "$CP_USER_CONFIG" ]]; then
+    # Include dir containing user_post_mpconfigport.mk (default: workspace root).
+    local mk="${USER_POST_MPCONFIGPORT_MK:-$WORKSPACE_DIR/user_post_mpconfigport.mk}"
+    if [[ -n "${CP_USER_CONFIG:-}" && -d "$CP_USER_CONFIG" ]]; then
         printf '%s' "-I $(cd "$CP_USER_CONFIG" && pwd)"
+    elif [[ -f "$mk" ]]; then
+        printf '%s' "-I $(cd "$(dirname "$mk")" && pwd)"
     fi
 }
 
@@ -207,50 +209,29 @@ print_make_commands() {
     printf '\n\n'
 }
 
-run_usdl2_patches() {
-    [[ "$PORT" == unix ]] || return 0
-    local usdl2_patch="$WORKSPACE_DIR/usdl2/apply_cp_unix_usdl_patches.sh"
-    [[ -x "$usdl2_patch" ]] || {
-        echo "usdl2 patch script not found: $usdl2_patch" >&2
-        echo "Clone https://github.com/PyDevices/usdl2 as a sibling under WORKSPACE_DIR=$WORKSPACE_DIR." >&2
-        exit 1
-    }
-    local -a patch_args=(--apply)
-    if [[ -n "$VARIANT" ]]; then
-        VARIANT="$VARIANT" "$usdl2_patch" "${patch_args[@]}"
-    else
-        "$usdl2_patch" "${patch_args[@]}"
-    fi
-}
+run_optional_cp_patches() {
+    local script
+    local -a found=()
+    shopt -s nullglob
+    for script in "$WORKSPACE_DIR"/*/apply_cp_patches.sh; do
+        [[ -x "$script" ]] || continue
+        found+=("$script")
+    done
+    shopt -u nullglob
 
-run_pygraphics_patches() {
-    [[ "$PORT" == unix ]] || return 0
-    local pygraphics_patch="$WORKSPACE_DIR/pygraphics/apply_cp_unix_pygraphics_patches.sh"
-    [[ -x "$pygraphics_patch" ]] || {
-        echo "pygraphics patch script not found: $pygraphics_patch" >&2
-        echo "Clone https://github.com/PyDevices/pygraphics as a sibling under WORKSPACE_DIR=$WORKSPACE_DIR." >&2
-        exit 1
-    }
-    local -a patch_args=(--apply)
-    if [[ -n "$VARIANT" ]]; then
-        VARIANT="$VARIANT" "$pygraphics_patch" "${patch_args[@]}"
-    else
-        "$pygraphics_patch" "${patch_args[@]}"
+    if [[ ${#found[@]} -eq 0 ]]; then
+        echo "No */apply_cp_patches.sh found under $WORKSPACE_DIR (extensions optional)."
+        return 0
     fi
-}
 
-run_lvgl_patches() {
-    local lvgl_patch="$LV_CP_MOD_DIR/apply_cp_lvgl_patches.sh"
-    [[ -x "$lvgl_patch" ]] || {
-        echo "LVGL patch script not found: $lvgl_patch" >&2
-        echo "Clone https://github.com/PyDevices/lv_circuitpython_mod as LV_CP_MOD_DIR (default: $WORKSPACE_DIR/lv_circuitpython_mod)." >&2
-        exit 1
-    }
     local -a apply_args=(--apply --port "$PORT")
     [[ -n "$BOARD" ]] && apply_args+=(--board "$BOARD")
     [[ -n "$VARIANT" ]] && apply_args+=(--variant "$VARIANT")
 
-    "$lvgl_patch" "${apply_args[@]}"
+    for script in "${found[@]}"; do
+        echo "Applying CP patches: $script"
+        "$script" "${apply_args[@]}"
+    done
 }
 
 build_dir() {
@@ -289,6 +270,50 @@ print_build_outputs() {
     echo
 }
 
+ensure_host_mpy_cross() {
+    # Port make rebuilds mpy-cross via py/mkrules.mk. GNU make still forwards
+    # FROZEN_MANIFEST from our command line, so a fresh tree links mpy-cross with
+    # frozen qstr flags but no frozen pool. Clean first if a prior failed link
+    # left objects built with FROZEN_MANIFEST set.
+    make -C "$CP_DIR/mpy-cross" clean USER_C_MODULES= FROZEN_MANIFEST=
+    make -C "$CP_DIR/mpy-cross" USER_C_MODULES= FROZEN_MANIFEST=
+}
+
+# Absolute path for a static unix variant/port freeze manifest.
+resolve_unix_frozen_manifest() {
+    local path=""
+    if [[ -n "$VARIANT" && -f "$PORT_DIR/variants/$VARIANT/manifest.py" ]]; then
+        path="$PORT_DIR/variants/$VARIANT/manifest.py"
+    elif [[ -f "$PORT_DIR/variants/manifest.py" ]]; then
+        path="$PORT_DIR/variants/manifest.py"
+    else
+        echo "No unix frozen manifest for variant=${VARIANT:-}" >&2
+        exit 1
+    fi
+    (cd "$(dirname "$path")" && echo "$(pwd)/$(basename "$path")")
+}
+
+# Ensure MCU generated BUILD/manifest.py exists when FROZEN_MPY_DIRS is set.
+# Returns absolute path if present after the probe make, else empty.
+ensure_mcu_generated_manifest() {
+    local bdir rel
+    bdir=$(build_dir)
+    [[ -n "$bdir" ]] || return 0
+    rel="${bdir#"$PORT_DIR"/}/manifest.py"
+
+    # Probe without our aggregator override so circuitpy_mpconfig.mk can set
+    # FROZEN_MANIFEST=$(BUILD)/manifest.py and build the generated file.
+    if make -C "$PORT_DIR" -q "$rel" "${make_args_base[@]}" 2>/dev/null; then
+        :
+    else
+        make -C "$PORT_DIR" -j "$rel" "${make_args_base[@]}" || true
+    fi
+
+    if [[ -f "$bdir/manifest.py" ]]; then
+        (cd "$bdir" && echo "$(pwd)/manifest.py")
+    fi
+}
+
 # 1) Port
 if [[ -z "$PORT" ]]; then
     mapfile -t _ports < <(list_ports | sort)
@@ -312,57 +337,53 @@ if _vdir=$(variants_dir); then
     fi
 fi
 
-run_usdl2_patches
-run_pygraphics_patches
-run_lvgl_patches
+run_optional_cp_patches
 print_rerun_hint
 print_make_commands
 
-# Unix coverage/standard use variant manifests. Wrap them so we can freeze
-# lib/display_driver.py. MCU ports keep CircuitPython's generated BUILD/manifest.py
-# — do not override FROZEN_MANIFEST there.
-resolve_unix_frozen_manifest() {
-    local path=""
-    if [[ -n "$VARIANT" && -f "$PORT_DIR/variants/$VARIANT/manifest.py" ]]; then
-        path="$PORT_DIR/variants/$VARIANT/manifest.py"
-    elif [[ -f "$PORT_DIR/variants/manifest.py" ]]; then
-        path="$PORT_DIR/variants/manifest.py"
-    else
-        echo "No unix frozen manifest for variant=${VARIANT:-}" >&2
-        exit 1
-    fi
-    (cd "$(dirname "$path")" && echo "$(pwd)/$(basename "$path")")
-}
-
-make_args=()
+make_args_base=()
 user_config=$(cp_user_config_make_opts)
-[[ -n "$user_config" ]] && make_args+=("$user_config")
-[[ -n "$BOARD" ]] && make_args+=(BOARD="$BOARD")
-[[ -n "$VARIANT" ]] && make_args+=(VARIANT="$VARIANT")
+[[ -n "$user_config" ]] && make_args_base+=("$user_config")
+[[ -n "$BOARD" ]] && make_args_base+=(BOARD="$BOARD")
+[[ -n "$VARIANT" ]] && make_args_base+=(VARIANT="$VARIANT")
 
-if [[ "$PORT" == unix ]]; then
-    export FROZEN_MANIFEST_UPSTREAM
-    FROZEN_MANIFEST_UPSTREAM=$(resolve_unix_frozen_manifest)
-    FROZEN_MANIFEST="$LV_CP_MOD_DIR/manifest.py"
-    [[ -f "$FROZEN_MANIFEST" ]] || {
-        echo "Frozen manifest not found: $FROZEN_MANIFEST" >&2
-        exit 1
-    }
-    make_args+=(FROZEN_MANIFEST="$FROZEN_MANIFEST")
-    echo "Frozen manifest: $FROZEN_MANIFEST"
-    echo "  FROZEN_MANIFEST_UPSTREAM=$FROZEN_MANIFEST_UPSTREAM"
-fi
+[[ -f "$FROZEN_MANIFEST" ]] || {
+    echo "Frozen manifest not found: $FROZEN_MANIFEST" >&2
+    exit 1
+}
 
 ensure_cp_python_env
 ensure_espressif_env
 
 echo "Building: port=$PORT${BOARD:+ board=$BOARD}${VARIANT:+ variant=$VARIANT}"
-[[ -n "$user_config" ]] && echo "User config: -I ${CP_USER_CONFIG:-$WORKSPACE_DIR/cp-user-config}"
+[[ -n "$user_config" ]] && echo "User config: $user_config"
 echo
 
 pushd "$PORT_DIR" >/dev/null
-make -j clean "${make_args[@]}"
-make -j submodules "${make_args[@]}"
+make -j clean "${make_args_base[@]}"
+make -j submodules "${make_args_base[@]}"
+popd >/dev/null
+
+ensure_host_mpy_cross
+
+export FROZEN_MANIFEST_UPSTREAM=""
+if [[ "$PORT" == unix ]]; then
+    FROZEN_MANIFEST_UPSTREAM=$(resolve_unix_frozen_manifest)
+else
+    FROZEN_MANIFEST_UPSTREAM=$(ensure_mcu_generated_manifest || true)
+fi
+export FROZEN_MANIFEST_UPSTREAM
+
+make_args=("${make_args_base[@]}")
+make_args+=(FROZEN_MANIFEST="$FROZEN_MANIFEST")
+echo "Frozen manifest: $FROZEN_MANIFEST"
+if [[ -n "$FROZEN_MANIFEST_UPSTREAM" ]]; then
+    echo "  FROZEN_MANIFEST_UPSTREAM=$FROZEN_MANIFEST_UPSTREAM"
+else
+    echo "  FROZEN_MANIFEST_UPSTREAM=(none)"
+fi
+
+pushd "$PORT_DIR" >/dev/null
 make -j "${make_args[@]}"
 popd >/dev/null
 

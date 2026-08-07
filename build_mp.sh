@@ -9,11 +9,12 @@
 #
 # USER_C_MODULES and FROZEN_MANIFEST are always cleared at startup so a prior
 # shell export cannot stick across port/board/variant builds. They then default
-# to \$WORKSPACE_DIR and \$WORKSPACE_DIR/manifest.py.
+# to \$WORKSPACE_DIR and \$WORKSPACE_DIR/manifest-micropython.py.
 #
-# FROZEN_MANIFEST defaults to this repo's manifest.py. build_mp.sh also exports
-# FROZEN_MANIFEST_UPSTREAM to the MicroPython freeze file for the selected
-# port/board/variant; manifest.py includes that path (no generated wrapper).
+# FROZEN_MANIFEST defaults to this repo's manifest-micropython.py. build_mp.sh
+# also exports FROZEN_MANIFEST_UPSTREAM to the MicroPython freeze file for the
+# selected port/board/variant; the aggregator includes that path (no generated
+# wrapper).
 #
 # OS_DUPTERM defaults to 1 on unix and webassembly; the windows port disables it
 # by default (link fails with undefined mp_interrupt_char). Set OS_DUPTERM=1 or
@@ -22,17 +23,16 @@
 # enable it in mpconfigport.h already).
 #
 # webassembly: sources EMSDK_DIR/emsdk_env.sh (like esp32 + IDF_DIR/export.sh).
-# Default EMSDK_DIR is $WORKSPACE_DIR/../../other/emsdk (gh/other/emsdk).
+# Default EMSDK_DIR is $WORKSPACE_DIR/emsdk.
 # LVGL user modules set -Wno-unused-function in CFLAGS_USERMOD, but the
 # webassembly port appends -Werror after py.mk merges user-module flags; emcc
 # then treats unused static inlines in generated lvgl_micropython.c as errors. The local
 # patch in micropython/ports/webassembly/Makefile appends -Wno-unused-function
 # after -Werror so it takes effect.
 #
-# patches/micropython/*.patch — git am onto stock micropython/micropython only
-# for ports that need them (windows: networking/SSL/MSVC; unix: scheduler
-# depth). Other ports (e.g. esp32) skip entirely and do not require the patch
-# directory. See patches/micropython/README.md.
+# patches/*micropython-<port>* — git am onto stock micropython/micropython when
+# the selected PORT matches the filename (e.g. micropython-unix,
+# micropython-windows). Ports with no matching files skip. See patches/README.md.
 set -euo pipefail
 
 # Drop inherited overrides every run (all ports/boards/variants). Stale exports
@@ -44,9 +44,9 @@ BUILD_MP="${BUILD_MP:-$SCRIPT_DIR/build_mp.sh}"
 WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 MP_DIR="${MP_DIR:-$WORKSPACE_DIR/micropython}"
 USER_C_MODULES="$WORKSPACE_DIR"
-IDF_DIR="${IDF_DIR:-$WORKSPACE_DIR/../../other/esp-idf}"
-EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/../../other/emsdk}"
-FROZEN_MANIFEST="$WORKSPACE_DIR/manifest.py"
+IDF_DIR="${IDF_DIR:-$WORKSPACE_DIR/esp-idf}"
+EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/emsdk}"
+FROZEN_MANIFEST="$WORKSPACE_DIR/manifest-micropython.py"
 FROZEN_MANIFEST_EXPLICIT=0
 
 PORT="${PORT:-}"
@@ -94,12 +94,12 @@ Options:
 Environment:
   WORKSPACE_DIR      cmods workspace root (default: script directory)
   MP_DIR             MicroPython tree (default: \$WORKSPACE_DIR/micropython)
-  IDF_DIR            ESP-IDF install for esp32 (default: \$WORKSPACE_DIR/../../other/esp-idf)
-  EMSDK_DIR          Emscripten SDK for webassembly (default: \$WORKSPACE_DIR/../../other/emsdk)
+  IDF_DIR            ESP-IDF install for esp32 (default: \$WORKSPACE_DIR/esp-idf)
+  EMSDK_DIR          Emscripten SDK for webassembly (default: \$WORKSPACE_DIR/emsdk)
   USER_C_MODULES     Always \$WORKSPACE_DIR (inherited env is unset at startup)
-  FROZEN_MANIFEST    Always \$WORKSPACE_DIR/manifest.py (inherited env is unset)
+  FROZEN_MANIFEST    Always \$WORKSPACE_DIR/manifest-micropython.py (inherited env is unset)
   FROZEN_MANIFEST_UPSTREAM  Set by this script to the MicroPython upstream freeze
-                     file for the selected port/board/variant (read by manifest.py)
+                     file for the selected port/board/variant (read by manifest-micropython.py)
   PORT, BOARD, VARIANT  Same as the corresponding options
   MP_BUILD_DEBUG     Same as --debug when set to 1/true/yes/on
   OS_DUPTERM         Enable os.dupterm on unix/webassembly (default: 1); windows default: 0
@@ -230,13 +230,12 @@ resolve_upstream_frozen_manifest() {
 
 find_sdl2_dev_root() {
     local candidate triplet="${1:-x86_64-w64-mingw32}"
-    local other_dir="$WORKSPACE_DIR/../../other"
     local -a candidates=()
     [[ -n "${SDL2_DEV:-}" ]] && candidates+=("$SDL2_DEV")
     shopt -s nullglob
-    candidates+=("$other_dir"/SDL2-[0-9]*)
+    candidates+=("$WORKSPACE_DIR"/SDL2-[0-9]*)
     shopt -u nullglob
-    [[ -d "$other_dir/SDL2" ]] && candidates+=("$other_dir/SDL2")
+    [[ -d "$WORKSPACE_DIR/SDL2" ]] && candidates+=("$WORKSPACE_DIR/SDL2")
     for candidate in "${candidates[@]}"; do
         [[ -n "$candidate" && -d "$candidate" ]] || continue
         if [[ -f "$candidate/$triplet/include/SDL2/SDL.h" && -f "$candidate/$triplet/lib/libSDL2.a" ]]; then
@@ -262,8 +261,8 @@ ensure_windows_sdl2_env() {
             echo "Auto-detected SDL2_DEV=$SDL2_DEV (triplet $triplet)"
         else
             echo "Windows port + usdl2 requires the SDL2 MinGW development ZIP." >&2
-            echo "Unpack it (e.g. to \$WORKSPACE_DIR/../../other/SDL2-2.30.10) and run:" >&2
-            echo "  export SDL2_DEV=\$WORKSPACE_DIR/../../other/SDL2-2.30.10" >&2
+            echo "Unpack it (e.g. to \$WORKSPACE_DIR/SDL2-2.30.10) and run:" >&2
+            echo "  export SDL2_DEV=\$WORKSPACE_DIR/SDL2-2.30.10" >&2
             echo "See usdl2/README.md" >&2
             exit 1
         fi
@@ -306,7 +305,7 @@ ensure_idf_env() {
     local idf_export="$IDF_DIR/export.sh"
     [[ -f "$idf_export" ]] || {
         echo "ESP-IDF export script not found: $idf_export" >&2
-        echo "Set IDF_DIR or clone ESP-IDF under \$WORKSPACE_DIR/../../other/esp-idf." >&2
+        echo "Set IDF_DIR or clone ESP-IDF under \$WORKSPACE_DIR/esp-idf." >&2
         exit 1
     }
 
@@ -490,7 +489,7 @@ ensure_emsdk_env() {
     local emsdk_env="$EMSDK_DIR/emsdk_env.sh"
     [[ -f "$emsdk_env" ]] || {
         echo "Emscripten emsdk_env.sh not found: $emsdk_env" >&2
-        echo "Set EMSDK_DIR (default: \$WORKSPACE_DIR/../../other/emsdk)." >&2
+        echo "Set EMSDK_DIR (default: \$WORKSPACE_DIR/emsdk)." >&2
         exit 1
     }
 
@@ -510,33 +509,30 @@ ensure_host_mpy_cross() {
 }
 
 apply_micropython_cmods_patches() {
-    # Apply only the patches needed for this PORT (git am when not already present).
-    # esp32 / webassembly / etc. return immediately — patch dir need not exist.
-    local patch_dir="$WORKSPACE_DIR/patches/micropython"
-    local -a globs=()
-    case "$PORT" in
-        windows) globs=("$patch_dir"/[0-9]*windows*.patch) ;;
-        unix) globs=("$patch_dir"/[0-9]*MICROPY_SCHEDULER_DEPTH*.patch) ;;
-        *) return 0 ;;
-    esac
+    # Apply mailbox patches whose names contain micropython-<PORT> (git am when
+    # not already present). No matches → nothing to do (patch dir optional).
+    local patch_dir="$WORKSPACE_DIR/patches"
+    [[ -d "$patch_dir" ]] || return 0
 
     local -a patches=()
     local p
     shopt -s nullglob
-    patches=("${globs[@]}")
+    patches=("$patch_dir"/*"micropython-${PORT}"*)
     shopt -u nullglob
-    [[ ${#patches[@]} -gt 0 ]] || {
-        echo "error: no cmods patches for port=$PORT under $patch_dir" >&2
-        echo "See patches/micropython/README.md" >&2
-        exit 1
-    }
+    [[ ${#patches[@]} -gt 0 ]] || return 0
+
+    # Stable apply order (0001 before 0002, …).
+    IFS=$'\n' patches=($(printf '%s\n' "${patches[@]}" | sort))
+    unset IFS
+
     [[ -d "$MP_DIR/.git" ]] || {
         echo "error: MP_DIR is not a git checkout (need git am): $MP_DIR" >&2
         exit 1
     }
 
-    echo "MicroPython cmods patches (port=$PORT):"
+    echo "MicroPython patches (port=$PORT, name contains micropython-${PORT}):"
     for p in "${patches[@]}"; do
+        [[ -f "$p" ]] || continue
         local base
         base=$(basename "$p")
         if git -C "$MP_DIR" apply --reverse --check "$p" >/dev/null 2>&1; then
@@ -546,7 +542,7 @@ apply_micropython_cmods_patches() {
         if ! git -C "$MP_DIR" apply --check "$p" >/dev/null 2>&1; then
             echo "error: cannot apply $base to $MP_DIR" >&2
             git -C "$MP_DIR" apply --check "$p" 2>&1 | head -30 >&2
-            echo "Use a stock micropython/micropython tree, or see patches/micropython/README.md" >&2
+            echo "Use a stock micropython/micropython tree, or see patches/README.md" >&2
             exit 1
         fi
         if git -C "$MP_DIR" am --3way "$p"; then
@@ -938,11 +934,11 @@ if [[ "$MP_BUILD_DEBUG" -eq 1 ]]; then
     apply_esp32_debug_variant
 fi
 
-# Point the static cmods/manifest.py at the upstream freeze make would pick.
+# Point the static cmods/manifest-micropython.py at the upstream freeze make would pick.
 export FROZEN_MANIFEST_UPSTREAM
 FROZEN_MANIFEST_UPSTREAM=$(resolve_upstream_frozen_manifest)
 if [[ "$FROZEN_MANIFEST_EXPLICIT" -eq 0 ]]; then
-    FROZEN_MANIFEST="$WORKSPACE_DIR/manifest.py"
+    FROZEN_MANIFEST="$WORKSPACE_DIR/manifest-micropython.py"
 fi
 echo "Frozen manifest: $FROZEN_MANIFEST"
 echo "  FROZEN_MANIFEST_UPSTREAM=$FROZEN_MANIFEST_UPSTREAM"

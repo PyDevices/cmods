@@ -1,124 +1,69 @@
-# AGENTS.md — cmods LVGL build & test matrix
+# AGENTS.md — cmods workspace builds
 
-Workspace root: **this repository** (directory containing `build_all.sh` / `AGENTS.md`). Bindings are generated in **`lv_bindings/`** and consumed by MicroPython, CircuitPython, and CPython mod repos.
+Workspace root: the directory containing `build_mp.sh` / `AGENTS.md` (this
+repo’s contents, whether you cloned cmods or copied them into an existing
+tree). Bindings are generated in **`lv_bindings/`** and consumed by
+MicroPython, CircuitPython, and CPython mod repos.
 
-All paths below are relative to the workspace root unless noted. Scripts resolve the root from their own location (`CMODS="$(cd … && pwd)"`); do not hard-code a home directory.
+All paths below are relative to the workspace root unless noted. Scripts resolve
+the root from their own location (`WORKSPACE_DIR="$(cd … && pwd)"`); do not
+hard-code a home directory.
+
+## Workspace setup
+
+1. **Get the tooling** — either:
+   - **Clone** https://github.com/PyDevices/cmods (preferred for a new workspace), or
+   - **Copy** this repo’s files into an existing build workspace root (so
+     `build_mp.sh`, manifests, and optional `patches/` sit beside your clones).
+2. **Add runtimes / usermods** — clone them **into** the workspace, **or** clone
+   them as siblings of the workspace and **symlink** (e.g.
+   `ln -s ../micropython micropython`).
+3. **`patches/`** — optional. `build_mp.sh` applies files named with
+   `micropython-<port>` for the selected port; no matches → skip. See
+   [`patches/README.md`](patches/README.md).
 
 ## Sub-repo `AGENTS.md`
 
-This workspace is a collection of sibling git clones. **Before editing files under a sub-repo**, read that repo's root **`AGENTS.md`** when it exists — it may override or extend these workspace instructions for that tree.
+This workspace is a collection of sibling git clones (or symlinks to them).
+**Before editing files under a sub-repo**, read that repo's root **`AGENTS.md`**
+when it exists — it may override or extend these workspace instructions for
+that tree.
 
-1. Run discovery from the cmods root:
+**Upstream clones** (`micropython/`, `circuitpython/`): an `AGENTS.md` may be
+present; still read it for port-specific notes, but **do not commit** in those
+trees unless the user explicitly overrides the user Cursor rule
+`cmods-upstream-no-commit` (`~/.cursor/rules/cmods-upstream-no-commit.mdc`).
 
-```bash
-./scripts/list_subrepo_agents.sh          # markdown index
-./scripts/list_subrepo_agents.sh --paths  # paths to read (existing only)
-```
+Owned PyDevices siblings (`lv_*`, `usdl2`, `pygraphics`, `displayif`, …) may add
+or grow their own `AGENTS.md`.
 
-2. Read every path from `--paths` (or open `<sub-repo>/AGENTS.md` for the repo you are touching).
+## Runtimes (`build_runtimes.sh`)
 
-**Upstream clones** (`micropython/`, `circuitpython/`): an `AGENTS.md` may be present; still read it for port-specific notes, but **do not commit** in those trees unless the user explicitly overrides the user Cursor rule `cmods-upstream-no-commit` (`~/.cursor/rules/cmods-upstream-no-commit.mdc`).
-
-Owned PyDevices siblings (`lv_*`, `usdl2`, `pygraphics`, `displayif`, …) may add or grow their own `AGENTS.md`; use the script above rather than hard-coding the list.
-
-## “Build them all”
-
-**Primary API:** per-target and full-matrix scripts at the cmods root:
-
-```bash
-# from workspace root
-./build_target.sh mp-unix       # one target: build + smoke test
-./build_target.sh --smoke-only mp-unix   # smoke test only (binary must exist)
-./build_target.sh cpy-windows
-./build_all.sh                  # all five (safe parallelism)
-./build_all.sh --sequential     # all five, one at a time
-./build_all.sh --smoke-only     # smoke tests only, all five
-```
-
-| Target ID | Port | Build | Smoke test |
-|-----------|------|-------|------------|
-| `mp-unix` | MicroPython unix / standard | `./build_mp.sh --port unix --variant standard` | [`lv_bindings/tools/test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py) |
-| `mp-windows` | MicroPython windows / dev | `./build_mp.sh --port windows --variant dev` | same script via `micropython.exe` |
-| `cp-unix` | CircuitPython unix / coverage | `./build_cp.sh --port unix --variant coverage` | same [`test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py) |
-| `cpy-unix` | CPython Unix (WSL) | `lv_cpython_mod/.venv/bin/pip install -e .` | same smoke test (`.venv/bin/python …/lv_bindings/tools/test_lvgl_smoke.py`) |
-| `cpy-windows` | CPython Windows | `pip.exe install -e …` | `python.exe …/lv_bindings/tools/test_lvgl_smoke.py` |
-
-When the user says **“build them all”**, run `./build_all.sh` (or `./build_target.sh` for a single failing target). Default orchestration: targets **1–4 in parallel** (`mp-unix`, `mp-windows`, `cp-unix`, `cpy-unix`), **`wait`**, then **`cpy-windows` alone**.
-
-**Imperative:** **`cpy-unix` and `cpy-windows` must never run concurrently** — both use editable `pip install -e` on the same `lv_cpython_mod/` tree and clobber `build/`, `*.egg-info`, and in-repo `.so`/`.pyd`. `build_target.sh` uses a flock on `lv_cpython_mod/.build.lock`; `build_all.sh` enforces the phase split above.
-
-CPython targets auto-sync `generated/lvgl_python.c` (and `lv_conf.h`) from sibling `lv_bindings/` before build (`SYNC_LVPY=0` to skip). MP/CP read bindings directly from `lv_bindings/generated/`.
-
-**Do not** use a venv for Windows CPython — use **`pip.exe`** / **`python.exe`**.
-
-### One-shot build script (reference — equivalent to `./build_all.sh`)
+Builds desktop / wasm interpreters used day-to-day, installs into **`bin/`**, and
+when **pydisplay** is a sibling of this workspace (`../pydisplay`), also copies
+into that tree.
 
 ```bash
-# run from workspace root
-CMODS="$(pwd)"
-
-# Phase 1 — parallel (1–4); use $CMODS in every subshell (background jobs do not share cd)
-(
-  cd "$CMODS" && \
-  ./build_mp.sh --port unix --variant standard && \
-  "$CMODS/micropython/ports/unix/build-standard/micropython" \
-    "$CMODS/lv_bindings/tools/test_lvgl_smoke.py"
-) &
-
-(
-  cd "$CMODS" && \
-  ./build_mp.sh --port windows --variant dev && \
-  "$CMODS/micropython/ports/windows/build-dev/micropython.exe" \
-    "$CMODS/lv_bindings/tools/test_lvgl_smoke.py"
-) &
-
-(
-  cd "$CMODS" && \
-  ./build_cp.sh --port unix --variant coverage && \
-  "$CMODS/circuitpython/ports/unix/build-coverage/micropython" \
-    "$CMODS/lv_bindings/tools/test_lvgl_smoke.py"
-) &
-
-(
-  cd "$CMODS/lv_cpython_mod" && \
-  { test -d .venv || python3 -m venv .venv; } && \
-  .venv/bin/pip install -r requirements-dev.txt && \
-  .venv/bin/pip install -e . && \
-  .venv/bin/python "$CMODS/lv_bindings/tools/test_lvgl_smoke.py"
-) &
-
-wait   # all four must finish before step 5
-
-# Phase 2 — Windows CPython alone (clobbers lv_cpython_mod/ if run with step 4)
-cd "$CMODS/lv_cpython_mod"
-pip.exe install -e "$(wslpath -w "$CMODS/lv_cpython_mod")"
-python.exe "$(wslpath -w "$CMODS/lv_bindings/tools/test_lvgl_smoke.py")"
+./build_runtimes.sh
+./build_runtimes.sh --only mp-unix,mp-wasm
+./build_runtimes.sh --install-only   # copy existing build outputs
 ```
 
----
+| Target | Build | Always install | Sibling pydisplay also |
+|--------|-------|----------------|------------------------|
+| `mp-unix` | `./build_mp.sh --port unix --variant standard` | `bin/micropython` | `../pydisplay/bin/micropython` |
+| `mp-windows` | `./build_mp.sh --port windows --variant dev` | `bin/micropython.exe` | `../pydisplay/bin/micropython.exe` |
+| `mp-wasm` | `./build_mp.sh --port webassembly --variant pyscript` | `bin/micropython.{mjs,wasm}` | `../pydisplay/web/pyscript/vendor/micropython/` |
+| `cp-unix` | `./build_cp.sh --port unix --variant coverage` | `bin/circuitpython` | `../pydisplay/bin/circuitpython` |
 
-## Pydisplay runtimes (`build_pydisplay_runtimes.sh`)
+**When to run:** after changing any usermod or freeze/config compiled into these
+binaries (`pygraphics`, `usdl2`, `lv_micropython_cmod`, `lv_circuitpython_mod` /
+regenerated `lv_bindings`, `displayif` when present, freeze aggregators, or
+related port patches). Without a sibling pydisplay, only workspace `bin/` is
+updated.
 
-Builds the interpreters pydisplay’s example matrix / PyScript vendor use, then
-installs them (does **not** replace `build_all.sh` — that is the LVGL smoke matrix).
-
-```bash
-./build_pydisplay_runtimes.sh
-./build_pydisplay_runtimes.sh --only mp-unix,mp-wasm
-./build_pydisplay_runtimes.sh --install-only   # copy existing build outputs
-```
-
-| Target | Build | Install |
-|--------|-------|---------|
-| `mp-unix` | `./build_mp.sh --port unix --variant standard` | `../pydisplay/bin/micropython` |
-| `mp-windows` | `./build_mp.sh --port windows --variant dev` | `../pydisplay/bin/micropython.exe` |
-| `mp-wasm` | `./build_mp.sh --port webassembly --variant pyscript` | `../pydisplay/web/pyscript/vendor/micropython/` (`.mjs` + `.wasm`) |
-| `cp-unix` | `./build_cp.sh --port unix --variant coverage` | `../pydisplay/bin/circuitpython` (renamed from build `micropython`) |
-
-**When to run:** after changing any usermod or freeze/config that is compiled into
-these binaries (`pygraphics`, `usdl2`, `lv_micropython_cmod`, `lv_circuitpython_mod`
-/ regenerated `lv_bindings`, `displayif` when present, `manifest.py` freeze trees,
-or related port patches). Override install root with `PYDISPLAY_DIR` if needed.
+When the user says **“build the runtimes”** / **“refresh pydisplay binaries”**,
+run `./build_runtimes.sh` (optionally `--only …`).
 
 ---
 
@@ -132,20 +77,20 @@ Script: `./build_mp.sh`
 
 | Port | Variant | Notes |
 |------|---------|--------|
-| `unix` | `standard` | Default desktop smoke-test port |
-| `windows` | `dev` (matrix) / `standard` | `build_target`/`build_all` use **`dev`**. `os.dupterm` is **off by default** (enabling it fails at link with `mp_interrupt_char`); pass `--os-dupterm` or `OS_DUPTERM=1` to force |
+| `unix` | `standard` | Default desktop port |
+| `windows` | `dev` (runtimes) / `standard` | Runtimes use **`dev`**. `os.dupterm` is **off by default** (enabling it fails at link with `mp_interrupt_char`); pass `--os-dupterm` or `OS_DUPTERM=1` to force |
 
 Outputs:
 
 - Unix: `micropython/ports/unix/build-standard/micropython`
-- Windows (matrix): `micropython/ports/windows/build-dev/micropython.exe`
+- Windows (runtimes): `micropython/ports/windows/build-dev/micropython.exe`
 
 WSL can run the Windows `.exe` directly for tests.
 
 ### MicroPython smoke test
 
-Script: `lv_micropython_cmod/tools/test_lvgl_unix.py` (deprecated wrapper;
-prefer [`lv_bindings/tools/test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py)).
+Prefer [`lv_bindings/tools/test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py)
+when `lv_bindings` is present:
 
 ```bash
 # Unix
@@ -161,24 +106,26 @@ prefer [`lv_bindings/tools/test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smok
 
 ## CircuitPython (`build_cp.sh`)
 
-Script: `./build_cp.sh` (cmods orchestrator — applies all three patch scripts, then make)
+Script: `./build_cp.sh` (cmods orchestrator — auto-discovers optional
+`*/apply_cp_patches.sh`, then make)
 
 ```bash
 ./build_cp.sh --port unix --variant coverage
 ```
 
-Before `make`, always runs:
+Before `make`, runs every executable `$WORKSPACE_DIR/*/apply_cp_patches.sh`
+(sorted). Missing extensions are skipped. Unix-only scripts exit 0 on non-unix
+ports.
 
-1. `usdl2/apply_cp_unix_usdl_patches.sh --apply` (unix)
-2. `pygraphics/apply_cp_unix_pygraphics_patches.sh --apply` (unix)
-3. `lv_circuitpython_mod/apply_cp_lvgl_patches.sh --apply`
+Each apply script also works **standalone** (clone `circuitpython` + that one
+repo as siblings; set `CP_DIR` if needed) with plain `make` afterward — no cmods
+required.
 
-Each apply script also works **standalone** (clone `circuitpython` + that one repo as siblings; set `CP_DIR` if needed) with plain `make` afterward — no cmods required.
+Uses `$WORKSPACE_DIR/.venv` for CircuitPython build tooling (created
+automatically). Freeze aggregator: `manifest-circuitpython.py` (all ports).
 
-Uses `lv_circuitpython_mod/.venv` for CircuitPython build tooling (created automatically).
-Applies LVGL, usdl2, and pygraphics patches before `make`.
-
-Espressif / Qualia + LVGL build-and-flash lessons (partitions, TinyUF2, WSL COM ports):
+Espressif / Qualia + LVGL build-and-flash lessons (partitions, TinyUF2, WSL COM
+ports):
 [`lv_circuitpython_mod/docs/BUILD_AND_FLASH.md`](lv_circuitpython_mod/docs/BUILD_AND_FLASH.md).
 
 Output: `circuitpython/ports/unix/build-coverage/micropython`
@@ -194,37 +141,9 @@ Output: `circuitpython/ports/unix/build-coverage/micropython`
 
 ## CPython (`lv_cpython_mod`)
 
-See also `lv_cpython_mod/docs/BUILDING.md` and `lv_cpython_mod/README.md`.
-
-Both platforms use the **same repo directory** for editable installs. **Never** run `.venv/bin/pip install -e .` and `pip.exe install -e .` concurrently. For “build them all”, step 4 (Unix) runs in **parallel with 1–3**; step 5 (Windows) runs **only after** `wait`.
-
-### Unix (WSL) — use `.venv`
-
-```bash
-cd lv_cpython_mod
-python3 -m venv .venv          # once
-.venv/bin/pip install -r requirements-dev.txt
-.venv/bin/pip install -e .       # rebuild after C or generated/lvgl_python.c changes
-
-.venv/bin/python ../lv_bindings/tools/test_lvgl_smoke.py
-.venv/bin/python -c "import lvgl as lv; lv.init(); lv.deinit(); print('ok')"
-```
-
-### Windows — **no venv**; use `pip.exe` / `python.exe` from WSL
-
-Requires MSVC Build Tools on Windows (python.org CPython, not MinGW).
-
-```bash
-# from workspace root
-CMODS="$(pwd)"
-cd lv_cpython_mod
-
-pip.exe install -e "$(wslpath -w "$CMODS/lv_cpython_mod")"
-python.exe "$(wslpath -w "$CMODS/lv_bindings/tools/test_lvgl_smoke.py")"
-python.exe -c "import lvgl as lv; lv.init(); lv.deinit(); print('ok')"
-```
-
-First Windows build over `\\wsl.localhost\...` can take several minutes.
+Prefer **TestPyPI** wheels (`lvgl-cpython`) for day-to-day use. Local editable
+builds are optional — see `lv_cpython_mod/docs/BUILDING.md` (vendored
+`generated/`; no workspace matrix scripts).
 
 ---
 
@@ -242,15 +161,21 @@ cd lv_bindings
 ./scripts/verify_bindings.sh     # regen + regression checks
 ```
 
-Sync into consumer repos as needed (`lv_cpython_mod/scripts/sync_from_lv_bindings.sh`, or copy `generated/` + `lvgl` pin for MP/CP).
+Sync into consumer repos as needed
+(`lv_cpython_mod/scripts/sync_from_lv_bindings.sh`, or copy `generated/` +
+`lvgl` pin for MP/CP). Then rebuild with `./build_runtimes.sh` / `./build_mp.sh`
+/ `./build_cp.sh` as appropriate.
 
 ---
 
 ## Gotchas
 
 - **`build_mp.sh` flags** are `--port` / `--variant`, not positional args.
-- **Windows MP**: `os.dupterm` disabled by default; use `--os-dupterm` only if you intend to fix/port dupterm support.
+- **Windows MP**: `os.dupterm` disabled by default; use `--os-dupterm` only if
+  you intend to fix/port dupterm support.
 - **CP test path** lives in `lv_circuitpython_mod/`, not `lv_micropython_cmod/`.
-- **CPython Unix vs Windows**: never concurrent; use `./build_all.sh` or `./build_target.sh` (flock + phase split).
-- **Editable CPython install** does not recompile on import; rerun `pip install -e .` after C changes.
-- **Upstream clones** (`micropython/`, `circuitpython/`): do not commit unless the user explicitly overrides workspace rules.
+- **CPython**: use TestPyPI or `lv_cpython_mod` docs — not a cmods matrix target.
+- **Editable CPython install** does not recompile on import; rerun
+  `pip install -e .` after C changes.
+- **Upstream clones** (`micropython/`, `circuitpython/`): do not commit unless
+  the user explicitly overrides workspace rules.

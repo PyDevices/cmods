@@ -1,19 +1,62 @@
 # cmods
 
-Optional workspace wrapper for building MicroPython with multiple user C modules.
+Optional workspace tooling for building MicroPython and CircuitPython with
+multiple user C modules side by side.
 
-This repo does **not** include MicroPython or any user modules — clone them into this directory, then run the build scripts. It is not required for LVGL or any other module; each module repo documents direct builds without cmods.
+This repo does **not** include MicroPython, CircuitPython, or any user modules —
+bring those in yourself (clone into the workspace, or clone nearby and symlink).
+It is not required for LVGL or any other module; each module repo documents
+direct builds without cmods.
 
-## 🚀 Quick start
+## 🚀 Workspace setup
+
+### 1. Get the tooling
+
+**Option A — clone this repo** (recommended when starting fresh):
 
 ```bash
 git clone https://github.com/PyDevices/cmods.git
 cd cmods
+```
 
+**Option B — copy into an existing build workspace** (when you already have a
+directory with MicroPython / CircuitPython / usermods):
+
+Copy the contents of this repo into that workspace root (the directory that
+should contain `build_mp.sh`, `manifest-*.py`, and optionally `patches/`). Do
+not nest a second `cmods/` folder unless you intend that to be the workspace
+root.
+
+### 2. Add the repos you need
+
+Either clone them **into** the workspace, or clone them as **siblings** and
+symlink:
+
+```bash
+# Into the workspace
 git clone https://github.com/micropython/micropython.git micropython
 cd micropython && git submodule update --init --recursive && cd ..
 
-# Optional — only for LVGL; skip and clone other user C modules instead
+# Or as siblings + symlink (example layout: ../micropython next to the workspace)
+ln -s ../micropython micropython
+```
+
+Repeat for each usermod or runtime you want (`displayif`, `usdl2`, `pygraphics`,
+`lv_micropython_cmod`, `circuitpython`, …). Each MicroPython usermod needs
+`micropython.mk` (and optional `manifest.py`) at the workspace-visible path.
+
+### Patches (optional; naming convention)
+
+[`patches/`](patches/) is optional. When present, `build_mp.sh` applies every
+file whose name contains `micropython-<port>` for the selected `--port` (e.g.
+`micropython-unix`, `micropython-windows`). This workspace currently ships two
+such patches (windows networking/SSL, unix scheduler depth). Other ports find
+no matches and skip. Details: [`patches/README.md`](patches/README.md).
+
+### Quick build (after setup)
+
+```bash
+# Optional — only for LVGL
 git clone https://github.com/PyDevices/lv_micropython_cmod.git lv_micropython_cmod
 git clone https://github.com/PyDevices/lv_bindings.git lv_bindings
 cd lv_bindings && git submodule update --init lvgl && cd ..
@@ -22,22 +65,26 @@ cd lv_bindings && git submodule update --init lvgl && cd ..
 ./build_mp.sh --port unix --variant standard
 ```
 
-The LVGL clone and `regenerate_lvmp.sh` steps are **optional** — use them only when building with LVGL. For other user C modules, clone those repos as siblings instead (see below).
-
-Add more user C modules by cloning them as siblings (each needs `micropython.mk` and optional `manifest.py`).
+The LVGL clone and `regenerate_lvmp.sh` steps are **optional** — use them only
+when building with LVGL. For other user C modules, add those repos (or
+symlinks) instead.
 
 ## How it works
 
 - `USER_C_MODULES=$(pwd)` — MicroPython discovers `*/micropython.mk` in immediate subdirectories
-- [`manifest.py`](manifest.py) — frozen Python from cmod sibling repos, then includes the MicroPython upstream freeze via `FROZEN_MANIFEST_UPSTREAM`
+- [`manifest-micropython.py`](manifest-micropython.py) — frozen Python from cmod sibling repos, then includes the MicroPython upstream freeze via `FROZEN_MANIFEST_UPSTREAM`
+- [`manifest-circuitpython.py`](manifest-circuitpython.py) — same aggregator shape for CircuitPython (`build_cp.sh`)
 - [`build_mp.sh`](build_mp.sh) — sets `FROZEN_MANIFEST_UPSTREAM` to the freeze file MicroPython would use for the selected port/board/variant (same as a manual `make` without override)
+- [`build_cp.sh`](build_cp.sh) — auto-discovers `*/apply_cp_patches.sh` (optional extensions) and uses `manifest-circuitpython.py` for all ports
 - [`micropython.cmake`](micropython.cmake) — aggregates `*/micropython.cmake` for CMake ports (ESP32, RP2)
 
 ## Build scripts
 
-| Script | Port |
+| Script | Role |
 |--------|------|
 | [`build_mp.sh`](build_mp.sh) | Any MicroPython port (interactive or `--port` / `--board` / `--variant`) |
+| [`build_cp.sh`](build_cp.sh) | CircuitPython ports (`--port` / `--board` / `--variant`) |
+| [`build_runtimes.sh`](build_runtimes.sh) | Build + install desktop/wasm runtimes into `bin/` (and sibling `../pydisplay` when present) |
 
 Examples:
 
@@ -46,11 +93,70 @@ Examples:
 ./build_mp.sh --port unix --variant standard
 ./build_mp.sh --port rp2 --board RPI_PICO2_W
 ./build_mp.sh --port esp32 --board ESP32_GENERIC_P4 --variant C6_WIFI
+./build_cp.sh --port unix --variant coverage
+./build_runtimes.sh --only mp-unix,cp-unix
 ```
 
-## Example: display + touch on hardware
+## 🎨 Hardware example: ESP32-P4 display + touch
 
-See [`docs/MP_EXAMPLE.md`](docs/MP_EXAMPLE.md) — full walkthrough for the [Waveshare ESP32-P4-WIFI6-Touch-LCD-4B](https://www.waveshare.com/esp32-p4-wifi6-touch-lcd-4b.htm) using **displayif** + **pydisplay** (build, flash, mip install, smoke tests).
+End-to-end bring-up for the
+[Waveshare ESP32-P4-WIFI6-Touch-LCD-4B](https://www.waveshare.com/esp32-p4-wifi6-touch-lcd-4b.htm)
+(4″ 720×720 ST7703 on MIPI DSI, GT911 on I2C) using **displayif** + **pydisplay**.
+This is **not** stock MicroPython — firmware must include the displayif `mipidsi`
+cmod.
+
+**Board configs** (pydisplay):
+
+| Runtime | Path |
+|---------|------|
+| MicroPython | [`board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/pydisplay/blob/main/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
+| CircuitPython | [`board_configs/fbdisplay/cp_esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/pydisplay/blob/main/board_configs/fbdisplay/cp_esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
+
+```bash
+git clone https://github.com/PyDevices/displayif.git displayif
+
+# C6_WIFI — this board’s ESP32-C6 WiFi/BLE coprocessor (use C5_WIFI if yours is C5)
+./build_mp.sh --port esp32 --board ESP32_GENERIC_P4 --variant C6_WIFI
+```
+
+`build_mp.sh` can flash when the build finishes (offset from `board.json`,
+`0x2000` for `ESP32_GENERIC_P4`). Manual flash:
+
+```bash
+esptool -b 460800 --before default_reset --after hard_reset \
+  write_flash 0x2000 micropython/ports/esp32/build-ESP32_GENERIC_P4/firmware.bin
+```
+
+Install pydisplay on the device ([mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html)):
+
+```bash
+mpremote mip install --target "." "github:PyDevices/pydisplay/packages/pydisplay-bundle.json"
+mpremote mip install --target "." \
+  "github:PyDevices/pydisplay/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b"
+# optional: mpremote mip install --target "./examples" "github:PyDevices/pydisplay/packages/examples.json"
+```
+
+Smoke checks:
+
+```bash
+mpremote run displayif/tools/test_mipidsi_smoke.py
+```
+
+```python
+from board_config import display_drv, runtime
+display_drv.fill_rect(0, 0, 200, 200, 0xF800)
+display_drv.show()
+
+# Touch: poll until quit
+while not runtime.quit_requested:
+    for e in runtime.poll():
+        print(e)
+```
+
+Pinout matches the Waveshare BSP (reset **27**, backlight **26**, I2C **7/8**,
+GT911 @ **0x5D**). If the panel stays black, check backlight polarity
+(`backlight_on_high=False` in the board config) and the displayif P4 DSI LDO
+path (channel 3 @ 2.5 V). Validate display/touch over USB serial before WiFi.
 
 ## Related repos
 
@@ -82,8 +188,8 @@ sudo apt install libsdl2-dev   # Debian/Ubuntu — unix port only
 
 ```bash
 # Download SDL2-devel-*-mingw.zip from https://github.com/libsdl-org/SDL/releases
-# Unpack beside emsdk, e.g. ../../other/SDL2-2.30.10 from this repo
-export SDL2_DEV=../../other/SDL2-2.30.10
+# Unpack beside emsdk, e.g. ./SDL2-2.30.10 in this workspace
+export SDL2_DEV=./SDL2-2.30.10
 sudo apt install gcc-mingw-w64   # cross-build from Linux/WSL
 ./build_mp.sh --port windows --variant standard
 ```
@@ -102,30 +208,30 @@ cd pydisplay_android && ./build_android.sh
 
 Runtime packages (including `usdl2`) come from TestPyPI via pydisplay_android’s `p4a_recipes/`. See [pydisplay Android platform notes](https://github.com/PyDevices/pydisplay/blob/main/docs/platforms/android.md).
 
-**CircuitPython** (requires patch script; see [lv_circuitpython_mod README](lv_circuitpython_mod/README.md) for CP clone setup):
+**CircuitPython** (optional extensions; see [lv_circuitpython_mod README](lv_circuitpython_mod/README.md) for CP clone setup):
 
 ```bash
-# Frozen asyncio for multimer.AsyncTimer (copy example first):
-cp cp-user-config/user_post_mpconfigport.mk.example cp-user-config/user_post_mpconfigport.mk
-git clone https://github.com/adafruit/Adafruit_CircuitPython_asyncio.git
-git clone https://github.com/adafruit/Adafruit_CircuitPython_Ticks.git
-
-./usdl2/apply_cp_unix_usdl_patches.sh --apply
 ./build_cp.sh --port unix --variant standard
 ./circuitpython/ports/unix/build-standard/micropython ./usdl2/tools/test_usdl2.py
 ```
 
-`build_cp.sh` passes `-I cp-user-config/` when that directory exists so CircuitPython
-picks up `user_post_mpconfigport.mk`. See [multimer building docs](https://github.com/PyDevices/multimer/blob/main/docs/building.md).
+`build_cp.sh` runs every sibling `*/apply_cp_patches.sh` when present (usdl2, pygraphics, LVGL, …). Clone only the extensions you need.
+Optional: place a `user_post_mpconfigport.mk` at the workspace root (CircuitPython’s
+user-config hook; `build_cp.sh` passes `-I` when it exists) to freeze Adafruit
+asyncio/ticks for `multimer.AsyncTimer`. See [CircuitPython BUILDING.md](https://github.com/adafruit/circuitpython/blob/main/BUILDING.md)
+and [multimer building docs](https://github.com/PyDevices/multimer/blob/main/docs/building.md).
 
 **MicroPython frozen asyncio** (required for `multimer.AsyncTimer` on unix/windows):
 
 ```bash
-cp my-manifest.py.example my-manifest.py   # if present; or use pydisplay/manifest.py
+cp manifest-user.py.example manifest-user.py   # if present; or use pydisplay/manifest.py
 ./build_mp.sh --port unix --variant standard
 ./build_mp.sh --port windows --variant dev
 ```
 
-## Direct build (without cmods)
+## Direct build (without this tooling)
 
-Create any workspace directory, clone `micropython`, `lv_micropython_cmod`, and `lv_bindings` as siblings, and build from `micropython/` with `USER_C_MODULES` pointing at the workspace root. See [lv_micropython_cmod](https://github.com/PyDevices/lv_micropython_cmod) README.
+Create any workspace directory, clone `micropython` and the usermods you need as
+siblings (or symlink them), and build from `micropython/` with `USER_C_MODULES`
+pointing at the workspace root. See each usermod’s README (e.g.
+[lv_micropython_cmod](https://github.com/PyDevices/lv_micropython_cmod)).
