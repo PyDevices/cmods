@@ -58,9 +58,11 @@ into that tree.
 
 **When to run:** after changing any usermod or freeze/config compiled into these
 binaries (`pygraphics`, `lv_micropython_cmod`, `lv_circuitpython_mod` /
-regenerated `lv_bindings`, `displayif` when present, freeze aggregators, or
-related port patches). Without a sibling pydisplay, only workspace `bin/` is
-updated.
+regenerated `lv_bindings`, `displayif` when present — including desktop
+`usdl2` — freeze aggregators, or related port patches). Without a sibling
+pydisplay, only workspace `bin/` is updated. Windows `mp-windows` needs
+`SDL2_DEV` (auto-detected under the workspace; see displayif
+`tools/sdl2_dev_env.sh`).
 
 When the user says **“build the runtimes”** / **“refresh pydisplay binaries”**,
 run `./build_runtimes.sh` (optionally `--only …`).

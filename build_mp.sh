@@ -104,7 +104,7 @@ Environment:
   MP_BUILD_DEBUG     Same as --debug when set to 1/true/yes/on
   OS_DUPTERM         Enable os.dupterm on unix/webassembly (default: 1); windows default: 0
   OS_DUPTERM_SLOTS   dupterm slot count for desktop ports (default: 1)
-  SDL2_DEV           Unpacked SDL2 MinGW development ZIP root (windows port, when required)
+  SDL2_DEV           Unpacked SDL2 MinGW development ZIP root (windows; required when displayif usdl2 links)
   PICOTOOL_FETCH_FROM_GIT_PATH  Cache dir for prebuilt picotool (rp2 port)
   picotool_DIR       Prebuilt picotool cmake package dir (rp2 port)
   DISPLAYIF_SKIP_SPIRAM_CHECK  Set to 1 to skip esp32 PSRAM warning when displayif is present
@@ -260,10 +260,11 @@ ensure_windows_sdl2_env() {
             export SDL2_DEV
             echo "Auto-detected SDL2_DEV=$SDL2_DEV (triplet $triplet)"
         else
-            echo "Windows port requires the SDL2 MinGW development ZIP when SDL2 is linked." >&2
+            echo "Windows port requires the SDL2 MinGW development ZIP (displayif usdl2)." >&2
             echo "Download SDL2-devel-*-mingw.zip from https://github.com/libsdl-org/SDL/releases" >&2
             echo "Unpack it (e.g. to \$WORKSPACE_DIR/SDL2-2.30.10) and run:" >&2
             echo "  export SDL2_DEV=\$WORKSPACE_DIR/SDL2-2.30.10" >&2
+            echo "See displayif/tools/sdl2_dev_env.sh" >&2
             exit 1
         fi
     fi
@@ -272,7 +273,7 @@ ensure_windows_sdl2_env() {
     if [[ ! -f "$prefix/include/SDL2/SDL.h" || ! -f "$prefix/lib/libSDL2.a" ]]; then
         echo "SDL2 MinGW development tree not found under: $prefix" >&2
         echo "Unpack the SDL2 MinGW development ZIP and set SDL2_DEV to its root." >&2
-        echo "See https://github.com/libsdl-org/SDL/releases" >&2
+        echo "See displayif/tools/sdl2_dev_env.sh and https://github.com/libsdl-org/SDL/releases" >&2
         exit 1
     fi
 

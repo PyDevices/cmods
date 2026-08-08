@@ -30,8 +30,8 @@
 #
 # Run this after changing any usermod compiled into these binaries (pygraphics,
 # lv_micropython_cmod, lv_circuitpython_mod / regenerated lv_bindings,
-# displayif when present, frozen manifest trees, or port/build config that
-# affects them).
+# displayif when present — including desktop usdl2 — frozen manifest trees, or
+# port/build config that affects them).
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)

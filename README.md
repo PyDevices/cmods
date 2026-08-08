@@ -112,6 +112,13 @@ and `cp-unix`. When a [pydisplay](https://github.com/PyDevices/pydisplay) checko
 `--install-only` to refresh installs from an existing build. Re-run after
 changing usermods (or frozen manifests) that link into these binaries.
 
+**Desktop SDL (`usdl2`):** when [displayif](https://github.com/PyDevices/displayif) is present,
+MicroPython `unix` / `windows` and CircuitPython unix link native `import usdl2`
+from that repo (not a separate usdl2 usermod). Unix needs `libsdl2-dev`. Windows
+needs an unpacked [SDL2 MinGW development ZIP](https://github.com/libsdl-org/SDL/releases)
+under the workspace (e.g. `SDL2-2.30.10/`); `build_mp.sh` auto-sets `SDL2_DEV`
+or you can export it (see [displayif `tools/sdl2_dev_env.sh`](https://github.com/PyDevices/displayif/blob/main/tools/sdl2_dev_env.sh)).
+
 ## 🎨 Hardware example: ESP32-P4 display + touch
 
 End-to-end bring-up for the
