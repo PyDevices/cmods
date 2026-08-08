@@ -46,7 +46,7 @@ cd micropython && git submodule update --init --recursive && cd ..
 ln -s ../micropython micropython
 ```
 
-Repeat for each usermod or runtime you want ([displayif](https://github.com/PyDevices/displayif), [usdl2](https://github.com/PyDevices/usdl2), [pygraphics](https://github.com/PyDevices/pygraphics),
+Repeat for each usermod or runtime you want ([displayif](https://github.com/PyDevices/displayif), [pygraphics](https://github.com/PyDevices/pygraphics),
 [lv_micropython_cmod](https://github.com/PyDevices/lv_micropython_cmod), [circuitpython](https://github.com/adafruit/circuitpython), …). Each [MicroPython](https://github.com/micropython/micropython) usermod must be an immediate subdirectory of the workspace (clone or symlink) and provide a `micropython.mk` there (optional `manifest.py` for frozen Python).
 
 ### Patches (optional; naming convention)
@@ -183,34 +183,6 @@ path (channel 3 @ 2.5 V). Validate display/touch over USB serial before WiFi.
 
 [CircuitPython](https://github.com/adafruit/circuitpython) does not use `USER_C_MODULES`. Clone [lv_circuitpython_mod](https://github.com/PyDevices/lv_circuitpython_mod) into this workspace if you want CP and MP trees side by side.
 
-## [usdl2](https://github.com/PyDevices/usdl2) (desktop SDL2 subset)
-
-[usdl2](https://github.com/PyDevices/usdl2) is a native module exposing a [pydisplay](https://github.com/PyDevices/pydisplay)-sized subset of libSDL2 as `import usdl2`. Builds on [MicroPython](https://github.com/micropython/micropython) **unix** and **windows** ports. Clone into this workspace as `usdl2/`.
-
-```bash
-git clone https://github.com/PyDevices/usdl2.git
-sudo apt install libsdl2-dev   # Debian/Ubuntu — unix port only
-```
-
-**[MicroPython](https://github.com/micropython/micropython) unix** (no patching):
-
-```bash
-./build_mp.sh --port unix --variant standard
-./micropython/ports/unix/build-standard/micropython ./usdl2/tools/test_usdl2.py
-```
-
-**[MicroPython](https://github.com/micropython/micropython) windows** (static SDL2; SDL2 not vendored — use the official MinGW dev ZIP):
-
-```bash
-# Download SDL2-devel-*-mingw.zip from https://github.com/libsdl-org/SDL/releases
-# Unpack beside emsdk, e.g. ./SDL2-2.30.10 in this workspace
-export SDL2_DEV=./SDL2-2.30.10
-sudo apt install gcc-mingw-w64   # cross-build from Linux/WSL
-./build_mp.sh --port windows --variant standard
-```
-
-See [usdl2/README.md](usdl2/README.md) for `PKG_CONFIG_PATH`, MSYS2, and runtime notes.
-
 **[CircuitPython](https://github.com/adafruit/circuitpython)** (optional extensions; see [lv_circuitpython_mod README](lv_circuitpython_mod/README.md) for CP clone setup):
 
 Native CP modules here follow Adafruit’s
@@ -223,10 +195,9 @@ C-module path. Per-repo READMEs map Learn steps → spikes/patches.
 
 ```bash
 ./build_cp.sh --port unix --variant standard
-./circuitpython/ports/unix/build-standard/micropython ./usdl2/tools/test_usdl2.py
 ```
 
-`build_cp.sh` runs every sibling `*/apply_cp_patches.sh` when present ([usdl2](https://github.com/PyDevices/usdl2), [pygraphics](https://github.com/PyDevices/pygraphics), [LVGL](https://github.com/lvgl/lvgl), …). Clone only the extensions you need.
+`build_cp.sh` runs every sibling `*/apply_cp_patches.sh` when present ([pygraphics](https://github.com/PyDevices/pygraphics), [LVGL](https://github.com/lvgl/lvgl), …). Clone only the extensions you need.
 Optional: place a `user_post_mpconfigport.mk` at the workspace root ([CircuitPython](https://github.com/adafruit/circuitpython)’s
 user-config hook; `build_cp.sh` passes `-I` when it exists) to freeze Adafruit
 asyncio/ticks for [`multimer.AsyncTimer`](https://github.com/PyDevices/multimer). See [CircuitPython BUILDING.md](https://github.com/adafruit/circuitpython/blob/main/BUILDING.md)

@@ -29,7 +29,7 @@
 #                           the extra copy (workspace bin/ is always updated).
 #
 # Run this after changing any usermod compiled into these binaries (pygraphics,
-# usdl2, lv_micropython_cmod, lv_circuitpython_mod / regenerated lv_bindings,
+# lv_micropython_cmod, lv_circuitpython_mod / regenerated lv_bindings,
 # displayif when present, frozen manifest trees, or port/build config that
 # affects them).
 set -euo pipefail

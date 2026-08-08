@@ -34,7 +34,7 @@ present; still read it for port-specific notes, but **do not commit** in those
 trees unless the user explicitly overrides the user Cursor rule
 `cmods-upstream-no-commit` (`~/.cursor/rules/cmods-upstream-no-commit.mdc`).
 
-Owned PyDevices siblings (`lv_*`, `usdl2`, `pygraphics`, `displayif`, …) may add
+Owned PyDevices siblings (`lv_*`, `pygraphics`, `displayif`, …) may add
 or grow their own `AGENTS.md`.
 
 ## Runtimes (`build_runtimes.sh`)
@@ -57,7 +57,7 @@ into that tree.
 | `cp-unix` | `./build_cp.sh --port unix --variant coverage` | `bin/circuitpython` | `../pydisplay/bin/circuitpython` |
 
 **When to run:** after changing any usermod or freeze/config compiled into these
-binaries (`pygraphics`, `usdl2`, `lv_micropython_cmod`, `lv_circuitpython_mod` /
+binaries (`pygraphics`, `lv_micropython_cmod`, `lv_circuitpython_mod` /
 regenerated `lv_bindings`, `displayif` when present, freeze aggregators, or
 related port patches). Without a sibling pydisplay, only workspace `bin/` is
 updated.
