@@ -21,6 +21,12 @@
 
 import os
 
+# ``micropython -m mip`` (mip/__main__.py). Unix variants already require this;
+# windows/webassembly get ``mip`` via networking bundles but not the cmdline.
+# Keep it here (not manifest-user.py): CircuitPython also includes that file
+# and has no mip.
+require("mip-cmdline")
+
 # Optional personal overrides. Missing file is fine; errors inside the file
 # must surface (a broad except was silently dropping bad paths).
 try:
