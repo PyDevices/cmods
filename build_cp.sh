@@ -91,7 +91,7 @@ ensure_cp_python_env() {
     echo "Ensuring CircuitPython dev requirements in venv..."
     if ! "$CP_BUILD_VENV/bin/pip" install -r "$CP_REQUIREMENTS_DEV"; then
         echo "Failed to install dev requirements." >&2
-        echo "If minify_html failed, install Rust (see $CP_DIR/BUILDING.md)." >&2
+        echo "If minify_html failed, install Rust (see $CP_DIR/building.md)." >&2
         exit 1
     fi
 

@@ -128,7 +128,7 @@ automatically). Freeze aggregator: `manifest-circuitpython.py` (all ports).
 
 Espressif / Qualia + LVGL build-and-flash lessons (partitions, TinyUF2, WSL COM
 ports):
-[`lvgl-circuitpython/docs/BUILD_AND_FLASH.md`](lvgl-circuitpython/docs/BUILD_AND_FLASH.md).
+[`lvgl-circuitpython/docs/build-and-flash.md`](lvgl-circuitpython/docs/build-and-flash.md).
 
 Output: `circuitpython/ports/unix/build-coverage/micropython`
 
@@ -144,7 +144,7 @@ Output: `circuitpython/ports/unix/build-coverage/micropython`
 ## CPython (`lvgl-python`)
 
 Prefer **TestPyPI** wheels (`pydevices-lvgl`) for day-to-day use. Local editable
-builds are optional — see `lvgl-python/docs/BUILDING.md` (vendored
+builds are optional — see `lvgl-python/docs/building.md` (vendored
 `generated/`; no workspace matrix scripts).
 
 ---
@@ -155,7 +155,7 @@ After changing `binding/`, `lv_conf.h`, or the `lvgl` submodule:
 
 ```bash
 cd lvgl-bindings
-./regenerate_all.sh              # all three targets + commit + tag (see lvgl-bindings/docs/PUBLISHING.md)
+./regenerate_all.sh              # all three targets + commit + tag (see lvgl-bindings/docs/publishing.md)
 # or individually:
 ./regenerate_lvmp.sh             # → generated/lvgl_micropython.c
 ./regenerate_lvcp.sh             # → generated/lvgl_circuitpython.c

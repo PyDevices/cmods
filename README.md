@@ -212,7 +212,7 @@ C-module path. Per-repo READMEs map Learn steps → spikes/patches.
 `build_cp.sh` runs every sibling `*/apply_cp_patches.sh` when present ([pygraphics](https://github.com/PyDevices/pygraphics), [LVGL](https://github.com/lvgl/lvgl), …). Clone only the extensions you need.
 Optional: place a `user_post_mpconfigport.mk` at the workspace root ([CircuitPython](https://github.com/adafruit/circuitpython)’s
 user-config hook; `build_cp.sh` passes `-I` when it exists) to freeze Adafruit
-asyncio/ticks for [`multimer.AsyncTimer`](https://github.com/PyDevices/multimer). See [CircuitPython BUILDING.md](https://github.com/adafruit/circuitpython/blob/main/BUILDING.md)
+asyncio/ticks for [`multimer.AsyncTimer`](https://github.com/PyDevices/multimer). See [CircuitPython building.md](https://github.com/adafruit/circuitpython/blob/main/building.md)
 and [multimer building docs](https://github.com/PyDevices/multimer/blob/main/docs/building.md).
 
 **[MicroPython](https://github.com/micropython/micropython) frozen asyncio** (required for [`multimer.AsyncTimer`](https://github.com/PyDevices/multimer) on unix/windows):
