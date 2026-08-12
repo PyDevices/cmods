@@ -47,7 +47,7 @@ ln -s ../micropython micropython
 ```
 
 Repeat for each usermod or runtime you want ([displayif](https://github.com/PyDevices/displayif), [pygraphics](https://github.com/PyDevices/pygraphics),
-[lv_micropython_cmod](https://github.com/PyDevices/lv_micropython_cmod), [circuitpython](https://github.com/adafruit/circuitpython), …). Each [MicroPython](https://github.com/micropython/micropython) usermod must be an immediate subdirectory of the workspace (clone or symlink) and provide a `micropython.mk` there (optional `manifest.py` for frozen Python).
+[lvgl-micropython](https://github.com/PyDevices/lvgl-micropython), [circuitpython](https://github.com/adafruit/circuitpython), …). Each [MicroPython](https://github.com/micropython/micropython) usermod must be an immediate subdirectory of the workspace (clone or symlink) and provide a `micropython.mk` there (optional `manifest.py` for frozen Python).
 
 ### Patches (optional; naming convention)
 
@@ -61,10 +61,10 @@ no matches and skip. Details: [`patches/README.md`](patches/README.md).
 
 ```bash
 # Optional — only for LVGL
-git clone https://github.com/PyDevices/lv_micropython_cmod.git lv_micropython_cmod
-git clone https://github.com/PyDevices/lv_bindings.git lv_bindings
-cd lv_bindings && git submodule update --init lvgl && cd ..
-./lv_bindings/regenerate_lvmp.sh
+git clone https://github.com/PyDevices/lvgl-micropython.git lvgl-micropython
+git clone https://github.com/PyDevices/lvgl-bindings.git lvgl-bindings
+cd lvgl-bindings && git submodule update --init lvgl && cd ..
+./lvgl-bindings/regenerate_lvmp.sh
 
 ./build_mp.sh --port unix --variant standard
 ```
@@ -184,13 +184,13 @@ path (channel 3 @ 2.5 V). Validate display/touch over USB serial before WiFi.
 
 | Repo | Role |
 |------|------|
-| [lv_micropython_cmod](https://github.com/PyDevices/lv_micropython_cmod) | [LVGL](https://github.com/lvgl/lvgl) [MicroPython](https://github.com/micropython/micropython) glue |
-| [lv_bindings](https://github.com/PyDevices/lv_bindings) | [LVGL](https://github.com/lvgl/lvgl) binding generator |
-| [lv_circuitpython_mod](https://github.com/PyDevices/lv_circuitpython_mod) | [LVGL](https://github.com/lvgl/lvgl) [CircuitPython](https://github.com/adafruit/circuitpython) glue (separate workflow) |
+| [lvgl-micropython](https://github.com/PyDevices/lvgl-micropython) | [LVGL](https://github.com/lvgl/lvgl) [MicroPython](https://github.com/micropython/micropython) glue |
+| [lvgl-bindings](https://github.com/PyDevices/lvgl-bindings) | [LVGL](https://github.com/lvgl/lvgl) binding generator |
+| [lvgl-circuitpython](https://github.com/PyDevices/lvgl-circuitpython) | [LVGL](https://github.com/lvgl/lvgl) [CircuitPython](https://github.com/adafruit/circuitpython) glue (separate workflow) |
 
-[CircuitPython](https://github.com/adafruit/circuitpython) does not use `USER_C_MODULES`. Clone [lv_circuitpython_mod](https://github.com/PyDevices/lv_circuitpython_mod) into this workspace if you want CP and MP trees side by side.
+[CircuitPython](https://github.com/adafruit/circuitpython) does not use `USER_C_MODULES`. Clone [lvgl-circuitpython](https://github.com/PyDevices/lvgl-circuitpython) into this workspace if you want CP and MP trees side by side.
 
-**[CircuitPython](https://github.com/adafruit/circuitpython)** (optional extensions; see [lv_circuitpython_mod README](lv_circuitpython_mod/README.md) for CP clone setup):
+**[CircuitPython](https://github.com/adafruit/circuitpython)** (optional extensions; see [lvgl-circuitpython README](lvgl-circuitpython/README.md) for CP clone setup):
 
 Native CP modules here follow Adafruit’s
 [Extending CircuitPython](https://learn.adafruit.com/extending-circuitpython)
@@ -223,4 +223,4 @@ cp manifest-user.py.example manifest-user.py   # if present; or use pydisplay/ma
 Create any workspace directory, clone [micropython](https://github.com/micropython/micropython) and the usermods you need as
 siblings (or symlink them), and build from `micropython/` with `USER_C_MODULES`
 pointing at the workspace root. See each usermod’s README (e.g.
-[lv_micropython_cmod](https://github.com/PyDevices/lv_micropython_cmod)).
+[lvgl-micropython](https://github.com/PyDevices/lvgl-micropython)).

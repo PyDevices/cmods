@@ -2,7 +2,7 @@
 
 Workspace root: the directory containing `build_mp.sh` / `AGENTS.md` (this
 repo’s contents, whether you cloned cmods or copied them into an existing
-tree). Bindings are generated in **`lv_bindings/`** and consumed by
+tree). Bindings are generated in **`lvgl-bindings/`** and consumed by
 MicroPython, CircuitPython, and CPython mod repos.
 
 All paths below are relative to the workspace root unless noted. Scripts resolve
@@ -57,8 +57,8 @@ into that tree.
 | `cp-unix` | `./build_cp.sh --port unix --variant coverage` | `bin/circuitpython` | `../pydisplay/bin/circuitpython` |
 
 **When to run:** after changing any usermod or freeze/config compiled into these
-binaries (`pygraphics`, `lv_micropython_cmod`, `lv_circuitpython_mod` /
-regenerated `lv_bindings`, `displayif` when present — including desktop
+binaries (`pygraphics`, `lvgl-micropython`, `lvgl-circuitpython` /
+regenerated `lvgl-bindings`, `displayif` when present — including desktop
 `usdl2` — freeze aggregators, or related port patches). Without a sibling
 pydisplay, only workspace `bin/` is updated. Windows `mp-windows` needs
 `SDL2_DEV` (auto-detected under the workspace; see displayif
@@ -91,17 +91,17 @@ WSL can run the Windows `.exe` directly for tests.
 
 ### MicroPython smoke test
 
-Prefer [`lv_bindings/tools/test_lvgl_smoke.py`](lv_bindings/tools/test_lvgl_smoke.py)
-when `lv_bindings` is present:
+Prefer [`lvgl-bindings/tools/test_lvgl_smoke.py`](lvgl-bindings/tools/test_lvgl_smoke.py)
+when `lvgl-bindings` is present:
 
 ```bash
 # Unix
 ./micropython/ports/unix/build-standard/micropython \
-  ./lv_bindings/tools/test_lvgl_smoke.py
+  ./lvgl-bindings/tools/test_lvgl_smoke.py
 
 # Windows (from WSL)
 ./micropython/ports/windows/build-dev/micropython.exe \
-  ./lv_bindings/tools/test_lvgl_smoke.py
+  ./lvgl-bindings/tools/test_lvgl_smoke.py
 ```
 
 ---
@@ -128,7 +128,7 @@ automatically). Freeze aggregator: `manifest-circuitpython.py` (all ports).
 
 Espressif / Qualia + LVGL build-and-flash lessons (partitions, TinyUF2, WSL COM
 ports):
-[`lv_circuitpython_mod/docs/BUILD_AND_FLASH.md`](lv_circuitpython_mod/docs/BUILD_AND_FLASH.md).
+[`lvgl-circuitpython/docs/BUILD_AND_FLASH.md`](lvgl-circuitpython/docs/BUILD_AND_FLASH.md).
 
 Output: `circuitpython/ports/unix/build-coverage/micropython`
 
@@ -136,26 +136,26 @@ Output: `circuitpython/ports/unix/build-coverage/micropython`
 
 ```bash
 ./circuitpython/ports/unix/build-coverage/micropython \
-  ./lv_bindings/tools/test_lvgl_smoke.py
+  ./lvgl-bindings/tools/test_lvgl_smoke.py
 ```
 
 ---
 
-## CPython (`lv_cpython_mod`)
+## CPython (`lvgl-python`)
 
-Prefer **TestPyPI** wheels (`lvgl-cpython`) for day-to-day use. Local editable
-builds are optional — see `lv_cpython_mod/docs/BUILDING.md` (vendored
+Prefer **TestPyPI** wheels (`pydevices-lvgl`) for day-to-day use. Local editable
+builds are optional — see `lvgl-python/docs/BUILDING.md` (vendored
 `generated/`; no workspace matrix scripts).
 
 ---
 
-## lv_bindings (generator)
+## lvgl-bindings (generator)
 
 After changing `binding/`, `lv_conf.h`, or the `lvgl` submodule:
 
 ```bash
-cd lv_bindings
-./regenerate_all.sh              # all three targets + commit + tag (see lv_bindings/docs/PUBLISHING.md)
+cd lvgl-bindings
+./regenerate_all.sh              # all three targets + commit + tag (see lvgl-bindings/docs/PUBLISHING.md)
 # or individually:
 ./regenerate_lvmp.sh             # → generated/lvgl_micropython.c
 ./regenerate_lvcp.sh             # → generated/lvgl_circuitpython.c
@@ -164,7 +164,7 @@ cd lv_bindings
 ```
 
 Sync into consumer repos as needed
-(`lv_cpython_mod/scripts/sync_from_lv_bindings.sh`, or copy `generated/` +
+(`lvgl-python/scripts/sync_from_lvgl_bindings.sh`, or copy `generated/` +
 `lvgl` pin for MP/CP). Then rebuild with `./build_runtimes.sh` / `./build_mp.sh`
 / `./build_cp.sh` as appropriate.
 
@@ -175,8 +175,8 @@ Sync into consumer repos as needed
 - **`build_mp.sh` flags** are `--port` / `--variant`, not positional args.
 - **Windows MP**: `os.dupterm` disabled by default; use `--os-dupterm` only if
   you intend to fix/port dupterm support.
-- **CP test path** lives in `lv_circuitpython_mod/`, not `lv_micropython_cmod/`.
-- **CPython**: use TestPyPI or `lv_cpython_mod` docs — not a cmods matrix target.
+- **CP test path** lives in `lvgl-circuitpython/`, not `lvgl-micropython/`.
+- **CPython**: use TestPyPI or `lvgl-python` docs — not a cmods matrix target.
 - **Editable CPython install** does not recompile on import; rerun
   `pip install -e .` after C changes.
 - **Upstream clones** (`micropython/`, `circuitpython/`): do not commit unless

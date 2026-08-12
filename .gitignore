@@ -30,7 +30,7 @@ user_post_mpconfigport.mk
 /displayif
 /pygraphics
 /usdl2
-/lv_*
+/lvgl-*
 /micropython
 /circuitpython
 /emsdk
