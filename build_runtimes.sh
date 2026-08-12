@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build MicroPython/CircuitPython runtimes and install them under workspace bin/.
-# When pydisplay is a sibling of this workspace, also install into that tree.
+# When pydevices-examples is a sibling of this workspace, also install into that tree.
 #
 # Targets:
 #   mp-unix     MicroPython unix / standard  → bin/micropython
@@ -8,7 +8,7 @@
 #               and $MP_WINDOWS_INSTALL_DIR/micropython.exe (unless unset empty)
 #   mp-wasm     MicroPython webassembly / pyscript
 #               → bin/micropython.{mjs,wasm}
-#               (+ sibling pydisplay/web/pyscript/vendor/micropython/ when present)
+#               (+ sibling pydevices-examples/web/pyscript/vendor/micropython/ when present)
 #   cp-unix     CircuitPython unix / coverage → bin/circuitpython
 #               (renamed from upstream build output named micropython)
 #
@@ -19,9 +19,9 @@
 #
 # Environment:
 #   WORKSPACE_DIR           Workspace root (default: directory containing this script)
-#   PYDISPLAY_DIR           Optional pydisplay checkout. Used only when it is a
+#   PYDEVICES_DIR           Optional pydevices-examples checkout. Used only when it is a
 #                           sibling of WORKSPACE_DIR (same parent directory). Default:
-#                           $WORKSPACE_DIR/../pydisplay when that directory exists.
+#                           $WORKSPACE_DIR/../pydevices-examples when that directory exists.
 #   EMSDK_DIR               Emscripten SDK for mp-wasm (see build_mp.sh; default: $WORKSPACE_DIR/emsdk)
 #   MP_WINDOWS_INSTALL_DIR  Optional extra install dir for micropython.exe
 #                           (WSL path to a Windows PATH entry, e.g.
@@ -47,11 +47,11 @@ CP_UNIX_SRC="$WORKSPACE_DIR/circuitpython/ports/unix/build-coverage/micropython"
 # Optional extra Windows PATH install; default empty (skip).
 MP_WINDOWS_INSTALL_DIR="${MP_WINDOWS_INSTALL_DIR-}"
 
-# Capture optional override before resolve clears PYDISPLAY_DIR when not sibling.
-PYDISPLAY_DIR_OVERRIDE="${PYDISPLAY_DIR-}"
-PYDISPLAY_DIR=""
-PYDISPLAY_BIN=""
-PYDISPLAY_VENDOR_MP=""
+# Capture optional override before resolve clears PYDEVICES_DIR when not sibling.
+PYDEVICES_DIR_OVERRIDE="${PYDEVICES_DIR-}"
+PYDEVICES_DIR=""
+PYDEVICES_BIN=""
+PYDEVICES_VENDOR_MP=""
 
 ALL_TARGETS=(mp-unix mp-windows mp-wasm cp-unix)
 INSTALL_ONLY=0
@@ -62,24 +62,24 @@ usage() {
     exit "${1:-0}"
 }
 
-# Install into pydisplay only when it shares a parent directory with the workspace.
-resolve_pydisplay_sibling() {
-    local candidate="${PYDISPLAY_DIR_OVERRIDE:-$WORKSPACE_DIR/../pydisplay}"
-    PYDISPLAY_DIR=""
-    PYDISPLAY_BIN=""
-    PYDISPLAY_VENDOR_MP=""
+# Install into pydevices-examples only when it shares a parent directory with the workspace.
+resolve_pydevices_examples_sibling() {
+    local candidate="${PYDEVICES_DIR_OVERRIDE:-$WORKSPACE_DIR/../pydevices-examples}"
+    PYDEVICES_DIR=""
+    PYDEVICES_BIN=""
+    PYDEVICES_VENDOR_MP=""
     [[ -d "$candidate" ]] || return 0
     candidate=$(cd "$candidate" && pwd)
     local workspace_parent py_parent
     workspace_parent=$(cd "$WORKSPACE_DIR/.." && pwd)
     py_parent=$(cd "$candidate/.." && pwd)
     if [[ "$workspace_parent" != "$py_parent" ]]; then
-        echo "Skipping pydisplay install: $candidate is not a sibling of $WORKSPACE_DIR" >&2
+        echo "Skipping pydevices-examples install: $candidate is not a sibling of $WORKSPACE_DIR" >&2
         return 0
     fi
-    PYDISPLAY_DIR="$candidate"
-    PYDISPLAY_BIN="$PYDISPLAY_DIR/bin"
-    PYDISPLAY_VENDOR_MP="$PYDISPLAY_DIR/web/pyscript/vendor/micropython"
+    PYDEVICES_DIR="$candidate"
+    PYDEVICES_BIN="$PYDEVICES_DIR/bin"
+    PYDEVICES_VENDOR_MP="$PYDEVICES_DIR/web/pyscript/vendor/micropython"
 }
 
 parse_only() {
@@ -141,7 +141,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-resolve_pydisplay_sibling
+resolve_pydevices_examples_sibling
 
 [[ -x "$BUILD_MP" ]] || { echo "Missing build_mp.sh: $BUILD_MP" >&2; exit 1; }
 [[ -x "$BUILD_CP" ]] || { echo "Missing build_cp.sh: $BUILD_CP" >&2; exit 1; }
@@ -173,8 +173,8 @@ install_one() {
                 exit 1
             }
             install_file "$MP_UNIX_SRC" "$WORKSPACE_BIN" "micropython"
-            if [[ -n "$PYDISPLAY_BIN" ]]; then
-                install_file "$MP_UNIX_SRC" "$PYDISPLAY_BIN" "micropython"
+            if [[ -n "$PYDEVICES_BIN" ]]; then
+                install_file "$MP_UNIX_SRC" "$PYDEVICES_BIN" "micropython"
             fi
             ;;
         mp-windows)
@@ -183,8 +183,8 @@ install_one() {
                 exit 1
             }
             install_file "$MP_WIN_SRC" "$WORKSPACE_BIN" "micropython.exe"
-            if [[ -n "$PYDISPLAY_BIN" ]]; then
-                install_file "$MP_WIN_SRC" "$PYDISPLAY_BIN" "micropython.exe"
+            if [[ -n "$PYDEVICES_BIN" ]]; then
+                install_file "$MP_WIN_SRC" "$PYDEVICES_BIN" "micropython.exe"
             fi
             if [[ -n "$MP_WINDOWS_INSTALL_DIR" ]]; then
                 mkdir -p "$MP_WINDOWS_INSTALL_DIR"
@@ -198,8 +198,8 @@ install_one() {
                 exit 1
             }
             copy_wasm_pair "$WORKSPACE_BIN"
-            if [[ -n "$PYDISPLAY_VENDOR_MP" ]]; then
-                copy_wasm_pair "$PYDISPLAY_VENDOR_MP"
+            if [[ -n "$PYDEVICES_VENDOR_MP" ]]; then
+                copy_wasm_pair "$PYDEVICES_VENDOR_MP"
             fi
             ;;
         cp-unix)
@@ -209,18 +209,18 @@ install_one() {
             }
             # Upstream unix coverage binary is named micropython; install as circuitpython.
             install_file "$CP_UNIX_SRC" "$WORKSPACE_BIN" "circuitpython"
-            if [[ -n "$PYDISPLAY_BIN" ]]; then
-                install_file "$CP_UNIX_SRC" "$PYDISPLAY_BIN" "circuitpython"
+            if [[ -n "$PYDEVICES_BIN" ]]; then
+                install_file "$CP_UNIX_SRC" "$PYDEVICES_BIN" "circuitpython"
             fi
             ;;
     esac
 }
 
 echo "workspace bin: $WORKSPACE_BIN"
-if [[ -n "$PYDISPLAY_DIR" ]]; then
-    echo "pydisplay (sibling): $PYDISPLAY_DIR"
+if [[ -n "$PYDEVICES_DIR" ]]; then
+    echo "pydevices-examples (sibling): $PYDEVICES_DIR"
 else
-    echo "pydisplay: not a sibling (installing to workspace bin/ only)"
+    echo "pydevices-examples: not a sibling (installing to workspace bin/ only)"
 fi
 
 if [[ "$INSTALL_ONLY" -eq 0 ]]; then

@@ -88,7 +88,7 @@ symlinks) instead.
 |--------|------|
 | [`build_mp.sh`](build_mp.sh) | Any [MicroPython](https://github.com/micropython/micropython) port (interactive or `--port` / `--board` / `--variant`) |
 | [`build_cp.sh`](build_cp.sh) | [CircuitPython](https://github.com/adafruit/circuitpython) ports (interactive or `--port` / `--board` / `--variant`) |
-| [`build_runtimes.sh`](build_runtimes.sh) | Desktop/wasm interpreters for local [pydisplay](https://github.com/PyDevices/pydisplay) work — see below |
+| [`build_runtimes.sh`](build_runtimes.sh) | Desktop/wasm interpreters for local [pydevices-examples](https://github.com/PyDevices/pydevices-examples) work — see below |
 
 Examples:
 
@@ -103,11 +103,11 @@ Examples:
 ```
 
 [`build_runtimes.sh`](build_runtimes.sh) builds the host interpreters used by the
-[pydisplay](https://github.com/PyDevices/pydisplay) example matrix and installs them under
+[pydevices-examples](https://github.com/PyDevices/pydevices-examples) example matrix and installs them under
 `bin/` (`micropython`, `micropython.exe`, `circuitpython`, and the wasm
 `micropython.{mjs,wasm}` pair). Targets are `mp-unix`, `mp-windows`, `mp-wasm`,
-and `cp-unix`. When a [pydisplay](https://github.com/PyDevices/pydisplay) checkout sits as a
-**sibling** of this workspace, it also copies those binaries into pydisplay’s
+and `cp-unix`. When a [pydevices-examples](https://github.com/PyDevices/pydevices-examples) checkout sits as a
+**sibling** of this workspace, it also copies those binaries into pydevices-examples’s
 `bin/` and the PyScript gallery vendor tree. Use `--only` to build a subset, or
 `--install-only` to refresh installs from an existing build. Re-run after
 changing usermods (or frozen manifests) that link into these binaries.
@@ -123,16 +123,16 @@ or you can export it (see [displayif `tools/sdl2_dev_env.sh`](https://github.com
 
 End-to-end bring-up for the
 [Waveshare ESP32-P4-WIFI6-Touch-LCD-4B](https://www.waveshare.com/esp32-p4-wifi6-touch-lcd-4b.htm)
-(4″ 720×720 ST7703 on MIPI DSI, GT911 on I2C) using **[displayif](https://github.com/PyDevices/displayif)** + **[pydisplay](https://github.com/PyDevices/pydisplay)**.
+(4″ 720×720 ST7703 on MIPI DSI, GT911 on I2C) using **[displayif](https://github.com/PyDevices/displayif)** + **[pydevices-examples](https://github.com/PyDevices/pydevices-examples)**.
 This is **not** stock [MicroPython](https://github.com/micropython/micropython) — firmware must include the [displayif](https://github.com/PyDevices/displayif) `mipidsi`
 cmod.
 
-**Board configs** ([micropython-hardware](https://github.com/PyDevices/micropython-hardware)):
+**Board configs** ([pydevices](https://github.com/PyDevices/pydevices)):
 
 | Runtime | Path |
 |---------|------|
-| [MicroPython](https://github.com/micropython/micropython) | [`board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/micropython-hardware/blob/main/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
-| [CircuitPython](https://github.com/adafruit/circuitpython) | [`board_configs/cp/fbdisplay/esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/micropython-hardware/blob/main/board_configs/cp/fbdisplay/esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
+| [MicroPython](https://github.com/micropython/micropython) | [`board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/pydevices/blob/main/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
+| [CircuitPython](https://github.com/adafruit/circuitpython) | [`board_configs/cp/fbdisplay/esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/pydevices/blob/main/board_configs/cp/fbdisplay/esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
 
 ```bash
 git clone https://github.com/PyDevices/displayif.git displayif
@@ -149,14 +149,14 @@ esptool -b 460800 --before default_reset --after hard_reset \
   write_flash 0x2000 micropython/ports/esp32/build-ESP32_GENERIC_P4/firmware.bin
 ```
 
-The cmods build discovers `micropython-hardware/manifest.py` and freezes the
+The cmods build discovers `pydevices/manifest.py` and freezes the
 core product packages. Install the matching board config (and optional
-pydisplay examples) with [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html):
+examples from pydevices-examples) with [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html):
 
 ```bash
 mpremote mip install --target "." \
-  "github:PyDevices/micropython-hardware/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b"
-# optional: mpremote mip install --target "./examples" "github:PyDevices/pydisplay/packages/examples.json"
+  "github:PyDevices/pydevices/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b"
+# optional: mpremote mip install --target "./examples" "github:PyDevices/pydevices-examples/packages/examples.json"
 ```
 
 Smoke checks:
@@ -218,7 +218,7 @@ and [multimer building docs](https://github.com/PyDevices/multimer/blob/main/doc
 **[MicroPython](https://github.com/micropython/micropython) frozen asyncio** (required for [`multimer.AsyncTimer`](https://github.com/PyDevices/multimer) on unix/windows):
 
 ```bash
-# micropython-hardware/manifest.py is discovered automatically.
+# pydevices/manifest.py is discovered automatically.
 # Add only personal extras to the optional manifest-user.py.
 ./build_mp.sh --port unix --variant standard
 ./build_mp.sh --port windows --variant dev

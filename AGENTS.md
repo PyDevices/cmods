@@ -40,7 +40,7 @@ or grow their own `AGENTS.md`.
 ## Runtimes (`build_runtimes.sh`)
 
 Builds desktop / wasm interpreters used day-to-day, installs into **`bin/`**, and
-when **pydisplay** is a sibling of this workspace (`../pydisplay`), also copies
+when **pydevices-examples** is a sibling of this workspace (`../pydevices-examples`), also copies
 into that tree.
 
 ```bash
@@ -49,22 +49,22 @@ into that tree.
 ./build_runtimes.sh --install-only   # copy existing build outputs
 ```
 
-| Target | Build | Always install | Sibling pydisplay also |
+| Target | Build | Always install | Sibling pydevices-examples also |
 |--------|-------|----------------|------------------------|
-| `mp-unix` | `./build_mp.sh --port unix --variant standard` | `bin/micropython` | `../pydisplay/bin/micropython` |
-| `mp-windows` | `./build_mp.sh --port windows --variant dev` | `bin/micropython.exe` | `../pydisplay/bin/micropython.exe` |
-| `mp-wasm` | `./build_mp.sh --port webassembly --variant pyscript` | `bin/micropython.{mjs,wasm}` | `../pydisplay/web/pyscript/vendor/micropython/` |
-| `cp-unix` | `./build_cp.sh --port unix --variant coverage` | `bin/circuitpython` | `../pydisplay/bin/circuitpython` |
+| `mp-unix` | `./build_mp.sh --port unix --variant standard` | `bin/micropython` | `../pydevices-examples/bin/micropython` |
+| `mp-windows` | `./build_mp.sh --port windows --variant dev` | `bin/micropython.exe` | `../pydevices-examples/bin/micropython.exe` |
+| `mp-wasm` | `./build_mp.sh --port webassembly --variant pyscript` | `bin/micropython.{mjs,wasm}` | `../pydevices-examples/web/pyscript/vendor/micropython/` |
+| `cp-unix` | `./build_cp.sh --port unix --variant coverage` | `bin/circuitpython` | `../pydevices-examples/bin/circuitpython` |
 
 **When to run:** after changing any usermod or freeze/config compiled into these
 binaries (`pygraphics`, `lvgl-micropython`, `lvgl-circuitpython` /
 regenerated `lvgl-bindings`, `displayif` when present — including desktop
 `usdl2` — freeze aggregators, or related port patches). Without a sibling
-pydisplay, only workspace `bin/` is updated. Windows `mp-windows` needs
+pydevices-examples, only workspace `bin/` is updated. Windows `mp-windows` needs
 `SDL2_DEV` (auto-detected under the workspace; see displayif
 `tools/sdl2_dev_env.sh`).
 
-When the user says **“build the runtimes”** / **“refresh pydisplay binaries”**,
+When the user says **“build the runtimes”** / **“refresh pydevices-examples binaries”**,
 run `./build_runtimes.sh` (optionally `--only …`).
 
 ---
