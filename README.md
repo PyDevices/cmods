@@ -149,10 +149,11 @@ esptool -b 460800 --before default_reset --after hard_reset \
   write_flash 0x2000 micropython/ports/esp32/build-ESP32_GENERIC_P4/firmware.bin
 ```
 
-Install [pydisplay](https://github.com/PyDevices/pydisplay) on the device ([mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html)):
+The cmods build discovers `micropython-hardware/manifest.py` and freezes the
+core product packages. Install the matching board config (and optional
+pydisplay examples) with [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html):
 
 ```bash
-mpremote mip install --target "." "github:PyDevices/pydisplay/packages/pydisplay-bundle.json"
 mpremote mip install --target "." \
   "github:PyDevices/micropython-hardware/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b"
 # optional: mpremote mip install --target "./examples" "github:PyDevices/pydisplay/packages/examples.json"
@@ -165,7 +166,11 @@ mpremote run displayif/tools/test_mipidsi_smoke.py
 ```
 
 ```python
-from board_config import display_drv, runtime
+import board_config
+import eventsys
+
+display_drv = board_config.display_drv
+runtime = eventsys.Runtime.from_board_config(board_config)
 display_drv.fill_rect(0, 0, 200, 200, 0xF800)
 display_drv.show()
 
@@ -213,7 +218,8 @@ and [multimer building docs](https://github.com/PyDevices/multimer/blob/main/doc
 **[MicroPython](https://github.com/micropython/micropython) frozen asyncio** (required for [`multimer.AsyncTimer`](https://github.com/PyDevices/multimer) on unix/windows):
 
 ```bash
-cp manifest-user.py.example manifest-user.py   # if present; or use pydisplay/manifest.py
+# micropython-hardware/manifest.py is discovered automatically.
+# Add only personal extras to the optional manifest-user.py.
 ./build_mp.sh --port unix --variant standard
 ./build_mp.sh --port windows --variant dev
 ```
