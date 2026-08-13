@@ -1,17 +1,14 @@
 # cmods
 
-Optional workspace tooling for building [MicroPython](https://github.com/micropython/micropython) and [CircuitPython](https://github.com/adafruit/circuitpython) with
-multiple **usermods** / **cmods** side by side.
+An **optional** multi-module workspace layout and build helper for [MicroPython](https://github.com/micropython/micropython) and [CircuitPython](https://github.com/adafruit/circuitpython).
 
-In this workspace those terms mean both:
+`cmods` makes it easy to build custom firmware containing multiple **user C modules** side-by-side (such as [displayif](https://github.com/PyDevices/displayif), [lvgl-micropython](https://github.com/PyDevices/lvgl-micropython), and [pygraphics](https://github.com/PyDevices/pygraphics)):
 
-- [MicroPython external C modules](https://docs.micropython.org/en/latest/develop/cmodules.html) (`USER_C_MODULES`, `micropython.mk` / `micropython.cmake`)
-- [CircuitPython native extensions](https://learn.adafruit.com/extending-circuitpython) (`shared-bindings` / `shared-module`, typically via each repo’s `apply_cp_patches.sh`)
+- **MicroPython external C modules** (`USER_C_MODULES`, `micropython.mk` / `micropython.cmake`)
+- **CircuitPython native extensions** (`shared-bindings` / `shared-module`, via each repo's `apply_cp_patches.sh`)
 
-This repo does **not** include [MicroPython](https://github.com/micropython/micropython), [CircuitPython](https://github.com/adafruit/circuitpython), or any usermods —
-bring those in yourself (clone into the workspace, or clone nearby and symlink).
-It is not required for [LVGL](https://github.com/lvgl/lvgl) or any other module; each module repo documents
-direct builds without [cmods](https://github.com/PyDevices/cmods).
+> **Note for Experienced Developers:** `cmods` is completely optional. If you already have an established build habit (such as standard `make USER_C_MODULES=...` or custom CMake workflows), you can continue building MicroPython and CircuitPython exactly as you always have. This workspace is provided as a friction-free aggregator to make multi-module firmware development faster and more convenient.
+
 
 ## 🚀 Workspace setup
 
@@ -102,15 +99,8 @@ Examples:
 ./build_runtimes.sh --only mp-unix,cp-unix
 ```
 
-[`build_runtimes.sh`](build_runtimes.sh) builds the host interpreters used by the
-[pydevices-examples](https://github.com/PyDevices/pydevices-examples) example matrix and installs them under
-`bin/` (`micropython`, `micropython.exe`, `circuitpython`, and the wasm
-`micropython.{mjs,wasm}` pair). Targets are `mp-unix`, `mp-windows`, `mp-wasm`,
-and `cp-unix`. When a [pydevices-examples](https://github.com/PyDevices/pydevices-examples) checkout sits as a
-**sibling** of this workspace, it also copies those binaries into pydevices-examples’s
-`bin/` and the PyScript gallery vendor tree. Use `--only` to build a subset, or
-`--install-only` to refresh installs from an existing build. Re-run after
-changing usermods (or frozen manifests) that link into these binaries.
+[`build_runtimes.sh`](build_runtimes.sh) builds the host interpreters used by PyDevices and installs them under workspace `bin/` (`micropython`, `micropython.exe`, `circuitpython`, and the wasm `micropython.{mjs,wasm}` pair). Targets are `mp-unix`, `mp-windows`, `mp-wasm`, and `cp-unix`. When the [pydevices](https://github.com/PyDevices/pydevices) flagship repo sits as a **sibling** of this workspace, the script copies the built binaries directly into `pydevices/bin/` to publish them. Use `--only` to build a subset, or `--install-only` to refresh installs from an existing build. Re-run after changing usermods (or frozen manifests) that link into these binaries.
+
 
 **Desktop SDL (`usdl2`):** when [displayif](https://github.com/PyDevices/displayif) is present,
 MicroPython `unix` / `windows` and CircuitPython unix link native `import usdl2`
