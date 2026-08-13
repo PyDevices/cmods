@@ -99,7 +99,7 @@ Examples:
 ./build_runtimes.sh --only mp-unix,cp-unix
 ```
 
-[`build_runtimes.sh`](build_runtimes.sh) builds the host interpreters used by PyDevices and installs them under workspace `bin/` (`micropython`, `micropython.exe`, `circuitpython`, and the wasm `micropython.{mjs,wasm}` pair). Targets are `mp-unix`, `mp-windows`, `mp-wasm`, and `cp-unix`. When the [pydevices](https://github.com/PyDevices/pydevices) flagship repo sits as a **sibling** of this workspace, the script copies the built binaries directly into `pydevices/bin/` to publish them. Use `--only` to build a subset, or `--install-only` to refresh installs from an existing build. Re-run after changing usermods (or frozen manifests) that link into these binaries.
+[`build_runtimes.sh`](build_runtimes.sh) builds the host interpreters used by PyDevices and installs them under workspace `bin/` (`micropython`, `micropython.exe`, `circuitpython`, and the wasm `micropython.{mjs,wasm}` pair). Targets are `mp-unix`, `mp-windows`, `mp-wasm`, and `cp-unix`. When the [pydevices](https://github.com/PyDevices/pydevices) core repo sits as a **sibling** of this workspace, the script copies the built binaries directly into `pydevices/bin/` to publish them. Use `--only` to build a subset, or `--install-only` to refresh installs from an existing build. Re-run after changing usermods (or frozen manifests) that link into these binaries.
 
 
 **Desktop SDL (`usdl2`):** when [displayif](https://github.com/PyDevices/displayif) is present,
