@@ -1,0 +1,245 @@
+From 21abf95d55f80beba5b529ad4b845813a7c01a70 Mon Sep 17 00:00:00 2001
+From: Brad Barnett <bbarnett@gmail.com>
+Date: Fri, 14 Aug 2026 03:36:27 -0500
+Subject: [PATCH] windows: enable ffi (modffi, libffi) on Windows (MinGW)
+
+---
+ ports/unix/modffi.c           | 76 +++++++++++++++++++++++++++++++----
+ ports/windows/Makefile        | 33 +++++++++++++++
+ ports/windows/mpconfigport.h  |  6 +++
+ ports/windows/mpconfigport.mk |  2 +
+ 4 files changed, 109 insertions(+), 8 deletions(-)
+
+diff --git a/ports/unix/modffi.c b/ports/unix/modffi.c
+index b469e932e..2c1358ff8 100644
+--- a/ports/unix/modffi.c
++++ b/ports/unix/modffi.c
+@@ -36,7 +36,11 @@
+ #include <assert.h>
+ #include <string.h>
+ #include <errno.h>
++#ifdef _WIN32
++#include <windows.h>
++#else
+ #include <dlfcn.h>
++#endif
+ #include <ffi.h>
+ 
+ /*
+@@ -212,6 +216,62 @@ static mp_obj_t return_ffi_value(ffi_union_t *val, char type) {
+ 
+ // FFI module
+ 
++#ifdef _WIN32
++static inline void *mp_ffi_open(const char *fname) {
++    if (fname == NULL || fname[0] == '\0') {
++        return (void *)GetModuleHandle(NULL);
++    }
++    return (void *)LoadLibraryA(fname);
++}
++static inline void *mp_ffi_sym(void *handle, const char *symname) {
++    return (void *)GetProcAddress((HMODULE)handle, symname);
++}
++static inline void mp_ffi_close(void *handle) {
++    FreeLibrary((HMODULE)handle);
++}
++#else
++static inline void *mp_ffi_open(const char *fname) {
++    return dlopen(fname, RTLD_NOW | RTLD_LOCAL);
++}
++static inline void *mp_ffi_sym(void *handle, const char *symname) {
++    return dlsym(handle, symname);
++}
++static inline void mp_ffi_close(void *handle) {
++    dlclose(handle);
++}
++#endif
++
++static mp_obj_t ffi_arg_to_obj(ffi_type *type, void *arg) {
++    switch (type->type) {
++        case FFI_TYPE_POINTER:
++            return mp_obj_new_int_from_ull((uintptr_t)*(void **)arg);
++        case FFI_TYPE_UINT8:
++            return mp_obj_new_int_from_uint(*(uint8_t *)arg);
++        case FFI_TYPE_SINT8:
++            return mp_obj_new_int(*(int8_t *)arg);
++        case FFI_TYPE_UINT16:
++            return mp_obj_new_int_from_uint(*(uint16_t *)arg);
++        case FFI_TYPE_SINT16:
++            return mp_obj_new_int(*(int16_t *)arg);
++        case FFI_TYPE_UINT32:
++            return mp_obj_new_int_from_uint(*(uint32_t *)arg);
++        case FFI_TYPE_SINT32:
++            return mp_obj_new_int(*(int32_t *)arg);
++        case FFI_TYPE_UINT64:
++            return mp_obj_new_int_from_ull(*(uint64_t *)arg);
++        case FFI_TYPE_SINT64:
++            return mp_obj_new_int_from_ll(*(int64_t *)arg);
++        #if MICROPY_PY_BUILTINS_FLOAT
++        case FFI_TYPE_FLOAT:
++            return mp_obj_new_float_from_f(*(float *)arg);
++        case FFI_TYPE_DOUBLE:
++            return mp_obj_new_float_from_d(*(double *)arg);
++        #endif
++        default:
++            return mp_obj_new_int(*(mp_int_t *)arg);
++    }
++}
++
+ static void ffimod_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
+     (void)kind;
+     mp_obj_ffimod_t *self = MP_OBJ_TO_PTR(self_in);
+@@ -220,7 +280,7 @@ static void ffimod_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kin
+ 
+ static mp_obj_t ffimod_close(mp_obj_t self_in) {
+     mp_obj_ffimod_t *self = MP_OBJ_TO_PTR(self_in);
+-    dlclose(self->handle);
++    mp_ffi_close(self->handle);
+     return mp_const_none;
+ }
+ static MP_DEFINE_CONST_FUN_OBJ_1(ffimod_close_obj, ffimod_close);
+@@ -257,7 +317,7 @@ static mp_obj_t ffimod_func(size_t n_args, const mp_obj_t *args) {
+     mp_obj_ffimod_t *self = MP_OBJ_TO_PTR(args[0]);
+     const char *symname = mp_obj_str_get_str(args[2]);
+ 
+-    void *sym = dlsym(self->handle, symname);
++    void *sym = mp_ffi_sym(self->handle, symname);
+     if (sym == NULL) {
+         mp_raise_OSError(MP_ENOENT);
+     }
+@@ -277,7 +337,7 @@ static void call_py_func(ffi_cif *cif, void *ret, void **args, void *user_data)
+     mp_obj_t pyfunc = o->pyfunc;
+ 
+     for (uint i = 0; i < cif->nargs; i++) {
+-        pyargs[i] = mp_obj_new_int(*(mp_int_t *)args[i]);
++        pyargs[i] = ffi_arg_to_obj(o->params[i], args[i]);
+     }
+     mp_obj_t res = mp_call_function_n_kw(pyfunc, cif->nargs, 0, pyargs);
+ 
+@@ -299,7 +359,7 @@ static void call_py_func_with_lock(ffi_cif *cif, void *ret, void **args, void *u
+ 
+     if (nlr_push(&nlr) == 0) {
+         for (uint i = 0; i < cif->nargs; i++) {
+-            pyargs[i] = mp_obj_new_int(*(mp_int_t *)args[i]);
++            pyargs[i] = ffi_arg_to_obj(o->params[i], args[i]);
+         }
+         mp_obj_t res = mp_call_function_n_kw(pyfunc, cif->nargs, 0, pyargs);
+ 
+@@ -373,7 +433,7 @@ static mp_obj_t ffimod_var(mp_obj_t self_in, mp_obj_t vartype_in, mp_obj_t symna
+     const char *rettype = mp_obj_str_get_str(vartype_in);
+     const char *symname = mp_obj_str_get_str(symname_in);
+ 
+-    void *sym = dlsym(self->handle, symname);
++    void *sym = mp_ffi_sym(self->handle, symname);
+     if (sym == NULL) {
+         mp_raise_OSError(MP_ENOENT);
+     }
+@@ -389,7 +449,7 @@ static mp_obj_t ffimod_addr(mp_obj_t self_in, mp_obj_t symname_in) {
+     mp_obj_ffimod_t *self = MP_OBJ_TO_PTR(self_in);
+     const char *symname = mp_obj_str_get_str(symname_in);
+ 
+-    void *sym = dlsym(self->handle, symname);
++    void *sym = mp_ffi_sym(self->handle, symname);
+     if (sym == NULL) {
+         mp_raise_OSError(MP_ENOENT);
+     }
+@@ -405,10 +465,10 @@ static mp_obj_t ffimod_make_new(const mp_obj_type_t *type, size_t n_args, size_t
+     if (args[0] != mp_const_none) {
+         fname = mp_obj_str_get_str(args[0]);
+     }
+-    void *mod = dlopen(fname, RTLD_NOW | RTLD_LOCAL);
++    void *mod = mp_ffi_open(fname);
+ 
+     if (mod == NULL) {
+-        mp_raise_OSError(errno);
++        mp_raise_OSError(MP_ENOENT);
+     }
+     mp_obj_ffimod_t *o = mp_obj_malloc(mp_obj_ffimod_t, type);
+     o->handle = mod;
+diff --git a/ports/windows/Makefile b/ports/windows/Makefile
+index 9628d99a6..a76c527de 100644
+--- a/ports/windows/Makefile
++++ b/ports/windows/Makefile
+@@ -89,6 +89,21 @@ endif
+ 
+ LIB += -lws2_32
+ 
++ifeq ($(MICROPY_PY_FFI),1)
++GIT_SUBMODULES += lib/libffi
++DEPLIBS += libffi
++QSTR_GLOBAL_REQUIREMENTS += $(DEPLIBS)
++LIBFFI_CFLAGS := -I$(shell ls -1d $(BUILD)/lib/libffi/include 2>/dev/null || echo $(BUILD)/lib/libffi/include)
++ifeq ($(MICROPY_FORCE_32BIT),1)
++LIBFFI_LDFLAGS = $(BUILD)/lib/libffi/out/lib32/libffi.a
++else
++LIBFFI_LDFLAGS = $(BUILD)/lib/libffi/out/lib/libffi.a
++endif
++CFLAGS += $(LIBFFI_CFLAGS) -DMICROPY_PY_FFI=1
++LDFLAGS += $(LIBFFI_LDFLAGS)
++SRC_C += ports/unix/modffi.c
++endif
++
+ # List of sources for qstr extraction
+ SRC_QSTR += $(SRC_C) $(SRC_CXX) $(SHARED_SRC_C)
+ 
+@@ -107,10 +122,28 @@ endif
+ 
+ CXXFLAGS += $(filter-out -std=gnu99,$(CFLAGS))
+ 
++ifneq ($(CROSS_COMPILE),)
++CROSS_COMPILE_HOST = --host=$(patsubst %-,%,$(CROSS_COMPILE))
++else
++CROSS_COMPILE_HOST =
++endif
++
+ include $(TOP)/py/mkrules.mk
+ 
+ .PHONY: test test_full
+ 
++deplibs: $(DEPLIBS)
++
++libffi: $(BUILD)/lib/libffi/include/ffi.h
++
++$(TOP)/lib/libffi/configure: $(TOP)/lib/libffi/autogen.sh
++	cd $(TOP)/lib/libffi; ./autogen.sh
++
++$(BUILD)/lib/libffi/include/ffi.h: $(TOP)/lib/libffi/configure
++	mkdir -p $(BUILD)/lib/libffi; cd $(BUILD)/lib/libffi; \
++	$(abspath $(TOP))/lib/libffi/configure $(CROSS_COMPILE_HOST) --prefix=$$PWD/out --disable-shared --disable-structs CC="$(CC)" CXX="$(CXX)" LD="$(LD)" CFLAGS="-Os -fomit-frame-pointer -fstrict-aliasing -ffast-math -fno-exceptions"; \
++	$(MAKE) install-exec-recursive; $(MAKE) -C include install-data-am
++
+ # Note for recent gcc versions like 13.2:
+ # - mingw64-x86_64 gcc builds will pass the math_domain_special test
+ # - mingw64-ucrt64 gcc builds will pass all of the below tests
+diff --git a/ports/windows/mpconfigport.h b/ports/windows/mpconfigport.h
+index 935212455..d0c24e5c0 100644
+--- a/ports/windows/mpconfigport.h
++++ b/ports/windows/mpconfigport.h
+@@ -150,6 +150,12 @@
+ #define MICROPY_PY_TIME_CUSTOM_SLEEP (1)
+ #define MICROPY_PY_TIME_INCLUDEFILE "ports/unix/modtime.c"
+ #define MICROPY_PY_ERRNO            (1)
++#ifndef MICROPY_PY_FFI
++#define MICROPY_PY_FFI              (1)
++#endif
++#if MICROPY_PY_FFI
++#define MICROPY_TRACKED_ALLOC       (1)
++#endif
+ #define MICROPY_PY_UCTYPES          (1)
+ #define MICROPY_PY_DEFLATE          (1)
+ #define MICROPY_PY_DEFLATE_COMPRESS (1)
+diff --git a/ports/windows/mpconfigport.mk b/ports/windows/mpconfigport.mk
+index 3b7cf2100..d010fba2d 100644
+--- a/ports/windows/mpconfigport.mk
++++ b/ports/windows/mpconfigport.mk
+@@ -1,5 +1,7 @@
+ # Enable/disable modules and 3rd-party libs to be included in interpreter
+ 
++MICROPY_PY_FFI ?= 1
++
+ # Build 32-bit binaries on a 64-bit host
+ MICROPY_FORCE_32BIT ?= 0
+ 
+-- 
+2.43.0
+
