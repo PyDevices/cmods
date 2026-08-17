@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+                                                <!-- PYDEVICES-HEAD-TAGS: START -->
+  <title>PyDevices - cmods</title>
+  <meta name="description" content="Out-of-tree C build workspace for compiling MicroPython and CircuitPython firmware binaries with displayif drivers and LVGL bindings.">
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+  <!-- PYDEVICES-HEAD-TAGS: END -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="stylesheet" href="vendor/pydevices-chrome/site.css">
+</head>
+<body>
+                                                      <!-- PYDEVICES-ABOVE-THE-FOLD: START -->
+  <div id="pydevices-site-header"></div>
+
+  <!-- Hero Banner -->
+  <section class="hero wrap">
+    <div class="hero-lead">
+      <div class="hero-brand">
+        <div class="logo-badge product-mark" style="background: linear-gradient(135deg, var(--tier-5-steel), #0284c7);"><img src="img/logo.svg" alt="cmods" width="112" height="112"></div>
+        <span class="eyebrow" style="color: var(--tier-5-steel);">cmods</span>
+      </div>
+      <h1>cmods — Multi-usermod C compilation workspace.</h1>
+    </div>
+    <p><code>cmods</code> Out-of-tree C build workspace for compiling MicroPython and CircuitPython firmware binaries with displayif drivers and LVGL bindings.</p>
+    <div class="cta">
+      <a class="btn primary" style="background: #24292e; color: #fff; border-color: #24292e;" href="https://github.com/PyDevices/cmods">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-1-2.6c3-.3 6-1.5 6-6.5a5 5 0 0 0-1.4-3.5 4.6 4.6 0 0 0-.1-3.5s-1.1-.3-3.5 1.3a12 12 0 0 0-6 0C6.6 1.7 5.5 2 5.5 2a4.6 4.6 0 0 0-.1 3.5A5 5 0 0 0 4 9c0 5 3 6.2 6 6.5a3.4 3.4 0 0 0-1 2.6V22"/></svg>
+        GitHub Repo
+      </a>
+      <a class="btn" style="border-color: var(--tier-5-steel); color: var(--tier-5-steel);" href="https://pydevices.github.io/displayif/">displayif Usermods</a>
+      <a class="btn" style="border-color: var(--tier-5-steel); color: var(--tier-5-steel);" href="https://pydevices.github.io/lvgl-bindings/">lvgl-bindings</a>
+      <a class="btn" style="border-color: var(--tier-5-steel); color: var(--tier-5-steel);" href="https://pydevices.github.io/pydevices/">pydevices Core</a>
+    </div>
+  </section>
+  <!-- PYDEVICES-ABOVE-THE-FOLD: END -->
+  <div id="pydevices-site-header"></div>
+
+  <!-- Hero Banner -->
+  
+
+  <main class="wrap" style="padding-bottom: 60px;">
+    <!-- Architecture & Features -->
+    <div class="section-head">
+      <h2>Firmware Compilation Workflows</h2>
+      <span class="hint">Out-of-tree CMake &amp; Makefile build orchestration for MicroPython and CircuitPython ports.</span>
+    </div>
+
+    <div class="spec-block">
+      <h3>MicroPython USER_C_MODULES Compilation</h3>
+      <pre><code># Clone micropython and cmods workspace side-by-side:
+git clone https://github.com/micropython/micropython.git
+git clone https://github.com/PyDevices/cmods.git
+
+# Compile ESP32-S3 firmware with displayif and lvgl usermods enabled:
+cd micropython/ports/esp32
+make USER_C_MODULES=../../../../cmods/micropython.cmake BOARD=ESP32_GENERIC_S3</code></pre>
+    </div>
+
+    <div class="spec-block" style="margin-top: 24px;">
+      <h3>CircuitPython Out-Of-Tree Build Patching</h3>
+      <pre><code># Apply PyDevices usermod patch set to CircuitPython tree:
+cd cmods
+./apply_cp_patches.sh --cp-dir ../circuitpython
+
+# Compile CircuitPython unix desktop simulation or MCU board target:
+cd ../circuitpython/ports/unix
+make -j VARIANT=coverage</code></pre>
+    </div>
+  </main>
+
+  <div id="pydevices-site-footer"></div>
+
+  <script src="vendor/pydevices-chrome/site-chrome.js"></script>
+  <script src="vendor/pydevices-chrome/theme-toggle.js"></script>
+  <script src="vendor/pydevices-chrome/tree-nav.js"></script>
+</body>
+</html>

@@ -23,6 +23,8 @@ user_post_mpconfigport.mk
 # …except the tracked workspace tooling trees
 !/.github/
 !/.github/**
+!/.site/
+!/.site/**
 !/patches/
 !/patches/**
 
