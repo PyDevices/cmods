@@ -1,5 +1,5 @@
 From 4f1817942472429922948901a63b58fe9b5f1faa Mon Sep 17 00:00:00 2001
-From: Brad Barnett <bbarnett@gmail.com>
+From: Brad Barnett <127794626+bdbarnett@users.noreply.github.com>
 Date: Tue, 28 Jul 2026 00:18:18 -0500
 Subject: [PATCH 2/2] unix: raise MICROPY_SCHEDULER_DEPTH for desktop SDL.
 

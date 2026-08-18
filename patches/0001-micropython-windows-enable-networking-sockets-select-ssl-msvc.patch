@@ -1,5 +1,5 @@
 From cfcc9b1d7be2cba8c5f5b21d28607d7e91f06b4d Mon Sep 17 00:00:00 2001
-From: Brad Barnett <bbarnett@gmail.com>
+From: Brad Barnett <127794626+bdbarnett@users.noreply.github.com>
 Date: Tue, 28 Jul 2026 00:18:18 -0500
 Subject: [PATCH 1/2] windows: enable networking (sockets, select, ssl, msvc).
 

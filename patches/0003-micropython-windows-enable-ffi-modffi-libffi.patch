@@ -1,5 +1,5 @@
 From 21abf95d55f80beba5b529ad4b845813a7c01a70 Mon Sep 17 00:00:00 2001
-From: Brad Barnett <bbarnett@gmail.com>
+From: Brad Barnett <127794626+bdbarnett@users.noreply.github.com>
 Date: Fri, 14 Aug 2026 03:36:27 -0500
 Subject: [PATCH] windows: enable ffi (modffi, libffi) on Windows (MinGW)
 
