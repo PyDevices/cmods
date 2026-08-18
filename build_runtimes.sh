@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build MicroPython/CircuitPython runtimes and install them under workspace bin/.
-# When pydevices is a sibling of this workspace, also install into that tree.
+# When pydevices and/or pydevices-examples are siblings of this workspace,
+# also install the applicable artifacts into those trees.
 #
 # Targets:
 #   mp-unix     MicroPython unix / standard  → bin/micropython
@@ -21,6 +22,10 @@
 #   PYDEVICES_DIR           Optional pydevices checkout. Used only when it is a
 #                           sibling of WORKSPACE_DIR (same parent directory). Default:
 #                           $WORKSPACE_DIR/../pydevices when that directory exists.
+#   PYDEVICES_EXAMPLES_DIR  Optional pydevices-examples checkout. Used only when
+#                           it is a sibling of WORKSPACE_DIR. The mp-wasm pair is
+#                           installed into .site/pyscript/vendor/micropython/. Default:
+#                           $WORKSPACE_DIR/../pydevices-examples when that directory exists.
 #   EMSDK_DIR               Emscripten SDK for mp-wasm (see build_mp.sh; default: $WORKSPACE_DIR/emsdk)
 #   MP_WINDOWS_INSTALL_DIR  Optional extra install dir for micropython.exe
 #                           (WSL path to a Windows PATH entry, e.g.
@@ -50,13 +55,16 @@ MP_WINDOWS_INSTALL_DIR="${MP_WINDOWS_INSTALL_DIR-}"
 PYDEVICES_DIR_OVERRIDE="${PYDEVICES_DIR-}"
 PYDEVICES_DIR=""
 PYDEVICES_BIN=""
+PYDEVICES_EXAMPLES_DIR_OVERRIDE="${PYDEVICES_EXAMPLES_DIR-}"
+PYDEVICES_EXAMPLES_DIR=""
+PYDEVICES_EXAMPLES_WASM_DIR=""
 
 ALL_TARGETS=(mp-unix mp-windows mp-wasm cp-unix)
 INSTALL_ONLY=0
 ONLY=()
 
 usage() {
-    sed -n '2,34p' "$0" | sed 's/^# \?//'
+    sed -n '2,/^set -euo pipefail$/{ /^set -euo pipefail$/!p; }' "$0" | sed 's/^# \?//'
     exit "${1:-0}"
 }
 
@@ -76,6 +84,25 @@ resolve_pydevices_sibling() {
     fi
     PYDEVICES_DIR="$candidate"
     PYDEVICES_BIN="$PYDEVICES_DIR/bin"
+}
+
+# Install the WebAssembly pair into the gallery only when pydevices-examples
+# shares a parent directory with the workspace.
+resolve_pydevices_examples_sibling() {
+    local candidate="${PYDEVICES_EXAMPLES_DIR_OVERRIDE:-$WORKSPACE_DIR/../pydevices-examples}"
+    PYDEVICES_EXAMPLES_DIR=""
+    PYDEVICES_EXAMPLES_WASM_DIR=""
+    [[ -d "$candidate" ]] || return 0
+    candidate=$(cd "$candidate" && pwd)
+    local workspace_parent examples_parent
+    workspace_parent=$(cd "$WORKSPACE_DIR/.." && pwd)
+    examples_parent=$(cd "$candidate/.." && pwd)
+    if [[ "$workspace_parent" != "$examples_parent" ]]; then
+        echo "Skipping pydevices-examples install: $candidate is not a sibling of $WORKSPACE_DIR" >&2
+        return 0
+    fi
+    PYDEVICES_EXAMPLES_DIR="$candidate"
+    PYDEVICES_EXAMPLES_WASM_DIR="$PYDEVICES_EXAMPLES_DIR/.site/pyscript/vendor/micropython"
 }
 
 
@@ -139,6 +166,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 resolve_pydevices_sibling
+resolve_pydevices_examples_sibling
 
 [[ -x "$BUILD_MP" ]] || { echo "Missing build_mp.sh: $BUILD_MP" >&2; exit 1; }
 [[ -x "$BUILD_CP" ]] || { echo "Missing build_cp.sh: $BUILD_CP" >&2; exit 1; }
@@ -198,6 +226,9 @@ install_one() {
             if [[ -n "$PYDEVICES_BIN" ]]; then
                 copy_wasm_pair "$PYDEVICES_BIN"
             fi
+            if [[ -n "$PYDEVICES_EXAMPLES_WASM_DIR" ]]; then
+                copy_wasm_pair "$PYDEVICES_EXAMPLES_WASM_DIR"
+            fi
             ;;
         cp-unix)
             [[ -f "$CP_UNIX_SRC" ]] || {
@@ -218,6 +249,11 @@ if [[ -n "$PYDEVICES_DIR" ]]; then
     echo "pydevices (sibling): $PYDEVICES_DIR"
 else
     echo "pydevices: not a sibling (installing to workspace bin/ only)"
+fi
+if [[ -n "$PYDEVICES_EXAMPLES_DIR" ]]; then
+    echo "pydevices-examples (sibling): $PYDEVICES_EXAMPLES_DIR"
+else
+    echo "pydevices-examples: not a sibling (skipping gallery wasm install)"
 fi
 
 
