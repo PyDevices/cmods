@@ -160,7 +160,7 @@ After changing `binding/`, `lv_conf.h`, or the `lvgl` submodule:
 
 ```bash
 cd lvgl-bindings
-./regenerate_all.sh              # all three targets + commit + tag (see lvgl-bindings/docs/publishing.md)
+./regenerate_all.sh              # all three targets + commit + tag (see lvgl-bindings/docs/releasing-bindings.md)
 # or individually:
 ./regenerate_lvmp.sh             # → generated/lvgl_micropython.c
 ./regenerate_lvcp.sh             # → generated/lvgl_circuitpython.c

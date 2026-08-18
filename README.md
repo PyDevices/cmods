@@ -177,11 +177,10 @@ path (channel 3 @ 2.5 V). Validate display/touch over USB serial before WiFi.
 
 ## Related repos
 
-| Repo | Role |
-|------|------|
-| [lvgl-micropython](https://github.com/PyDevices/lvgl-micropython) | [LVGL](https://github.com/lvgl/lvgl) [MicroPython](https://github.com/micropython/micropython) glue |
-| [lvgl-bindings](https://github.com/PyDevices/lvgl-bindings) | [LVGL](https://github.com/lvgl/lvgl) binding generator |
-| [lvgl-circuitpython](https://github.com/PyDevices/lvgl-circuitpython) | [LVGL](https://github.com/lvgl/lvgl) [CircuitPython](https://github.com/adafruit/circuitpython) glue (separate workflow) |
+For the full, always-current map of PyDevices repos and how they relate, see the generated
+[ecosystem map](https://github.com/PyDevices/pydevices/blob/main/docs/ecosystem.md) — rendered
+from [`dotgithub/data/repos_db.json`](https://github.com/PyDevices/dotgithub/blob/main/data/repos_db.json),
+so it cannot drift out of date the way a hand-maintained list here would.
 
 [CircuitPython](https://github.com/adafruit/circuitpython) does not use `USER_C_MODULES`. Clone [lvgl-circuitpython](https://github.com/PyDevices/lvgl-circuitpython) into this workspace if you want CP and MP trees side by side.
 
