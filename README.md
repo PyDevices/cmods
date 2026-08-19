@@ -157,10 +157,10 @@ mpremote run displayif/tools/test_mipidsi_smoke.py
 
 ```python
 import board_config
-import eventsys
+import appdev
 
 display_drv = board_config.display_drv
-runtime = eventsys.Runtime.from_board_config(board_config)
+runtime = appdev.App(board_config)
 display_drv.fill_rect(0, 0, 200, 200, 0xF800)
 display_drv.show()
 
