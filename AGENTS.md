@@ -15,7 +15,7 @@ hard-code a home directory.
    - **Clone** https://github.com/PyDevices/cmods (preferred for a new workspace), or
    - **Copy** this repo’s files into an existing build workspace root (so
      `build_mp.sh`, manifests, and optional `patches/` sit beside your clones).
-2. **Add runtimes / usermods** — clone them **into** the workspace, **or** clone
+2. **Add interpreters / usermods** — clone them **into** the workspace, **or** clone
    them as siblings of the workspace and **symlink** (e.g.
    `ln -s ../micropython micropython`).
 3. **`patches/`** — optional. `build_mp.sh` applies files named with
@@ -37,18 +37,18 @@ trees unless the user explicitly overrides the user Cursor rule
 Owned PyDevices siblings (`lv_*`, `pygraphics`, `displayif`, …) may add
 or grow their own `AGENTS.md`.
 
-## Runtimes (`build_runtimes.sh`)
+## Interpreters (`build_interpreters.sh`)
 
 Builds desktop / wasm interpreters used day-to-day, installs into **`bin/`**, and
 when **pydevices** is a sibling of this workspace (`../pydevices`), also copies
 the artifacts into that tree's `bin/` directory. When **pydevices-examples** is
 a sibling (`../pydevices-examples`), the WebAssembly pair is also copied into
-its vendored PyScript runtime directory.
+its vendored PyScript interpreter directory.
 
 ```bash
-./build_runtimes.sh
-./build_runtimes.sh --only mp-unix,mp-wasm
-./build_runtimes.sh --install-only   # copy existing build outputs
+./build_interpreters.sh
+./build_interpreters.sh --only mp-unix,mp-wasm
+./build_interpreters.sh --install-only   # copy existing build outputs
 ```
 
 | Target | Build | Always install | Sibling installs |
@@ -67,8 +67,8 @@ workspace `bin/` is updated. Windows `mp-windows` needs
 `SDL2_DEV` (auto-detected under the workspace; see displayif
 `tools/sdl2_dev_env.sh`).
 
-When the user says **“build the runtimes”** / **“refresh pydevices binaries”**,
-run `./build_runtimes.sh` (optionally `--only …`). `PYDEVICES_DIR` and
+When the user says **“build the interpreters”** / **“refresh pydevices binaries”**,
+run `./build_interpreters.sh` (optionally `--only …`). `PYDEVICES_DIR` and
 `PYDEVICES_EXAMPLES_DIR` may override the default candidates, but an override
 must still resolve to a sibling of the workspace.
 
@@ -85,12 +85,12 @@ Script: `./build_mp.sh`
 | Port | Variant | Notes |
 |------|---------|--------|
 | `unix` | `standard` | Default desktop port |
-| `windows` | `dev` (runtimes) / `standard` | Runtimes use **`dev`**. `os.dupterm` is **off by default** (enabling it fails at link with `mp_interrupt_char`); pass `--os-dupterm` or `OS_DUPTERM=1` to force |
+| `windows` | `dev` (interpreters) / `standard` | Interpreters use **`dev`**. `os.dupterm` is **off by default** (enabling it fails at link with `mp_interrupt_char`); pass `--os-dupterm` or `OS_DUPTERM=1` to force |
 
 Outputs:
 
 - Unix: `micropython/ports/unix/build-standard/micropython`
-- Windows (runtimes): `micropython/ports/windows/build-dev/micropython.exe`
+- Windows (interpreters): `micropython/ports/windows/build-dev/micropython.exe`
 
 WSL can run the Windows `.exe` directly for tests.
 
@@ -170,7 +170,7 @@ cd lvgl-bindings
 
 Sync into consumer repos as needed
 (`lvgl-python/scripts/sync_from_lvgl_bindings.sh`, or copy `generated/` +
-`lvgl` pin for MP/CP). Then rebuild with `./build_runtimes.sh` / `./build_mp.sh`
+`lvgl` pin for MP/CP). Then rebuild with `./build_interpreters.sh` / `./build_mp.sh`
 / `./build_cp.sh` as appropriate.
 
 ---

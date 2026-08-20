@@ -43,7 +43,7 @@ cd micropython && git submodule update --init --recursive && cd ..
 ln -s ../micropython micropython
 ```
 
-Repeat for each usermod or runtime you want ([displayif](https://github.com/PyDevices/displayif), [pygraphics](https://github.com/PyDevices/pygraphics),
+Repeat for each usermod or interpreter you want ([displayif](https://github.com/PyDevices/displayif), [pygraphics](https://github.com/PyDevices/pygraphics),
 [lvgl-micropython](https://github.com/PyDevices/lvgl-micropython), [circuitpython](https://github.com/adafruit/circuitpython), …). Each [MicroPython](https://github.com/micropython/micropython) usermod must be an immediate subdirectory of the workspace (clone or symlink) and provide a `micropython.mk` there (optional `manifest.py` for frozen Python).
 
 ### Patches (optional; naming convention)
@@ -85,7 +85,7 @@ symlinks) instead.
 |--------|------|
 | [`build_mp.sh`](build_mp.sh) | Any [MicroPython](https://github.com/micropython/micropython) port (interactive or `--port` / `--board` / `--variant`) |
 | [`build_cp.sh`](build_cp.sh) | [CircuitPython](https://github.com/adafruit/circuitpython) ports (interactive or `--port` / `--board` / `--variant`) |
-| [`build_runtimes.sh`](build_runtimes.sh) | Desktop/wasm interpreters for local [pydevices-examples](https://github.com/PyDevices/pydevices-examples) work — see below |
+| [`build_interpreters.sh`](build_interpreters.sh) | Desktop/wasm interpreters for local [pydevices-examples](https://github.com/PyDevices/pydevices-examples) work — see below |
 
 Examples:
 
@@ -96,10 +96,10 @@ Examples:
 ./build_mp.sh --port esp32 --board ESP32_GENERIC_P4 --variant C6_WIFI
 ./build_cp.sh                                          # interactive
 ./build_cp.sh --port unix --variant coverage
-./build_runtimes.sh --only mp-unix,cp-unix
+./build_interpreters.sh --only mp-unix,cp-unix
 ```
 
-[`build_runtimes.sh`](build_runtimes.sh) builds the host interpreters used by PyDevices and installs them under workspace `bin/` (`micropython`, `micropython.exe`, `circuitpython`, and the wasm `micropython.{mjs,wasm}` pair). Targets are `mp-unix`, `mp-windows`, `mp-wasm`, and `cp-unix`. When the [pydevices](https://github.com/PyDevices/pydevices) core repo sits as a **sibling** of this workspace, the script copies the built binaries directly into `pydevices/bin/` to publish them. When [pydevices-examples](https://github.com/PyDevices/pydevices-examples) is also a sibling, the WebAssembly pair is copied into `.site/pyscript/vendor/micropython/` for the browser gallery. Use `--only` to build a subset, or `--install-only` to refresh installs from an existing build. Re-run after changing usermods (or frozen manifests) that link into these binaries.
+[`build_interpreters.sh`](build_interpreters.sh) builds the host interpreters used by PyDevices and installs them under workspace `bin/` (`micropython`, `micropython.exe`, `circuitpython`, and the wasm `micropython.{mjs,wasm}` pair). Targets are `mp-unix`, `mp-windows`, `mp-wasm`, and `cp-unix`. When the [pydevices](https://github.com/PyDevices/pydevices) core repo sits as a **sibling** of this workspace, the script copies the built binaries directly into `pydevices/bin/` to publish them. When [pydevices-examples](https://github.com/PyDevices/pydevices-examples) is also a sibling, the WebAssembly pair is copied into `.site/pyscript/vendor/micropython/` for the browser gallery. Use `--only` to build a subset, or `--install-only` to refresh installs from an existing build. Re-run after changing usermods (or frozen manifests) that link into these binaries.
 
 
 **Desktop SDL (`usdl2`):** when [displayif](https://github.com/PyDevices/displayif) is present,
@@ -119,7 +119,7 @@ cmod.
 
 **Board configs** ([pydevices](https://github.com/PyDevices/pydevices)):
 
-| Runtime | Path |
+| Interpreter | Path |
 |---------|------|
 | [MicroPython](https://github.com/micropython/micropython) | [`board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/pydevices/blob/main/board_configs/fbdisplay/esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
 | [CircuitPython](https://github.com/adafruit/circuitpython) | [`board_configs/cp/fbdisplay/esp32-p4-wifi6-touch-lcd-4b`](https://github.com/PyDevices/pydevices/blob/main/board_configs/cp/fbdisplay/esp32-p4-wifi6-touch-lcd-4b/board_config.py) |
@@ -160,13 +160,13 @@ import board_config
 import appdev
 
 display_drv = board_config.display_drv
-runtime = appdev.App(board_config)
+app = appdev.App(board_config)
 display_drv.fill_rect(0, 0, 200, 200, 0xF800)
 display_drv.show()
 
 # Touch: poll until quit
-while not runtime.quit_requested:
-    for e in runtime.poll():
+while not app.quit_requested:
+    for e in app.poll():
         print(e)
 ```
 
@@ -202,7 +202,7 @@ C-module path. Per-repo READMEs map Learn steps → spikes/patches.
 Optional: place a `user_post_mpconfigport.mk` at the workspace root ([CircuitPython](https://github.com/adafruit/circuitpython)’s
 user-config hook; `build_cp.sh` passes `-I` when it exists) to freeze Adafruit
 asyncio/ticks for [`multimer.AsyncTimer`](https://github.com/PyDevices/pydevices/blob/main/docs/multimer.md). See [CircuitPython building.md](https://github.com/adafruit/circuitpython/blob/main/building.md)
-and [multimer runtime internals](https://github.com/PyDevices/pydevices/blob/main/docs/multimer-internals.md).
+and [multimer internals](https://github.com/PyDevices/pydevices/blob/main/docs/multimer-internals.md).
 
 **[MicroPython](https://github.com/micropython/micropython) frozen asyncio** (required for [`multimer.AsyncTimer`](https://github.com/PyDevices/pydevices/blob/main/docs/multimer.md) on unix/windows):
 

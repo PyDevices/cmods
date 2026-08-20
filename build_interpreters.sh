@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build MicroPython/CircuitPython runtimes and install them under workspace bin/.
+# Build MicroPython/CircuitPython interpreters and install them under workspace bin/.
 # When pydevices and/or pydevices-examples are siblings of this workspace,
 # also install the applicable artifacts into those trees.
 #
@@ -13,9 +13,9 @@
 #               (renamed from upstream build output named micropython)
 #
 # Usage:
-#   ./build_runtimes.sh
-#   ./build_runtimes.sh --install-only
-#   ./build_runtimes.sh --only mp-unix,mp-wasm
+#   ./build_interpreters.sh
+#   ./build_interpreters.sh --install-only
+#   ./build_interpreters.sh --only mp-unix,mp-wasm
 #
 # Environment:
 #   WORKSPACE_DIR           Workspace root (default: directory containing this script)
