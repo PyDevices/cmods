@@ -8,6 +8,7 @@
 # Environment: WORKSPACE_DIR, CP_DIR, PORT, BOARD, VARIANT, CP_BUILD_VENV
 #
 # Before make, auto-discovers and runs every sibling ``*/apply_cp_patches.sh``
+# (set CP_SKIP_EXT="name1 name2" to leave some out)
 # (optional — missing extensions are skipped). Each script also works
 # standalone (circuitpython + that one repo as siblings; set CP_DIR if needed).
 #
@@ -212,11 +213,20 @@ print_make_commands() {
 }
 
 run_optional_cp_patches() {
-    local script
+    local script name
     local -a found=()
+    # CP_SKIP_EXT: space/comma separated extension directory names to leave out
+    # of this build, e.g. CP_SKIP_EXT=lvgl-circuitpython for a board that has no
+    # room for LVGL (or where it does not compile).
+    local skip=" ${CP_SKIP_EXT//,/ } "
     shopt -s nullglob
     for script in "$WORKSPACE_DIR"/*/apply_cp_patches.sh; do
         [[ -x "$script" ]] || continue
+        name=$(basename "$(dirname "$script")")
+        if [[ "$skip" == *" $name "* ]]; then
+            echo "Skipping CP extension (CP_SKIP_EXT): $name"
+            continue
+        fi
         found+=("$script")
     done
     shopt -u nullglob
@@ -305,10 +315,13 @@ ensure_mcu_generated_manifest() {
 
     # Probe without our aggregator override so circuitpy_mpconfig.mk can set
     # FROZEN_MANIFEST=$(BUILD)/manifest.py and build the generated file.
-    if make -C "$PORT_DIR" -q "$rel" "${make_args_base[@]}" 2>/dev/null; then
+    # Both makes must keep stdout clean: this function's stdout is captured by
+    # the caller as a path, and "make -C" prints Entering/Leaving directory
+    # there, which ends up concatenated onto the manifest filename.
+    if make -C "$PORT_DIR" -q "$rel" "${make_args_base[@]}" >/dev/null 2>&1; then
         :
     else
-        make -C "$PORT_DIR" -j "$rel" "${make_args_base[@]}" || true
+        make -C "$PORT_DIR" -j "$rel" "${make_args_base[@]}" >&2 || true
     fi
 
     if [[ -f "$bdir/manifest.py" ]]; then
