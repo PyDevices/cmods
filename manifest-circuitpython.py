@@ -15,13 +15,24 @@
 
 import os
 
-try:
-    include("manifest-user.py")
-except OSError:
-    pass
+# CP_SKIP_USER_FREEZE=1 leaves the personal extras out, for flash-tight boards
+# (rp2040 has 1020 KB for firmware; pdwidgets + palettes do not fit alongside a
+# full build and are better placed on the CIRCUITPY filesystem).
+if not os.environ.get("CP_SKIP_USER_FREEZE"):
+    try:
+        include("manifest-user.py")
+    except OSError:
+        pass
+
+# Honour the same CP_SKIP_EXT the build script uses: skipping an extension's
+# patches while still freezing its Python is incoherent (e.g. freezing
+# display_driver.py into a build that has no LVGL).
+_skip = set((os.environ.get("CP_SKIP_EXT", "").replace(",", " ")).split())
 
 for _name in sorted(os.listdir(".")):
     if _name.startswith("."):
+        continue
+    if _name in _skip:
         continue
     _path = os.path.join(_name, "manifest.py")
     if not os.path.isfile(_path):
