@@ -31,6 +31,8 @@ user_post_mpconfigport.mk
 # Top-level symlinks to clones/siblings (/* / does not match symlinks)
 /displayif
 /pygraphics
+/pdwidgets
+/palettes
 /usdl2
 /lvgl-*
 /micropython

@@ -15,9 +15,11 @@
 
 import os
 
-# CP_SKIP_USER_FREEZE=1 leaves the personal extras out, for flash-tight boards
-# (rp2040 has 1020 KB for firmware; pdwidgets + palettes do not fit alongside a
-# full build and are better placed on the CIRCUITPY filesystem).
+# CP_SKIP_USER_FREEZE=1 leaves the personal extras out, for flash-tight boards.
+# pdwidgets and palettes now freeze from their own repos' manifest.py (below),
+# so skip those two with CP_SKIP_EXT="pdwidgets palettes" instead -- rp2040 has
+# 1020 KB for firmware and they do not fit alongside a full build, where they
+# are better placed on the CIRCUITPY filesystem.
 if not os.environ.get("CP_SKIP_USER_FREEZE"):
     try:
         include("manifest-user.py")
