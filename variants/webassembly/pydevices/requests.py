@@ -25,5 +25,13 @@ class Response:
 
 
 def get(url, **_kwargs):
-    status, content, final_url = _wasm_bridge.http_get(url)
-    return Response(status, content, final_url)
+    last_error = None
+    for attempt in range(3):
+        try:
+            status, content, final_url = _wasm_bridge.http_get(url)
+            return Response(status, content, final_url)
+        except OSError as error:
+            last_error = error
+            if attempt < 2:
+                _wasm_bridge.sleep_ms(100 * (attempt + 1))
+    raise last_error
