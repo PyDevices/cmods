@@ -1,0 +1,39 @@
+From 2222222222222222222222222222222222222222 Mon Sep 17 00:00:00 2001
+From: Brad Barnett <brad@pydevices.dev>
+Date: Sun, 23 Aug 2026 10:10:00 -0500
+Subject: [PATCH] webassembly: fix node hook ccall signatures
+
+Emscripten validates ccall arity. Both functions used by the Node stdin hook
+take no arguments, so describe them with empty argument lists.
+---
+ ports/webassembly/library.js | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/ports/webassembly/library.js b/ports/webassembly/library.js
+index 40cb902df..fc7ce218a 100644
+--- a/ports/webassembly/library.js
++++ b/ports/webassembly/library.js
+@@ -34,8 +34,8 @@ mergeInto(LibraryManager.library, {
+             const mp_interrupt_char = Module.ccall(
+                 "mp_hal_get_interrupt_char",
+                 "number",
+-                ["number"],
+-                ["null"],
++                [],
++                [],
+             );
+             const fs = require("fs");
+ 
+@@ -48,8 +48,8 @@ mergeInto(LibraryManager.library, {
+                         Module.ccall(
+                             "mp_sched_keyboard_interrupt",
+                             "null",
+-                            ["null"],
+-                            ["null"],
++                            [],
++                            [],
+                         );
+                     } else {
+                         process.stdout.write(String.fromCharCode(buf[0]));
+-- 
+2.43.0

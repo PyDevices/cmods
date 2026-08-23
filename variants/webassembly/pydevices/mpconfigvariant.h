@@ -1,0 +1,6 @@
+#define MICROPY_VARIANT_ENABLE_JS_HOOK          (1)
+#define MICROPY_PY_WASM_BRIDGE                  (1)
+#define MICROPY_CONFIG_ROM_LEVEL                (MICROPY_CONFIG_ROM_LEVEL_FULL_FEATURES)
+#define MICROPY_GC_SPLIT_HEAP                   (1)
+#define MICROPY_GC_SPLIT_HEAP_AUTO              (1)
+#define MICROPY_PY_WEAKREF                      (1)

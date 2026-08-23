@@ -55,7 +55,7 @@ the organization portal, simulator, and documentation sites.
 |--------|-------|----------------|------------------|
 | `mp-unix` | `./build_mp.sh --port unix --variant standard` | `bin/micropython` | `../pydevices/bin/micropython` |
 | `mp-windows` | `./build_mp.sh --port windows --variant dev` | `bin/micropython.exe` | `../pydevices/bin/micropython.exe` |
-| `mp-wasm` | `./build_mp.sh --port webassembly --variant pyscript` | `bin/micropython.{mjs,wasm}` | `../pydevices/bin/micropython.{mjs,wasm}` and `../PyDevices.github.io/vendor/micropython/micropython.{mjs,wasm}` |
+| `mp-wasm` | `./build_mp.sh --port webassembly --variant pydevices` | `bin/micropython.{mjs,wasm}` | `../pydevices/bin/micropython.{mjs,wasm}` and `../PyDevices.github.io/vendor/micropython/micropython.{mjs,wasm}` |
 | `cp-unix` | `./build_cp.sh --port unix --variant coverage` | `bin/circuitpython` | `../pydevices/bin/circuitpython` |
 
 **When to run:** after changing any usermod or freeze/config compiled into these

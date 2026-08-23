@@ -1,8 +1,9 @@
 # MicroPython patches
 
 Mailbox patches for a stock
-[micropython/micropython](https://github.com/micropython/micropython) tree
-(`git am`).
+[micropython/micropython](https://github.com/micropython/micropython) tree.
+`build_mp.sh` applies them as temporary overlays and reverses them on every
+exit. It never commits inside the upstream checkout.
 
 ## Naming convention
 
@@ -23,6 +24,9 @@ the filename.
 | `0001-micropython-windows-…` | `windows` | Windows-local `modsocket.c` (Winsock), `select`/asyncio wakeups, mingw/msvc mbedtls SSL, MSVC project glue, and related `tests/**` updates |
 | `0002-micropython-unix-…MICROPY_SCHEDULER_DEPTH…` | `unix` | Raise unix `MICROPY_SCHEDULER_DEPTH` for desktop SDL / host display timers |
 | `0003-micropython-windows-enable-ffi-modffi-libffi.patch` | `windows` | Enable FFI (modffi, libffi) on Windows (MinGW) for uwin32 / Win32 bindings |
+| `0004-micropython-webassembly-…Asyncify…` | `webassembly` | Await Asyncify-backed execution in the module API |
+| `0005-micropython-webassembly-…ccall…` | `webassembly` | Correct Node hook ccall signatures |
+| `0006-micropython-webassembly-…soft…` | `webassembly` | Expose repeatable VM soft reinitialization |
 
 ## Apply
 
@@ -30,8 +34,9 @@ From a clean `v1.28.0` checkout (or let `build_mp.sh` apply them):
 
 ```bash
 git checkout v1.28.0
-git am 0001-micropython-windows-*.patch   # --port windows
-git am 0002-micropython-unix-*.patch     # --port unix
+git apply /path/to/cmods/patches/0001-micropython-windows-*.patch
+# Build, then return the checkout to clean state:
+git apply --reverse /path/to/cmods/patches/0001-micropython-windows-*.patch
 ```
 
 ## Regenerate

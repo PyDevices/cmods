@@ -6,7 +6,7 @@
 #   mp-unix     MicroPython unix / standard  → bin/micropython
 #   mp-windows  MicroPython windows / dev    → bin/micropython.exe
 #               and $MP_WINDOWS_INSTALL_DIR/micropython.exe (unless unset empty)
-#   mp-wasm     MicroPython webassembly / pyscript
+#   mp-wasm     MicroPython webassembly / pydevices
 #               → bin/micropython.{mjs,wasm}
 #                 and ../PyDevices.github.io/vendor/micropython/
 #   cp-unix     CircuitPython unix / coverage → bin/circuitpython
@@ -39,7 +39,7 @@ WORKSPACE_BIN="$WORKSPACE_DIR/bin"
 
 MP_UNIX_SRC="$WORKSPACE_DIR/micropython/ports/unix/build-standard/micropython"
 MP_WIN_SRC="$WORKSPACE_DIR/micropython/ports/windows/build-dev/micropython.exe"
-MP_WASM_DIR="$WORKSPACE_DIR/micropython/ports/webassembly/build-pyscript"
+MP_WASM_DIR="$WORKSPACE_DIR/micropython/ports/webassembly/build-pydevices"
 CP_UNIX_SRC="$WORKSPACE_DIR/circuitpython/ports/unix/build-coverage/micropython"
 # Optional extra Windows PATH install; default empty (skip).
 MP_WINDOWS_INSTALL_DIR="${MP_WINDOWS_INSTALL_DIR-}"
@@ -130,7 +130,7 @@ build_one() {
             (cd "$WORKSPACE_DIR" && "$BUILD_MP" --port windows --variant dev)
             ;;
         mp-wasm)
-            (cd "$WORKSPACE_DIR" && "$BUILD_MP" --port webassembly --variant pyscript)
+            (cd "$WORKSPACE_DIR" && "$BUILD_MP" --port webassembly --variant pydevices)
             ;;
         cp-unix)
             (cd "$WORKSPACE_DIR" && "$BUILD_CP" --port unix --variant coverage)
@@ -171,6 +171,9 @@ install_one() {
                 echo "Missing wasm build outputs under $MP_WASM_DIR" >&2
                 exit 1
             }
+            # Emscripten emits whitespace-only padding on generated lines. Keep
+            # published JavaScript compatible with repository diff checks.
+            sed -i 's/[[:space:]]\+$//' "$MP_WASM_DIR/micropython.mjs"
             copy_wasm_pair "$WORKSPACE_BIN"
             if [[ -d "$ORG_DIR/pydevices" ]]; then
                 copy_wasm_pair "$PYDEVICES_BIN"

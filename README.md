@@ -50,9 +50,9 @@ Repeat for each usermod or interpreter you want ([displayif](https://github.com/
 
 [`patches/`](patches/) is optional. When present, `build_mp.sh` applies every
 file whose name contains `micropython-<port>` for the selected `--port` (e.g.
-`micropython-unix`, `micropython-windows`). This workspace currently ships two
-such patches (windows networking/SSL, unix scheduler depth). Other ports find
-no matches and skip. Details: [`patches/README.md`](patches/README.md).
+`micropython-unix`, `micropython-windows`). They are temporary working-tree
+overlays which are reversed on every exit; the upstream checkout stays at its
+pinned revision with no generated commits. Details: [`patches/README.md`](patches/README.md).
 
 ### Quick build (after setup)
 
@@ -99,7 +99,7 @@ Examples:
 ./build_interpreters.sh --only mp-unix,cp-unix
 ```
 
-[`build_interpreters.sh`](build_interpreters.sh) builds the host interpreters used by PyDevices and installs them under workspace `bin/` (`micropython`, `micropython.exe`, `circuitpython`, and the wasm `micropython.{mjs,wasm}` pair). Targets are `mp-unix`, `mp-windows`, `mp-wasm`, and `cp-unix`. When the [pydevices](https://github.com/PyDevices/pydevices) core repo sits as a **sibling** of this workspace, the script copies the built binaries directly into `pydevices/bin/` to publish them. When [pydevices-examples](https://github.com/PyDevices/pydevices-examples) is also a sibling, the WebAssembly pair is copied into `.site/pyscript/vendor/micropython/` for the browser gallery. Use `--only` to build a subset, or `--install-only` to refresh installs from an existing build. Re-run after changing usermods (or frozen manifests) that link into these binaries.
+[`build_interpreters.sh`](build_interpreters.sh) builds the host interpreters used by PyDevices and installs them under workspace `bin/` (`micropython`, `micropython.exe`, `circuitpython`, and the wasm `micropython.{mjs,wasm}` pair). Targets are `mp-unix`, `mp-windows`, `mp-wasm`, and `cp-unix`. The `mp-wasm` target builds the external `pydevices` variant into `build-pydevices`. When the [pydevices](https://github.com/PyDevices/pydevices) core repo sits as a **sibling**, the script copies the binaries into `pydevices/bin/`; when the portal is a sibling, it installs the WebAssembly pair under `PyDevices.github.io/vendor/micropython/`. Use `--only` to build a subset, or `--install-only` to refresh installs from an existing build.
 
 
 **Desktop SDL (`usdl2`):** when [displayif](https://github.com/PyDevices/displayif) is present,

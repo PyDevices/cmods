@@ -1,0 +1,39 @@
+From 1111111111111111111111111111111111111111 Mon Sep 17 00:00:00 2001
+From: Brad Barnett <brad@pydevices.dev>
+Date: Sun, 23 Aug 2026 10:00:00 -0500
+Subject: [PATCH] webassembly: allow Asyncify in runPythonAsync
+
+Direct browser ports can suspend inside native imports such as Fetch. Mark the
+explicit asynchronous execution API as an Asyncify-aware ccall and await it;
+keep runPython synchronous for callers that do not suspend.
+---
+ ports/webassembly/api.js | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/ports/webassembly/api.js b/ports/webassembly/api.js
+index 60d2e82c4..e50c7d6b1 100644
+--- a/ports/webassembly/api.js
++++ b/ports/webassembly/api.js
+@@ -147,7 +147,7 @@ export async function loadMicroPython(options) {
+             Module._free(buf);
+             return proxy_convert_mp_to_js_obj_jsside_with_free(value);
+         },
+-        runPythonAsync(code) {
++        async runPythonAsync(code) {
+             const len = Module.lengthBytesUTF8(code);
+             const buf = Module._malloc(len + 1);
+             Module.stringToUTF8(code, buf, len + 1);
+@@ -154,7 +154,8 @@ export async function loadMicroPython(options) {
+             const value = Module._malloc(3 * 4);
+-            Module.ccall(
++            await Module.ccall(
+                 "mp_js_do_exec_async",
+                 "number",
+                 ["pointer", "number", "pointer"],
+                 [buf, len, value],
++                { async: true },
+             );
+             Module._free(buf);
+             const ret = proxy_convert_mp_to_js_obj_jsside_with_free(value);
+-- 
+2.43.0

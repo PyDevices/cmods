@@ -27,6 +27,10 @@ user_post_mpconfigport.mk
 !/.site/**
 !/patches/
 !/patches/**
+!/variants/
+!/variants/**
+!/wasmbridge/
+!/wasmbridge/**
 
 # Top-level symlinks to clones/siblings (/* / does not match symlinks)
 /displayif

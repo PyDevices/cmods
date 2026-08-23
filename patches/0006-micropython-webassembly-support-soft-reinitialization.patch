@@ -1,0 +1,101 @@
+From 4ef5c3d2b1a09876543210fedcba987654321000 Mon Sep 17 00:00:00 2001
+From: PyDevices <pydevices@users.noreply.github.com>
+Date: Sun, 23 Aug 2026 10:00:00 -0500
+Subject: [PATCH] webassembly: support soft reinitialization
+
+---
+ ports/webassembly/Makefile |  1 +
+ ports/webassembly/api.js   | 12 ++++++++++++
+ ports/webassembly/main.c   | 21 +++++++++++++++++----
+ 3 files changed, 30 insertions(+), 4 deletions(-)
+
+diff --git a/ports/webassembly/Makefile b/ports/webassembly/Makefile
+index 53182fc8d..d0bd248d1 100644
+--- a/ports/webassembly/Makefile
++++ b/ports/webassembly/Makefile
+@@ -83,6 +83,7 @@ JSFLAGS += -s EXPORTED_FUNCTIONS="\
+ 	_free,\
+ 	_malloc,\
+ 	_mp_js_init,\
++	_mp_js_deinit,\
+ 	_mp_js_repl_init,\
+ 	_mp_js_repl_process_char,\
+ 	_mp_hal_get_interrupt_char,\
+diff --git a/ports/webassembly/api.js b/ports/webassembly/api.js
+index d836daea4..5df6fa0b7 100644
+--- a/ports/webassembly/api.js
++++ b/ports/webassembly/api.js
+@@ -122,6 +122,18 @@ export async function loadMicroPython(options) {
+             );
+             Module._free(value);
+         },
++        softReset() {
++            Module.ccall("mp_js_deinit", "null", [], []);
++            proxy_js_init();
++            Module.ccall(
++                "mp_js_init",
++                "null",
++                ["number", "number"],
++                [pystack, heapsize],
++            );
++            Module.ccall("proxy_c_init", "null", [], []);
++            this.globals.__dict__ = pyimport("__main__").__dict__;
++        },
+         pyimport: pyimport,
+         runPython(code) {
+             const len = Module.lengthBytesUTF8(code);
+diff --git a/ports/webassembly/main.c b/ports/webassembly/main.c
+index d5d919a20..9a9b5bb2f 100644
+--- a/ports/webassembly/main.c
++++ b/ports/webassembly/main.c
+@@ -48,6 +48,9 @@ static size_t external_call_depth = 0;
+ // Emscripten defaults to a 64k C-stack, so our limit should be less than that.
+ #define CSTACK_SIZE (32 * 1024)
+ 
++static void *mp_js_pystack;
++static void *mp_js_heap;
++
+ #if MICROPY_GC_SPLIT_HEAP_AUTO
+ static void gc_collect_top_level(void);
+ #endif
+@@ -73,13 +76,13 @@ void mp_js_init(int pystack_size, int heap_size) {
+     mp_cstack_init_with_sp_here(CSTACK_SIZE);
+ 
+     #if MICROPY_ENABLE_PYSTACK
+-    mp_obj_t *pystack = (mp_obj_t *)malloc(pystack_size * sizeof(mp_obj_t));
+-    mp_pystack_init(pystack, pystack + pystack_size);
++    mp_js_pystack = malloc(pystack_size * sizeof(mp_obj_t));
++    mp_pystack_init(mp_js_pystack, (mp_obj_t *)mp_js_pystack + pystack_size);
+     #endif
+ 
+     #if MICROPY_ENABLE_GC
+-    char *heap = (char *)malloc(heap_size * sizeof(char));
+-    gc_init(heap, heap + heap_size);
++    mp_js_heap = malloc(heap_size);
++    gc_init(mp_js_heap, (char *)mp_js_heap + heap_size);
+     #endif
+ 
+     #if MICROPY_GC_SPLIT_HEAP_AUTO
+@@ -109,6 +112,20 @@ void mp_js_init(int pystack_size, int heap_size) {
+     #endif
+ }
+ 
++void mp_js_deinit(void) {
++    #if defined(MICROPY_PY_WASM_BRIDGE) && MICROPY_PY_WASM_BRIDGE
++    extern void pydevices_bridge_deinit(void);
++    pydevices_bridge_deinit();
++    #endif
++    mp_deinit();
++    free(mp_js_heap);
++    mp_js_heap = NULL;
++    #if MICROPY_ENABLE_PYSTACK
++    free(mp_js_pystack);
++    mp_js_pystack = NULL;
++    #endif
++}
++
+ void mp_js_register_js_module(const char *name, uint32_t *value) {
+     mp_obj_t module_name = MP_OBJ_NEW_QSTR(qstr_from_str(name));
+     mp_obj_t module = proxy_convert_js_to_mp_obj_cside(value);
+-- 
+2.43.0

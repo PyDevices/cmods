@@ -30,10 +30,24 @@
 # patch in micropython/ports/webassembly/Makefile appends -Wno-unused-function
 # after -Werror so it takes effect.
 #
-# patches/*micropython-<port>* — git am onto stock micropython/micropython when
-# the selected PORT matches the filename (e.g. micropython-unix,
-# micropython-windows). Ports with no matching files skip. See patches/README.md.
+# patches/*micropython-<port>* — temporary mailbox overlays on a clean upstream
+# checkout when the selected PORT matches. The script reverses its overlays on
+# every exit and never creates commits inside micropython/. See patches/README.md.
 set -euo pipefail
+
+APPLIED_MP_PATCHES=()
+
+restore_micropython_overlay() {
+    local index
+    for ((index=${#APPLIED_MP_PATCHES[@]}-1; index>=0; index--)); do
+        git -C "$MP_DIR" apply --reverse "${APPLIED_MP_PATCHES[index]}" || {
+            echo "error: failed to remove MicroPython overlay ${APPLIED_MP_PATCHES[index]}" >&2
+            return 1
+        }
+    done
+}
+
+trap restore_micropython_overlay EXIT
 
 # Drop inherited overrides every run (all ports/boards/variants). Stale exports
 # from a previous slim/custom build must not affect this invocation.
@@ -52,6 +66,7 @@ FROZEN_MANIFEST_EXPLICIT=0
 PORT="${PORT:-}"
 BOARD="${BOARD:-}"
 VARIANT="${VARIANT:-}"
+VARIANT_DIR=""
 MP_BUILD_DEBUG="${MP_BUILD_DEBUG:-0}"
 OS_DUPTERM_EXPLICIT=0
 if [[ -v OS_DUPTERM ]]; then
@@ -182,6 +197,11 @@ list_port_variants() {
     for d in "$PORT_DIR/variants"/*; do
         [[ -f "$d/mpconfigvariant.mk" ]] && basename "$d"
     done
+    if [[ "$PORT" == webassembly ]]; then
+        for d in "$WORKSPACE_DIR/variants/webassembly"/*; do
+            [[ -f "$d/mpconfigvariant.mk" ]] && basename "$d"
+        done
+    fi
 }
 
 port_kind() {
@@ -200,7 +220,9 @@ resolve_upstream_frozen_manifest() {
     local path=""
     case "$PORT_KIND" in
         variants)
-            if [[ -n "$VARIANT" && -f "$PORT_DIR/variants/$VARIANT/manifest.py" ]]; then
+            if [[ -n "$VARIANT_DIR" && -f "$VARIANT_DIR/manifest.py" ]]; then
+                path="$VARIANT_DIR/manifest.py"
+            elif [[ -n "$VARIANT" && -f "$PORT_DIR/variants/$VARIANT/manifest.py" ]]; then
                 path="$PORT_DIR/variants/$VARIANT/manifest.py"
             elif [[ -f "$PORT_DIR/variants/manifest.py" ]]; then
                 path="$PORT_DIR/variants/manifest.py"
@@ -510,8 +532,8 @@ ensure_host_mpy_cross() {
 }
 
 apply_micropython_cmods_patches() {
-    # Apply mailbox patches whose names contain micropython-<PORT> (git am when
-    # not already present). No matches → nothing to do (patch dir optional).
+    # Apply mailbox patches whose names contain micropython-<PORT> as temporary
+    # working-tree overlays. No matches means there is nothing to do.
     local patch_dir="$WORKSPACE_DIR/patches"
     [[ -d "$patch_dir" ]] || return 0
 
@@ -527,7 +549,7 @@ apply_micropython_cmods_patches() {
     unset IFS
 
     [[ -d "$MP_DIR/.git" ]] || {
-        echo "error: MP_DIR is not a git checkout (need git am): $MP_DIR" >&2
+        echo "error: MP_DIR is not a git checkout: $MP_DIR" >&2
         exit 1
     }
 
@@ -546,11 +568,11 @@ apply_micropython_cmods_patches() {
             echo "Use a stock micropython/micropython tree, or see patches/README.md" >&2
             exit 1
         fi
-        if git -C "$MP_DIR" am --3way "$p"; then
-            echo "  applied: $base"
+        if git -C "$MP_DIR" apply "$p"; then
+            APPLIED_MP_PATCHES+=("$p")
+            echo "  overlaid: $base"
         else
-            echo "error: git am failed for $base" >&2
-            git -C "$MP_DIR" am --abort >/dev/null 2>&1 || true
+            echo "error: git apply failed for $base" >&2
             exit 1
         fi
     done
@@ -572,7 +594,11 @@ make_target_args() {
             [[ -n "$VARIANT" ]] && args+=(BOARD_VARIANT="$VARIANT")
             ;;
         variants)
-            [[ -n "$VARIANT" ]] && args+=(VARIANT="$VARIANT")
+            if [[ -n "$VARIANT_DIR" ]]; then
+                args+=(VARIANT_DIR="$VARIANT_DIR")
+            elif [[ -n "$VARIANT" ]]; then
+                args+=(VARIANT="$VARIANT")
+            fi
             ;;
     esac
     printf '%q ' "${args[@]}"
@@ -904,6 +930,10 @@ fi
 
 PORT_KIND=$(port_kind)
 
+if [[ "$PORT" == webassembly && -n "$VARIANT" && -f "$WORKSPACE_DIR/variants/webassembly/$VARIANT/mpconfigvariant.mk" ]]; then
+    VARIANT_DIR="$WORKSPACE_DIR/variants/webassembly/$VARIANT"
+fi
+
 # 2) Board or variant selection
 case "$PORT_KIND" in
     boards)
@@ -975,7 +1005,11 @@ case "$PORT_KIND" in
         [[ -n "$VARIANT" ]] && make_args+=(BOARD_VARIANT="$VARIANT")
         ;;
     variants)
-        [[ -n "$VARIANT" ]] && make_args+=(VARIANT="$VARIANT")
+        if [[ -n "$VARIANT_DIR" ]]; then
+            make_args+=(VARIANT_DIR="$VARIANT_DIR")
+        elif [[ -n "$VARIANT" ]]; then
+            make_args+=(VARIANT="$VARIANT")
+        fi
         ;;
 esac
 
