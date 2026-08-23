@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Build MicroPython/CircuitPython interpreters and install them under workspace bin/.
-# When pydevices and/or pydevices-examples are siblings of this workspace,
-# also install the applicable artifacts into those trees.
+# Also installs applicable artifacts into sibling pydevices and PyDevices.github.io trees.
 #
 # Targets:
 #   mp-unix     MicroPython unix / standard  → bin/micropython
@@ -9,6 +8,7 @@
 #               and $MP_WINDOWS_INSTALL_DIR/micropython.exe (unless unset empty)
 #   mp-wasm     MicroPython webassembly / pyscript
 #               → bin/micropython.{mjs,wasm}
+#                 and ../PyDevices.github.io/vendor/micropython/
 #   cp-unix     CircuitPython unix / coverage → bin/circuitpython
 #               (renamed from upstream build output named micropython)
 #
@@ -19,13 +19,6 @@
 #
 # Environment:
 #   WORKSPACE_DIR           Workspace root (default: directory containing this script)
-#   PYDEVICES_DIR           Optional pydevices checkout. Used only when it is a
-#                           sibling of WORKSPACE_DIR (same parent directory). Default:
-#                           $WORKSPACE_DIR/../pydevices when that directory exists.
-#   PYDEVICES_EXAMPLES_DIR  Optional pydevices-examples checkout. Used only when
-#                           it is a sibling of WORKSPACE_DIR. The mp-wasm pair is
-#                           installed into .site/pyscript/vendor/micropython/. Default:
-#                           $WORKSPACE_DIR/../pydevices-examples when that directory exists.
 #   EMSDK_DIR               Emscripten SDK for mp-wasm (see build_mp.sh; default: $WORKSPACE_DIR/emsdk)
 #   MP_WINDOWS_INSTALL_DIR  Optional extra install dir for micropython.exe
 #                           (WSL path to a Windows PATH entry, e.g.
@@ -51,13 +44,9 @@ CP_UNIX_SRC="$WORKSPACE_DIR/circuitpython/ports/unix/build-coverage/micropython"
 # Optional extra Windows PATH install; default empty (skip).
 MP_WINDOWS_INSTALL_DIR="${MP_WINDOWS_INSTALL_DIR-}"
 
-# Capture optional override before resolve clears PYDEVICES_DIR when not sibling.
-PYDEVICES_DIR_OVERRIDE="${PYDEVICES_DIR-}"
-PYDEVICES_DIR=""
-PYDEVICES_BIN=""
-PYDEVICES_EXAMPLES_DIR_OVERRIDE="${PYDEVICES_EXAMPLES_DIR-}"
-PYDEVICES_EXAMPLES_DIR=""
-PYDEVICES_EXAMPLES_WASM_DIR=""
+ORG_DIR=$(cd "$WORKSPACE_DIR/.." && pwd)
+PYDEVICES_BIN="$ORG_DIR/pydevices/bin"
+PORTAL_WASM="$ORG_DIR/PyDevices.github.io/vendor/micropython"
 
 ALL_TARGETS=(mp-unix mp-windows mp-wasm cp-unix)
 INSTALL_ONLY=0
@@ -66,43 +55,6 @@ ONLY=()
 usage() {
     sed -n '2,/^set -euo pipefail$/{ /^set -euo pipefail$/!p; }' "$0" | sed 's/^# \?//'
     exit "${1:-0}"
-}
-
-# Install into pydevices only when it shares a parent directory with the workspace.
-resolve_pydevices_sibling() {
-    local candidate="${PYDEVICES_DIR_OVERRIDE:-$WORKSPACE_DIR/../pydevices}"
-    PYDEVICES_DIR=""
-    PYDEVICES_BIN=""
-    [[ -d "$candidate" ]] || return 0
-    candidate=$(cd "$candidate" && pwd)
-    local workspace_parent py_parent
-    workspace_parent=$(cd "$WORKSPACE_DIR/.." && pwd)
-    py_parent=$(cd "$candidate/.." && pwd)
-    if [[ "$workspace_parent" != "$py_parent" ]]; then
-        echo "Skipping pydevices install: $candidate is not a sibling of $WORKSPACE_DIR" >&2
-        return 0
-    fi
-    PYDEVICES_DIR="$candidate"
-    PYDEVICES_BIN="$PYDEVICES_DIR/bin"
-}
-
-# Install the WebAssembly pair into the gallery only when pydevices-examples
-# shares a parent directory with the workspace.
-resolve_pydevices_examples_sibling() {
-    local candidate="${PYDEVICES_EXAMPLES_DIR_OVERRIDE:-$WORKSPACE_DIR/../pydevices-examples}"
-    PYDEVICES_EXAMPLES_DIR=""
-    PYDEVICES_EXAMPLES_WASM_DIR=""
-    [[ -d "$candidate" ]] || return 0
-    candidate=$(cd "$candidate" && pwd)
-    local workspace_parent examples_parent
-    workspace_parent=$(cd "$WORKSPACE_DIR/.." && pwd)
-    examples_parent=$(cd "$candidate/.." && pwd)
-    if [[ "$workspace_parent" != "$examples_parent" ]]; then
-        echo "Skipping pydevices-examples install: $candidate is not a sibling of $WORKSPACE_DIR" >&2
-        return 0
-    fi
-    PYDEVICES_EXAMPLES_DIR="$candidate"
-    PYDEVICES_EXAMPLES_WASM_DIR="$PYDEVICES_EXAMPLES_DIR/.site/pyscript/vendor/micropython"
 }
 
 
@@ -165,9 +117,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-resolve_pydevices_sibling
-resolve_pydevices_examples_sibling
-
 [[ -x "$BUILD_MP" ]] || { echo "Missing build_mp.sh: $BUILD_MP" >&2; exit 1; }
 [[ -x "$BUILD_CP" ]] || { echo "Missing build_cp.sh: $BUILD_CP" >&2; exit 1; }
 
@@ -198,7 +147,7 @@ install_one() {
                 exit 1
             }
             install_file "$MP_UNIX_SRC" "$WORKSPACE_BIN" "micropython"
-            if [[ -n "$PYDEVICES_BIN" ]]; then
+            if [[ -d "$ORG_DIR/pydevices" ]]; then
                 install_file "$MP_UNIX_SRC" "$PYDEVICES_BIN" "micropython"
             fi
             ;;
@@ -208,7 +157,7 @@ install_one() {
                 exit 1
             }
             install_file "$MP_WIN_SRC" "$WORKSPACE_BIN" "micropython.exe"
-            if [[ -n "$PYDEVICES_BIN" ]]; then
+            if [[ -d "$ORG_DIR/pydevices" ]]; then
                 install_file "$MP_WIN_SRC" "$PYDEVICES_BIN" "micropython.exe"
             fi
             if [[ -n "$MP_WINDOWS_INSTALL_DIR" ]]; then
@@ -223,11 +172,11 @@ install_one() {
                 exit 1
             }
             copy_wasm_pair "$WORKSPACE_BIN"
-            if [[ -n "$PYDEVICES_BIN" ]]; then
+            if [[ -d "$ORG_DIR/pydevices" ]]; then
                 copy_wasm_pair "$PYDEVICES_BIN"
             fi
-            if [[ -n "$PYDEVICES_EXAMPLES_WASM_DIR" ]]; then
-                copy_wasm_pair "$PYDEVICES_EXAMPLES_WASM_DIR"
+            if [[ -d "$ORG_DIR/PyDevices.github.io" ]]; then
+                copy_wasm_pair "$PORTAL_WASM"
             fi
             ;;
         cp-unix)
@@ -237,7 +186,7 @@ install_one() {
             }
             # Upstream unix coverage binary is named micropython; install as circuitpython.
             install_file "$CP_UNIX_SRC" "$WORKSPACE_BIN" "circuitpython"
-            if [[ -n "$PYDEVICES_BIN" ]]; then
+            if [[ -d "$ORG_DIR/pydevices" ]]; then
                 install_file "$CP_UNIX_SRC" "$PYDEVICES_BIN" "circuitpython"
             fi
             ;;
@@ -245,15 +194,11 @@ install_one() {
 }
 
 echo "workspace bin: $WORKSPACE_BIN"
-if [[ -n "$PYDEVICES_DIR" ]]; then
-    echo "pydevices (sibling): $PYDEVICES_DIR"
-else
-    echo "pydevices: not a sibling (installing to workspace bin/ only)"
+if [[ -d "$ORG_DIR/pydevices" ]]; then
+    echo "pydevices (sibling): $ORG_DIR/pydevices"
 fi
-if [[ -n "$PYDEVICES_EXAMPLES_DIR" ]]; then
-    echo "pydevices-examples (sibling): $PYDEVICES_EXAMPLES_DIR"
-else
-    echo "pydevices-examples: not a sibling (skipping gallery wasm install)"
+if [[ -d "$ORG_DIR/PyDevices.github.io" ]]; then
+    echo "PyDevices.github.io (sibling): $ORG_DIR/PyDevices.github.io"
 fi
 
 

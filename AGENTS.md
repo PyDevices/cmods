@@ -40,10 +40,10 @@ or grow their own `AGENTS.md`.
 ## Interpreters (`build_interpreters.sh`)
 
 Builds desktop / wasm interpreters used day-to-day, installs into **`bin/`**, and
-when **pydevices** is a sibling of this workspace (`../pydevices`), also copies
-the artifacts into that tree's `bin/` directory. When **pydevices-examples** is
-a sibling (`../pydevices-examples`), the WebAssembly pair is also copied into
-its vendored PyScript interpreter directory.
+when **pydevices** is a sibling of this workspace (`../pydevices`), the native binaries and WebAssembly pair are installed directly into
+`../pydevices/bin`. When the portal repository exists (`../PyDevices.github.io`), the
+WebAssembly pair is installed into `../PyDevices.github.io/vendor/micropython/` for use across
+the organization portal, simulator, and documentation sites.
 
 ```bash
 ./build_interpreters.sh
@@ -55,22 +55,19 @@ its vendored PyScript interpreter directory.
 |--------|-------|----------------|------------------|
 | `mp-unix` | `./build_mp.sh --port unix --variant standard` | `bin/micropython` | `../pydevices/bin/micropython` |
 | `mp-windows` | `./build_mp.sh --port windows --variant dev` | `bin/micropython.exe` | `../pydevices/bin/micropython.exe` |
-| `mp-wasm` | `./build_mp.sh --port webassembly --variant pyscript` | `bin/micropython.{mjs,wasm}` | `../pydevices/bin/micropython.{mjs,wasm}` and `../pydevices-examples/.site/pyscript/vendor/micropython/micropython.{mjs,wasm}` |
+| `mp-wasm` | `./build_mp.sh --port webassembly --variant pyscript` | `bin/micropython.{mjs,wasm}` | `../pydevices/bin/micropython.{mjs,wasm}` and `../PyDevices.github.io/vendor/micropython/micropython.{mjs,wasm}` |
 | `cp-unix` | `./build_cp.sh --port unix --variant coverage` | `bin/circuitpython` | `../pydevices/bin/circuitpython` |
 
 **When to run:** after changing any usermod or freeze/config compiled into these
 binaries (`pygraphics`, `lvgl-micropython`, `lvgl-circuitpython` /
 regenerated `lvgl-bindings`, `displayif` when present — including desktop
-`usdl2` — freeze aggregators, or related port patches). Each optional sibling
-destination is detected independently; without either sibling checkout, only
-workspace `bin/` is updated. Windows `mp-windows` needs
+`usdl2` — freeze aggregators, or related port patches). Each sibling destination
+is updated when present. Windows `mp-windows` needs
 `SDL2_DEV` (auto-detected under the workspace; see displayif
 `tools/sdl2_dev_env.sh`).
 
 When the user says **“build the interpreters”** / **“refresh pydevices binaries”**,
-run `./build_interpreters.sh` (optionally `--only …`). `PYDEVICES_DIR` and
-`PYDEVICES_EXAMPLES_DIR` may override the default candidates, but an override
-must still resolve to a sibling of the workspace.
+run `./build_interpreters.sh` (optionally `--only …`).
 
 ---
 
