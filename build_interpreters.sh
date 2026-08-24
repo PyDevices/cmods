@@ -98,6 +98,9 @@ copy_wasm_pair() {
     local dest_dir="$1"
     mkdir -p "$dest_dir"
     cp -f "$MP_WASM_DIR/micropython.mjs" "$MP_WASM_DIR/micropython.wasm" "$dest_dir/"
+    # cp doesn't carry the exec bit the way `install -m` does elsewhere in
+    # this script; bin/wasm.py and friends need it set or they fail rc=126.
+    chmod 755 "$dest_dir/micropython.mjs" "$dest_dir/micropython.wasm"
     echo "Installed $dest_dir/micropython.{mjs,wasm}"
 }
 
