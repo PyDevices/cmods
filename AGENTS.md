@@ -183,3 +183,18 @@ Sync into consumer repos as needed
   `pip install -e .` after C changes.
 - **Upstream clones** (`micropython/`, `circuitpython/`): do not commit unless
   the user explicitly overrides workspace rules.
+- **Frozen `.wasm` goes stale silently**: `appdev`, `audiodev`, `displaydev`,
+  `multimer` (plus `boarddev.py`/`events.py`/`keys.py`) are frozen straight
+  from `../pydevices/lib` into `bin/micropython.wasm` at build time
+  (`manifest-micropython.py`). Editing any of those sources does **not**
+  affect a previously built `.wasm` — the old bytecode keeps shipping until
+  `build_interpreters.sh --only mp-wasm` reruns, and the failure mode gives no
+  hint that staleness is the cause: e.g. a class whose current `__init__`
+  clearly takes `width, height, canvas_id` can still raise `TypeError:
+  __init__() takes 1 positional arguments but N were given` at runtime,
+  because the *frozen* copy predates the signature change. If a WASM-only
+  runtime error looks like it contradicts the source you're reading, rebuild
+  before debugging further. `mip.install()`-based packages (`board_config`,
+  `pygraphics`'s pure-Python port, etc.) don't have this problem since they're
+  fetched fresh each page load — only what's frozen at build time can go
+  stale this way.
