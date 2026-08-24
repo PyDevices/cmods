@@ -41,15 +41,20 @@ typedef struct {
     pydevices_event_record_t records[256];
 } pydevices_event_ring_t;
 
-static pydevices_event_ring_t event_ring;
+// One ring per registered canvas — EncoderEmu-style secondary displays
+// (lv_encoder_emu.py) register alongside the primary, and each needs its own
+// input queue so events route to the display that received them.
+#define PYDEVICES_MAX_DISPLAYS 4
+static pydevices_event_ring_t event_rings[PYDEVICES_MAX_DISPLAYS];
+static char event_ring_canvas_ids[PYDEVICES_MAX_DISPLAYS][64];
 static int timer_callback_ids[64];
 MP_REGISTER_ROOT_POINTER(mp_obj_t wasm_timer_callbacks[64]);
 
 extern int pydevices_display_register(uintptr_t, size_t, int, int, const char *);
-extern void pydevices_display_unregister(void);
-extern uintptr_t pydevices_event_poll(size_t *);
-extern void pydevices_event_set_buffer(uintptr_t, size_t, size_t);
-extern void pydevices_event_clear(void);
+extern void pydevices_display_unregister(const char *);
+extern uintptr_t pydevices_event_poll(const char *, size_t *);
+extern void pydevices_event_set_buffer(const char *, uintptr_t, size_t, size_t);
+extern void pydevices_event_clear(const char *);
 extern void pydevices_timer_start(int, int, int);
 extern void pydevices_timer_cancel(int);
 extern int pydevices_timer_poll(void);
@@ -66,11 +71,31 @@ extern void external_call_depth_dec(void);
 
 void pydevices_bridge_deinit(void) {
     pydevices_host_reset();
-    memset(&event_ring, 0, sizeof(event_ring));
+    memset(event_rings, 0, sizeof(event_rings));
+    memset(event_ring_canvas_ids, 0, sizeof(event_ring_canvas_ids));
     memset(timer_callback_ids, 0, sizeof(timer_callback_ids));
     for (size_t i = 0; i < 64; ++i) {
         MP_STATE_VM(wasm_timer_callbacks)[i] = MP_OBJ_NULL;
     }
+}
+
+// Find the ring slot for canvas_id; allocate the first free slot when
+// requested and none exists yet. Returns -1 when not found / table full.
+static int find_event_ring_slot(const char *canvas_id, bool allocate) {
+    int free_slot = -1;
+    for (int i = 0; i < PYDEVICES_MAX_DISPLAYS; ++i) {
+        if (event_ring_canvas_ids[i][0] != '\0' && strcmp(event_ring_canvas_ids[i], canvas_id) == 0) {
+            return i;
+        }
+        if (free_slot < 0 && event_ring_canvas_ids[i][0] == '\0') {
+            free_slot = i;
+        }
+    }
+    if (!allocate || free_slot < 0) {
+        return -1;
+    }
+    strncpy(event_ring_canvas_ids[free_slot], canvas_id, sizeof(event_ring_canvas_ids[free_slot]) - 1);
+    return free_slot;
 }
 
 static mp_obj_t bridge_display_register(size_t n_args, const mp_obj_t *args) {
@@ -82,18 +107,28 @@ static mp_obj_t bridge_display_register(size_t n_args, const mp_obj_t *args) {
     if (buf.len < (size_t)width * (size_t)height * 2) {
         mp_raise_ValueError(MP_ERROR_TEXT("framebuffer is smaller than width*height*2"));
     }
-    memset(&event_ring, 0, sizeof(event_ring));
-    pydevices_event_set_buffer((uintptr_t)&event_ring, 256, sizeof(pydevices_event_record_t));
+    int slot = find_event_ring_slot(canvas, true);
+    if (slot < 0) {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("too many WASM displays registered"));
+    }
+    memset(&event_rings[slot], 0, sizeof(event_rings[slot]));
+    pydevices_event_set_buffer(canvas, (uintptr_t)&event_rings[slot], 256, sizeof(pydevices_event_record_t));
     return mp_obj_new_bool(pydevices_display_register((uintptr_t)buf.buf, buf.len, width, height, canvas));
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(bridge_display_register_obj, 3, 4, bridge_display_register);
 
-static mp_obj_t bridge_display_unregister(void) {
-    pydevices_display_unregister();
-    pydevices_event_set_buffer(0, 0, 0);
+static mp_obj_t bridge_display_unregister(size_t n_args, const mp_obj_t *args) {
+    const char *canvas = n_args > 0 ? mp_obj_str_get_str(args[0]) : "display_canvas";
+    pydevices_display_unregister(canvas);
+    pydevices_event_set_buffer(canvas, 0, 0, 0);
+    int slot = find_event_ring_slot(canvas, false);
+    if (slot >= 0) {
+        memset(&event_rings[slot], 0, sizeof(event_rings[slot]));
+        event_ring_canvas_ids[slot][0] = '\0';
+    }
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(bridge_display_unregister_obj, bridge_display_unregister);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(bridge_display_unregister_obj, 0, 1, bridge_display_unregister);
 
 static mp_obj_t bridge_pointer_event(const pydevices_event_record_t *event, mp_obj_t contract) {
     size_t count;
@@ -178,15 +213,17 @@ static mp_obj_t bridge_fast_event(const pydevices_event_record_t *event, mp_obj_
 }
 
 static mp_obj_t bridge_poll_event(size_t n_args, const mp_obj_t *args) {
-    mp_obj_t contract = n_args ? args[0] : mp_const_none;
-    uint32_t tail = event_ring.tail;
-    if (tail != event_ring.head) {
-        mp_obj_t result = bridge_fast_event(&event_ring.records[tail], contract);
-        event_ring.tail = (tail + 1) % 256;
+    const char *canvas = mp_obj_str_get_str(args[0]);
+    mp_obj_t contract = n_args > 1 ? args[1] : mp_const_none;
+    int slot = find_event_ring_slot(canvas, false);
+    if (slot >= 0 && event_rings[slot].tail != event_rings[slot].head) {
+        uint32_t tail = event_rings[slot].tail;
+        mp_obj_t result = bridge_fast_event(&event_rings[slot].records[tail], contract);
+        event_rings[slot].tail = (tail + 1) % 256;
         return result;
     }
     size_t len = 0;
-    uintptr_t ptr = pydevices_event_poll(&len);
+    uintptr_t ptr = pydevices_event_poll(canvas, &len);
     if (!ptr) {
         return mp_const_none;
     }
@@ -194,18 +231,21 @@ static mp_obj_t bridge_poll_event(size_t n_args, const mp_obj_t *args) {
     free((void *)ptr);
     return result;
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(bridge_poll_event_obj, 0, 1, bridge_poll_event);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(bridge_poll_event_obj, 1, 2, bridge_poll_event);
 
-static mp_obj_t bridge_poll_events(mp_obj_t contract) {
+static mp_obj_t bridge_poll_events(mp_obj_t canvas_obj, mp_obj_t contract) {
+    const char *canvas = mp_obj_str_get_str(canvas_obj);
     mp_obj_t output = mp_obj_new_list(0, NULL);
     size_t raw_count = 0;
-    while (event_ring.tail != event_ring.head) {
-        uint32_t tail = event_ring.tail;
-        if (event_ring.records[tail].type < 1 || event_ring.records[tail].type > 4) {
+    int slot = find_event_ring_slot(canvas, false);
+    pydevices_event_ring_t *ring = slot >= 0 ? &event_rings[slot] : NULL;
+    while (ring != NULL && ring->tail != ring->head) {
+        uint32_t tail = ring->tail;
+        if (ring->records[tail].type < 1 || ring->records[tail].type > 4) {
             raw_count++;
         }
-        mp_obj_t event = bridge_fast_event(&event_ring.records[tail], contract);
-        event_ring.tail = (tail + 1) % 256;
+        mp_obj_t event = bridge_fast_event(&ring->records[tail], contract);
+        ring->tail = (tail + 1) % 256;
         if (mp_obj_get_type(event) == &mp_type_list) {
             size_t count;
             mp_obj_t *items;
@@ -219,7 +259,7 @@ static mp_obj_t bridge_poll_events(mp_obj_t contract) {
     }
     while (true) {
         size_t len = 0;
-        uintptr_t ptr = pydevices_event_poll(&len);
+        uintptr_t ptr = pydevices_event_poll(canvas, &len);
         if (!ptr) {
             break;
         }
@@ -233,14 +273,18 @@ static mp_obj_t bridge_poll_events(mp_obj_t contract) {
     };
     return mp_obj_new_tuple(2, items);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(bridge_poll_events_obj, bridge_poll_events);
+static MP_DEFINE_CONST_FUN_OBJ_2(bridge_poll_events_obj, bridge_poll_events);
 
-static mp_obj_t bridge_clear_events(void) {
-    event_ring.head = event_ring.tail = 0;
-    pydevices_event_clear();
+static mp_obj_t bridge_clear_events(mp_obj_t canvas_obj) {
+    const char *canvas = mp_obj_str_get_str(canvas_obj);
+    int slot = find_event_ring_slot(canvas, false);
+    if (slot >= 0) {
+        event_rings[slot].head = event_rings[slot].tail = 0;
+    }
+    pydevices_event_clear(canvas);
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(bridge_clear_events_obj, bridge_clear_events);
+static MP_DEFINE_CONST_FUN_OBJ_1(bridge_clear_events_obj, bridge_clear_events);
 
 static mp_obj_t bridge_timer_start(size_t n_args, const mp_obj_t *args) {
     int id = mp_obj_get_int(args[0]);
