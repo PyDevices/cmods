@@ -42,6 +42,7 @@ user_post_mpconfigport.mk
 /lvgl-*
 /micropython
 /circuitpython
+/ulab
 /emsdk
 /esp-idf
 /SDL2-*

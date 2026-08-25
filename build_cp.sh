@@ -34,6 +34,7 @@ unset USER_C_MODULES FROZEN_MANIFEST
 PORT="${PORT:-}"
 BOARD="${BOARD:-}"
 VARIANT="${VARIANT:-}"
+CP_SKIP_EXT="${CP_SKIP_EXT:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
