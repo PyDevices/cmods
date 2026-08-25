@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000008 Mon Sep 17 00:00:00 2001
+From: PyDevices <pydevices@users.noreply.github.com>
+Date: Tue, 25 Aug 2026 13:00:00 -0500
+Subject: [PATCH] py/lexer: Don't prime the input queue with the EOF sentinel
+
+v1.28.0's 617c7dba3 changed MP_LEXER_EOF from (unichar)-1 to '\0', but
+mp_lexer_new still primes chr0/1/2 with 0 - now indistinguishable from
+EOF. For EMPTY input, next_char()'s end-of-file newline injection tests
+chr1 against MP_LEXER_EOF while chr1 still holds a dummy, concludes it is
+already past EOF, and never injects the trailing newline. single_input
+then sees a bare MP_TOKEN_END and raises SyntaxError:
+
+    compile('', '<stdin>', 'single')   # SyntaxError on 1.28, OK on 1.27
+
+User-visible: pressing Enter on an empty line at any event-driven REPL
+(webassembly, esp8266, ...) prints "SyntaxError: invalid syntax", since
+pyexec_friendly_repl_process_char executes the empty line. CPython
+accepts empty single input. Non-empty and whitespace-only lines are
+unaffected, which is why this hid so well.
+
+Prime the queue with MP_LEXER_INVALID_BYTE instead: like the old 0-vs-(-1)
+pairing, it cannot be mistaken for EOF, and the dummies are consumed by
+the three next_char() calls in mp_lexer_new before tokenization starts.
+
+Applies cleanly to current upstream master, which has the same bug.
+
+diff --git a/py/lexer.c b/py/lexer.c
+index 22ff4d2cd..49e4d1410 100644
+--- a/py/lexer.c
++++ b/py/lexer.c
+@@ -1077,8 +1077,14 @@ mp_lexer_t *mp_lexer_new(qstr src_name, mp_reader_t reader) {
+     lex->indent_level[0] = 0;
+ 
+     // load lexer with start of file, advancing lex->column to 1
+-    // start with dummy bytes and use next_char() for proper EOL/EOF handling
+-    lex->chr0 = lex->chr1 = lex->chr2 = 0;
++    // Start with dummy bytes and use next_char() for proper EOL/EOF handling.
++    // The dummy must not be MP_LEXER_EOF ('\0'): the end-of-file newline
++    // injection in next_char() tests chr1 against it to decide whether a
++    // newline is still owed, and for empty input chr1 holds a dummy at that
++    // moment.  A zero dummy reads as "already at EOF", the newline is never
++    // injected, and empty input fails to parse as single_input (a regression
++    // from when the EOF sentinel was -1 and the zero dummy was distinct).
++    lex->chr0 = lex->chr1 = lex->chr2 = MP_LEXER_INVALID_BYTE;
+     next_char(lex);
+     next_char(lex);
+     next_char(lex);
