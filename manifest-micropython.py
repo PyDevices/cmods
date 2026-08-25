@@ -32,15 +32,15 @@ if "/variants/webassembly/pydevices/" in _upstream_hint.replace("\\", "/"):
     require("argparse")
     freeze("$(MPY_LIB_DIR)/micropython/mip", ("mip/__init__.py",), opt=3)
     freeze("$(MPY_LIB_DIR)/micropython/mip-cmdline", ("mip/__main__.py",), opt=3)
-    # The dedicated runtime and the MIP package expose the same neutral Python
-    # device contracts. Freezing them makes a clean runtime independently
-    # testable and ensures automatic selection is present before any VFS app is
-    # staged. Browser hosts still install pydevices-desktop to stage its declared
-    # utility files and to verify the published package/index path.
-    for _package in ("appdev", "audiodev", "displaydev", "multimer"):
-        package(_package, base_path="../pydevices/lib", opt=3)
-    for _module in ("boarddev.py", "events.py", "keys.py"):
-        module(_module, base_path="../pydevices/lib", opt=3)
+    # Deliberately NOT freezing the pydevices libs (appdev, audiodev,
+    # displaydev, multimer, boarddev, events, keys): pydevices is a work in
+    # progress, and frozen copies silently shadow mip-installed / VFS-staged
+    # ones -- a stale frozen audiodev cost a whole debugging session before
+    # anyone realized the browser wasn't running the published code. Until
+    # development settles, every host installs pydevices-desktop via mip
+    # (hero-runtime.js, the simulator, and the browser contract harness all
+    # already do), so what runs is always what is published or staged --
+    # never a build-time snapshot.
 else:
     # ``micropython -m mip`` (mip/__main__.py). Unix variants already require
     # this; windows/webassembly get ``mip`` via networking bundles but not the
