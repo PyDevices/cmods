@@ -33,6 +33,7 @@ user_post_mpconfigport.mk
 !/wasmbridge/**
 
 # Top-level symlinks to clones/siblings (/* / does not match symlinks)
+/audioif
 /displayif
 /pygraphics
 /pdwidgets
