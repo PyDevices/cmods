@@ -47,6 +47,8 @@ MP_WINDOWS_INSTALL_DIR="${MP_WINDOWS_INSTALL_DIR-}"
 ORG_DIR=$(cd "$WORKSPACE_DIR/.." && pwd)
 PYDEVICES_BIN="$ORG_DIR/pydevices/bin"
 PORTAL_WASM="$ORG_DIR/PyDevices.github.io/vendor/micropython"
+# Workbench's in-browser VM transport loads this pair (src/pydevices/runtime.js).
+WORKBENCH_WASM="$ORG_DIR/workbench/assets/pydevices"
 
 ALL_TARGETS=(mp-unix mp-windows mp-wasm cp-unix)
 INSTALL_ONLY=0
@@ -183,6 +185,9 @@ install_one() {
             fi
             if [[ -d "$ORG_DIR/PyDevices.github.io" ]]; then
                 copy_wasm_pair "$PORTAL_WASM"
+            fi
+            if [[ -d "$WORKBENCH_WASM" ]]; then
+                copy_wasm_pair "$WORKBENCH_WASM"
             fi
             ;;
         cp-unix)
