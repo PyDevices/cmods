@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000007 Mon Sep 17 00:00:00 2001
+From: PyDevices <pydevices@users.noreply.github.com>
+Date: Tue, 25 Aug 2026 12:00:00 -0500
+Subject: [PATCH] webassembly: make jsffi callbacks inert across reinitialization
+
+The jsffi proxy tables live on globalThis and are shared by every
+interpreter instance loaded from the module; proxy_js_init() resets them.
+A Python callable handed to the browser (setTimeout callbacks, event
+listeners, promise handlers - asyncio's scheduler arms one continuously)
+that outlives its interpreter was then invoked against the CURRENT
+interpreter with a recycled index, resolving to an arbitrary unrelated
+object: observed as an uncaught "TypeError: 'module' object isn't
+callable" whenever an embedder replaced the VM mid-run, and in the worst
+case it would silently call the wrong function.
+
+Stamp a generation on the shared state at each proxy_js_init() and have
+spontaneously-invoked wrappers (MP_CALLABLE closures, PyProxyThenable)
+check it, going inert - cleared-timer semantics - when their interpreter
+is gone.
+
+diff --git a/ports/webassembly/objpyproxy.js b/ports/webassembly/objpyproxy.js
+index 64703d78a..e15fc8eab 100644
+--- a/ports/webassembly/objpyproxy.js
++++ b/ports/webassembly/objpyproxy.js
+@@ -231,9 +231,20 @@ const py_proxy_handler = {
+ class PyProxyThenable {
+     constructor(ref) {
+         this._ref = ref;
++        this._generation = globalThis.proxy_js_generation;
+     }
+ 
+     then(resolve, reject) {
++        if (this._generation !== globalThis.proxy_js_generation) {
++            // The interpreter this generator belonged to is gone; its ref
++            // would resolve to an arbitrary object in the current one.  The
++            // promise machinery calls this spontaneously, so settle the
++            // chain instead of throwing into it.
++            reject(
++                new Error("PyProxyThenable outlived its interpreter"),
++            );
++            return undefined;
++        }
+         const values = Module._malloc(3 * 3 * 4);
+         proxy_convert_js_to_mp_obj_jsside(resolve, values + 3 * 4);
+         proxy_convert_js_to_mp_obj_jsside(reject, values + 2 * 3 * 4);
+diff --git a/ports/webassembly/proxy_js.js b/ports/webassembly/proxy_js.js
+index 60b832d81..58684ee71 100644
+--- a/ports/webassembly/proxy_js.js
++++ b/ports/webassembly/proxy_js.js
+@@ -61,6 +61,15 @@ class PythonError extends Error {
+ }
+ 
+ function proxy_js_init() {
++    // Proxy state lives on globalThis and is shared by every interpreter
++    // instance loaded from this module.  Each (re)init starts a new
++    // generation; wrappers handed to the browser (setTimeout callbacks,
++    // event listeners, promise handlers) record the generation they were
++    // created in, so ones that outlive their interpreter go inert instead
++    // of calling into the current interpreter with a recycled index --
++    // which resolves to an arbitrary, unrelated object.
++    globalThis.proxy_js_generation =
++        (globalThis.proxy_js_generation || 0) + 1;
+     globalThis.proxy_js_ref = [globalThis, undefined];
+     globalThis.proxy_js_ref_next = PROXY_JS_REF_NUM_STATIC;
+     globalThis.proxy_js_ref_map = new Map();
+@@ -284,7 +293,13 @@ function proxy_convert_mp_to_js_obj_jsside(value) {
+         // obj
+         const id = Module.getValue(value + 4, "i32");
+         if (kind === PROXY_KIND_MP_CALLABLE) {
++            const generation = globalThis.proxy_js_generation;
+             obj = (...args) => {
++                if (generation !== globalThis.proxy_js_generation) {
++                    // The interpreter this callable belonged to is gone.
++                    // Behave like a cleared timer: do nothing.
++                    return undefined;
++                }
+                 return proxy_call_python(id, args);
+             };
+             obj._ref = id;
