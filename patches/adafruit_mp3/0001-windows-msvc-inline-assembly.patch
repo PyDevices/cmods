@@ -1,0 +1,23 @@
+diff --git a/src/assembly.h b/src/assembly.h
+index 7c714cd..f5ca2e2 100644
+--- a/src/assembly.h
++++ b/src/assembly.h
+@@ -60,7 +60,17 @@
+ extern "C" {
+ #endif
+ 
+-#if (defined _WIN32 && !defined _WIN32_WCE) || (defined __WINS__ && defined _SYMBIAN) || defined(_OPENWAVE_SIMULATOR) || defined(WINCE_EMULATOR)    /* Symbian emulator for Ix86 */
++/* PyDevices local patch (see cmods/micropython-audio/docs/upstream-diff.md,
++ * "cmods/mp3 local patch"): added `&& !defined(__GNUC__)` to this branch's
++ * condition. It guards MSVC-only `__asm { ... }` intrinsic syntax and an
++ * MSVC-only `#pragma warning`, neither of which mingw-w64 GCC accepts, but
++ * mingw-w64 GCC (this workspace's Windows MicroPython target) also defines
++ * `_WIN32`. Upstream never hits this: CircuitPython has no Windows port, so
++ * this branch was only ever reached by real MSVC. Excluding __GNUC__ falls
++ * through to the portable C fallback near the bottom of this file (the same
++ * one this workspace's unix build already uses), not to a different branch.
++ */
++#if (defined _WIN32 && !defined _WIN32_WCE && !defined(__GNUC__)) || (defined __WINS__ && defined _SYMBIAN) || defined(_OPENWAVE_SIMULATOR) || defined(WINCE_EMULATOR)    /* Symbian emulator for Ix86 */
+ 
+ #pragma warning( disable : 4035 )	/* complains about inline asm not returning a value */
+ 
