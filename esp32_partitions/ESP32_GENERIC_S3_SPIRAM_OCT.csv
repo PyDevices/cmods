@@ -5,4 +5,5 @@
 nvs, data, nvs, 0x9000, 0x6000
 phy_init, data, phy, 0xf000, 0x1000
 factory, app, factory, 0x10000, 0x380000
-vfs, data, fat, 0x390000, 0x470000
+coredump, data, coredump, 0x390000, 0x10000
+vfs, data, fat, 0x3A0000, 0x460000
