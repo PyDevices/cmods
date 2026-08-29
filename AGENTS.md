@@ -157,18 +157,18 @@ After changing `binding/`, `lv_conf.h`, or the `lvgl` submodule:
 
 ```bash
 cd lvgl-bindings
-./regenerate_all.sh              # all three targets + commit + tag (see lvgl-bindings/docs/releasing-bindings.md)
-# or individually:
-./regenerate_lvmp.sh             # → generated/lvgl_micropython.c
-./regenerate_lvcp.sh             # → generated/lvgl_circuitpython.c
-./regenerate_lvpy.sh             # → generated/lvgl_python.c
-./scripts/verify_bindings.sh     # regen + regression checks
+./regenerate_all.sh                       # all targets (see lvgl-bindings/docs/releasing-bindings.md)
+./regenerate_all.sh --target micropython  # → generated/lvgl_python.c (MP consumers)
+./regenerate_all.sh --target circuitpython
+./regenerate_all.sh --target cpython
+./regenerate_all.sh --check --hash        # read-only reproducibility check, same gate release uses
 ```
 
-Sync into consumer repos as needed
-(`lvgl-python/scripts/sync_from_lvgl_bindings.sh`, or copy `generated/` +
-`lvgl` pin for MP/CP). Then rebuild with `./build_interpreters.sh` / `./build_mp.sh`
-/ `./build_cp.sh` as appropriate.
+Sync into consumer repos with each consumer's own
+`scripts/sync_from_lvgl_bindings.sh` (e.g. `lvgl-python/scripts/sync_from_lvgl_bindings.sh`) —
+never by hand-copying `generated/` or the `lvgl` pin; that bypasses the
+single-writer rule the sync scripts exist to enforce. Then rebuild with
+`./build_interpreters.sh` / `./build_mp.sh` / `./build_cp.sh` as appropriate.
 
 ---
 
@@ -183,18 +183,18 @@ Sync into consumer repos as needed
   `pip install -e .` after C changes.
 - **Upstream clones** (`micropython/`, `circuitpython/`): do not commit unless
   the user explicitly overrides workspace rules.
-- **Frozen `.wasm` goes stale silently**: `appdev`, `audiodev`, `displaydev`,
-  `multimer` (plus `boarddev.py`/`events.py`/`keys.py`) are frozen straight
-  from `../pydevices/lib` into `bin/micropython.wasm` at build time
-  (`manifest-micropython.py`). Editing any of those sources does **not**
-  affect a previously built `.wasm` — the old bytecode keeps shipping until
-  `build_interpreters.sh --only mp-wasm` reruns, and the failure mode gives no
-  hint that staleness is the cause: e.g. a class whose current `__init__`
-  clearly takes `width, height, canvas_id` can still raise `TypeError:
-  __init__() takes 1 positional arguments but N were given` at runtime,
-  because the *frozen* copy predates the signature change. If a WASM-only
-  runtime error looks like it contradicts the source you're reading, rebuild
-  before debugging further. `mip.install()`-based packages (`board_config`,
-  `pygraphics`'s pure-Python port, etc.) don't have this problem since they're
-  fetched fresh each page load — only what's frozen at build time can go
-  stale this way.
+- **The pydevices libs are deliberately *not* frozen into the wasm build**:
+  `manifest-micropython.py` used to freeze `appdev`, `audiodev`, `displaydev`,
+  `multimer` (plus `boarddev.py`/`events.py`/`keys.py`) straight from
+  `../pydevices/lib` into `bin/micropython.wasm`. That was reverted in
+  `4880d42` — a stale frozen `audiodev` silently shadowed the mip-installed /
+  VFS-staged copy and cost a whole debugging session before anyone realized
+  the browser wasn't running the published code. Every wasm host already
+  installs `pydevices-desktop` via `mip` (hero-runtime.js, the simulator, and
+  the browser contract harness all do), so what runs is always what's
+  published or staged, never a build-time snapshot. If you're tempted to
+  freeze one of those libs again for a quick win, don't — fix the mip/VFS
+  staging path instead. The manifest still freezes `mip` itself and the
+  Fetch-backed `requests.py` shim (see the comment in
+  `manifest-micropython.py`), so that plumbing can be present before mip's
+  dependency resolver runs.

@@ -1032,6 +1032,8 @@ if [[ "$PORT" == esp32 ]]; then
     if [[ -f "$esp32_override" ]]; then
         echo "esp32 partition override: $esp32_override"
         esp32_patch_partition_sdkconfig "$esp32_build_dir" "$esp32_override"
+    else
+        echo "WARNING: no esp32 partition override found at $esp32_override (BOARD=${BOARD}${VARIANT:+ VARIANT=$VARIANT}); building with the port's default partition table."
     fi
     esp32_build_log=$(mktemp /tmp/build-mp-esp32.XXXXXX.log)
     set +e

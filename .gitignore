@@ -19,6 +19,9 @@ main.py
 user_post_mpconfigport.mk
 
 # Ignore all top-level directories (root files stay trackable by default)…
+# New tracked trees must be explicitly re-added below (esp32_partitions/
+# was silently ignored here for a while — nothing complained, the ESP32-P4
+# build just quietly built without its partition table).
 /*/
 # …except the tracked workspace tooling trees
 !/.github/
@@ -27,10 +30,16 @@ user_post_mpconfigport.mk
 !/.site/**
 !/patches/
 !/patches/**
+!/scripts/
+!/scripts/**
 !/variants/
 !/variants/**
 !/wasmbridge/
 !/wasmbridge/**
+# small csv+sdkconfig files the ESP32-P4 build depends on; see build_mp.sh's
+# esp32_partition_override()
+!/esp32_partitions/
+!/esp32_partitions/**
 
 # Top-level symlinks to clones/siblings (/* / does not match symlinks)
 /audioif
@@ -47,4 +56,3 @@ user_post_mpconfigport.mk
 /esp-idf
 /SDL2-*
 /lvgl
-/esp32_partitions

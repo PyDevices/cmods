@@ -27,6 +27,8 @@ the filename.
 | `0004-micropython-webassembly-…Asyncify…` | `webassembly` | Await Asyncify-backed execution in the module API |
 | `0005-micropython-webassembly-…ccall…` | `webassembly` | Correct Node hook ccall signatures |
 | `0006-micropython-webassembly-…soft…` | `webassembly` | Expose repeatable VM soft reinitialization |
+| `0007-micropython-webassembly-…jsffi…` | `webassembly` | Make jsffi callbacks inert across VM reinitialization (stale interpreter generation no longer resolves to an arbitrary recycled proxy) |
+| `0008-micropython-webassembly-…lexer-eof…` | `webassembly` | Fix `single_input` on empty input: prime the lexer so EOF and the dummy `chr0/1/2` sentinel are distinguishable again, restoring the empty-line REPL Enter behavior |
 
 ## Apply
 
@@ -39,16 +41,6 @@ git apply /path/to/cmods/patches/0001-micropython-windows-*.patch
 git apply --reverse /path/to/cmods/patches/0001-micropython-windows-*.patch
 ```
 
-## Regenerate
-
-On a tree with these commits atop the base tag:
-
-```bash
-git format-patch -N -o .
-# rename so each filename contains micropython-<port>
-```
-
-
 ## Ownership moved (2026-08-29, modernization Phase 2)
 
 The authoritative copies of everything here now live in public repos;
@@ -59,3 +51,18 @@ sync here — never the reverse** (single-writer, same rule as lvgl):
   (`patches/`, with profiles and provenance).
 - `adafruit_mp3/` → `PyDevices/audioif` (`patches/adafruit_mp3/`,
   applied by its `scripts/fetch_deps.sh`).
+
+## Regenerate
+
+Regeneration happens **in the overlay repo, never here**. In a
+`PyDevices/micropython-pydevices` checkout, on a tree with the new commits
+atop the pinned upstream (`UPSTREAM`):
+
+```bash
+git format-patch -N -o patches/
+# rename so each filename contains micropython-<port>
+```
+
+Then pull the change into cmods with `../scripts/sync_from_overlay.sh`
+(pin the new commit in `MICROPYTHON_PYDEVICES_COMMIT`) — do not
+`format-patch` or hand-edit patches directly in this directory.

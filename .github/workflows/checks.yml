@@ -1,0 +1,59 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck (error severity)
+        run: |
+          shellcheck --severity=error \
+            build_cp.sh \
+            build_interpreters.sh \
+            build_mp.sh \
+            scripts/sync_from_overlay.sh
+
+  mirror-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out cmods
+        uses: actions/checkout@v4
+        with:
+          path: cmods
+
+      - name: Read pinned overlay commits
+        id: pins
+        run: |
+          echo "mp=$(cat cmods/MICROPYTHON_PYDEVICES_COMMIT)" >> "$GITHUB_OUTPUT"
+          echo "audioif=$(cat cmods/AUDIOIF_PATCHES_COMMIT)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out micropython-pydevices at the pinned commit
+        uses: actions/checkout@v4
+        with:
+          repository: PyDevices/micropython-pydevices
+          ref: ${{ steps.pins.outputs.mp }}
+          path: micropython-pydevices
+          fetch-depth: 1
+
+      - name: Check out audioif at the pinned commit
+        uses: actions/checkout@v4
+        with:
+          repository: PyDevices/audioif
+          ref: ${{ steps.pins.outputs.audioif }}
+          path: audioif
+          fetch-depth: 1
+
+      # cmods, micropython-pydevices, and audioif land as siblings under
+      # $GITHUB_WORKSPACE, matching the workspace layout sync_from_overlay.sh
+      # expects for its sibling-checkout lookup.
+      - name: Diff mirrors against pinned sources
+        working-directory: cmods
+        run: ./scripts/sync_from_overlay.sh --check

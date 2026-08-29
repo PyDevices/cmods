@@ -61,12 +61,12 @@ pinned revision with no generated commits. Details: [`patches/README.md`](patche
 git clone https://github.com/PyDevices/lvgl-micropython.git lvgl-micropython
 git clone https://github.com/PyDevices/lvgl-bindings.git lvgl-bindings
 cd lvgl-bindings && git submodule update --init lvgl && cd ..
-./lvgl-bindings/regenerate_lvmp.sh
+./lvgl-bindings/regenerate_all.sh --target micropython
 
 ./build_mp.sh --port unix --variant standard
 ```
 
-The [LVGL](https://github.com/lvgl/lvgl) clone and `regenerate_lvmp.sh` steps are **optional** — use them only
+The [LVGL](https://github.com/lvgl/lvgl) clone and `regenerate_all.sh` steps are **optional** — use them only
 when building with [LVGL](https://github.com/lvgl/lvgl). For other user C modules, add those repos (or
 symlinks) instead.
 
