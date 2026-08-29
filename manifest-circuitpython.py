@@ -21,10 +21,11 @@ import os
 # 1020 KB for firmware and they do not fit alongside a full build, where they
 # are better placed on the CIRCUITPY filesystem.
 if not os.environ.get("CP_SKIP_USER_FREEZE"):
-    try:
+    # Guard by existence, not exception: the freezer wraps a missing include
+    # in ManifestFileError, which ``except OSError`` never catches, so a
+    # clean checkout (no gitignored manifest-user.py) failed the freeze.
+    if os.path.isfile("manifest-user.py"):
         include("manifest-user.py")
-    except OSError:
-        pass
 
 # Honour the same CP_SKIP_EXT the build script uses: skipping an extension's
 # patches while still freezing its Python is incoherent (e.g. freezing
