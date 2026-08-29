@@ -47,3 +47,15 @@ On a tree with these commits atop the base tag:
 git format-patch -N -o .
 # rename so each filename contains micropython-<port>
 ```
+
+
+## Ownership moved (2026-08-29, modernization Phase 2)
+
+The authoritative copies of everything here now live in public repos;
+this directory is a consumer-side mirror for cmods builds. **Edit there,
+sync here — never the reverse** (single-writer, same rule as lvgl):
+
+- `0001…0008` (MicroPython series) → `PyDevices/micropython-pydevices`
+  (`patches/`, with profiles and provenance).
+- `adafruit_mp3/` → `PyDevices/audioif` (`patches/adafruit_mp3/`,
+  applied by its `scripts/fetch_deps.sh`).
