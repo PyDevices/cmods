@@ -66,3 +66,12 @@ git format-patch -N -o patches/
 Then pull the change into cmods with `../scripts/sync_from_overlay.sh`
 (pin the new commit in `MICROPYTHON_PYDEVICES_COMMIT`) — do not
 `format-patch` or hand-edit patches directly in this directory.
+
+## Why built interpreters report `-dirty`
+
+The mailbox patches above are applied to the upstream checkout as
+temporary overlays for the duration of the build and reversed on exit
+(see build_mp.sh), so the tree is legitimately modified at compile time
+and MicroPython embeds `-dirty` in its version string. It does not mean
+the build came from uncommitted work: with the overlays reversed, a
+clean checkout plus the pinned patch series reproduces the same build.
