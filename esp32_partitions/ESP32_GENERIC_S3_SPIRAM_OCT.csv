@@ -1,6 +1,8 @@
 # Name, Type, SubType, Offset, Size, Flags
+# Sized for 8MB flash (detected on the on-hand SPIRAM_OCT board):
+# app 3.5MB (cmods images run ~3.4MB), vfs fills to exactly 0x800000.
 
 nvs, data, nvs, 0x9000, 0x6000
 phy_init, data, phy, 0xf000, 0x1000
-factory, app, factory, 0x10000, 0x2d0000
-vfs, data, fat, 0x2e0000, 0x520000
+factory, app, factory, 0x10000, 0x380000
+vfs, data, fat, 0x390000, 0x470000
