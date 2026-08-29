@@ -47,12 +47,13 @@ else:
     # cmdline. CircuitPython also includes this file and has no mip.
     require("mip-cmdline")
 
-# Optional personal overrides. Missing file is fine; errors inside the file
-# must surface (a broad except was silently dropping bad paths).
-try:
+# Optional personal overrides. A missing file is fine; errors inside an
+# existing file must surface. Guard by existence, not exception: the
+# manifest freezer wraps a missing include in its own ManifestFileError,
+# which an ``except OSError`` never catches -- so on a clean checkout
+# (no gitignored manifest-user.py) the freeze failed outright.
+if os.path.isfile("manifest-user.py"):
     include("manifest-user.py")
-except OSError:
-    pass
 
 for _name in sorted(os.listdir(".")):
     if _name.startswith("."):
