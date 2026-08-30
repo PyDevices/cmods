@@ -1,0 +1,12 @@
+diff --git a/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h b/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
+index b7a887848..57eaddaf6 100644
+--- a/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
++++ b/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
+@@ -29,3 +29,7 @@
+ #ifndef MICROPY_PY_BLUETOOTH
+ #define MICROPY_PY_BLUETOOTH            (0)
+ #endif
++
++// usbif: extend TinyUSB's device configuration (descriptor + class config are
++// provided by the usbif external C module; without that module this is unused).
++#define MICROPY_HW_USB_EXT_TUSB_CONFIG  "usbif_tusb_ext.h"

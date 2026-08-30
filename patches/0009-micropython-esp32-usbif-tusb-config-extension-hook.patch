@@ -1,0 +1,35 @@
+From: PyDevices usbif
+Date: Sat, 29 Aug 2026 00:00:00 +0000
+Subject: [PATCH] shared/tinyusb: add a tusb_config.h extension hook
+
+Purpose: let a user C module (usbif) enable additional TinyUSB class
+drivers (CFG_TUD_AUDIO, later CFG_TUD_VIDEO) and define their sizing
+macros in a header it owns, named via MICROPY_HW_USB_EXT_TUSB_CONFIG
+from the module's build glue. Keeps the diff against MicroPython to
+these seven lines; all volatile class configuration lives in usbif.
+
+Provenance: written for usbif Phase 0 (Spike B), 2026-08-29.
+Upstream-version range: authored against v1.28.0. Checked against
+master the same day: the file tail above the hook has already been
+restructured upstream (USBD_EP_BUILTIN_MAX is now computed; CFG_TUD_NCM
+added), so this hunk deliberately anchors only on the two trailing
+endif lines, which are unchanged from v1.28.0 through current master.
+Order: first and only patch in the series.
+Test: build ESP32_GENERIC_S3 with MICROPY_HW_USB_EXT_TUSB_CONFIG
+pointing at a header enabling CFG_TUD_AUDIO with stub sizing; firmware
+must build and, with no descriptor changes, behave identically
+(pending — the build half of Spike B).
+
+--- a/shared/tinyusb/tusb_config.h
++++ b/shared/tinyusb/tusb_config.h
+@@ -147,3 +147,10 @@
++// Allow a user C module to extend this configuration with additional TinyUSB
++// class drivers (e.g. CFG_TUD_AUDIO) and their sizing macros, without editing
++// this file. The named header is supplied by the module's build glue.
++#ifdef MICROPY_HW_USB_EXT_TUSB_CONFIG
++#include MICROPY_HW_USB_EXT_TUSB_CONFIG
++#endif
++
+ #endif // MICROPY_HW_ENABLE_USBDEV
+
+ #endif // MICROPY_INCLUDED_SHARED_TINYUSB_TUSB_CONFIG_H

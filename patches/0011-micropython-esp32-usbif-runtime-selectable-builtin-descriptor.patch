@@ -1,0 +1,81 @@
+From: PyDevices usbif
+Date: Sat, 29 Aug 2026 00:00:00 +0000
+Subject: [PATCH] shared/tinyusb: allow a user C module to vary the built-in
+ configuration descriptor at runtime
+
+Purpose: a class contributed by a user C module should not be advertised to
+the host unless the application has asked for it. A board that always
+enumerates as a sound card is not merely untidy -- the host may make it the
+default audio device, route system audio to it, and stall its audio engine
+when nothing on the board is draining the stream. Observed on Windows: the
+desktop backed up, including keyboard input, until the default was changed.
+
+Two weak hooks, both defaulting to today's compile-time behaviour, so a build
+without such a module is bit-for-bit unchanged:
+
+  mp_usbd_builtin_desc_cfg_get()  substitutes the built-in configuration
+                                  descriptor
+  mp_usbd_builtin_itf_max()       the matching interface count, which
+                                  runtime_dev_open() uses to decide which
+                                  interfaces belong to built-in drivers
+
+Both are needed together: varying the descriptor without varying the bound
+would leave runtime_dev_open declining interfaces that are no longer built-in,
+so a Python-defined interface occupying that number would be claimed by
+nobody.
+
+Provenance: written for usbif Phase 4, 2026-08-29.
+Upstream-version range: authored against v1.28.0.
+Order: applies after 0001 and 0002.
+Test: with a module that enables its class only on request, the board
+enumerates as plain CDC until asked and as a composite device afterwards, and
+the host's default-device selection follows.
+
+--- a/shared/tinyusb/mp_usbd.h
++++ b/shared/tinyusb/mp_usbd.h
+@@ -101,6 +101,15 @@
+     MICROPY_HW_USB_EXT_DESC_CFG_LEN           \
+     )
+ 
++// A user C module contributing built-in interfaces may need to vary them at
++// runtime -- a class the application has not asked for should not be
++// advertised to the host. These weak hooks let it substitute the built-in
++// configuration descriptor and the interface count that goes with it; the
++// defaults return the compile-time values, so a build without such a module
++// behaves exactly as before.
++const uint8_t *mp_usbd_builtin_desc_cfg_get(void);
++uint8_t mp_usbd_builtin_itf_max(void);
++
+ // Built-in USB device and configuration descriptor values
+ extern const tusb_desc_device_t mp_usbd_builtin_desc_dev;
+ extern const uint8_t mp_usbd_builtin_desc_cfg[MP_USBD_BUILTIN_DESC_CFG_LEN];
+--- a/shared/tinyusb/mp_usbd_runtime.c
++++ b/shared/tinyusb/mp_usbd_runtime.c
+@@ -123,7 +123,17 @@
+     if (usbd) {
+         result = usbd_get_buffer_in_cb(usbd->desc_cfg, MP_BUFFER_READ);
+     }
+-    return result ? result : &mp_usbd_builtin_desc_cfg;
++    return result ? result : mp_usbd_builtin_desc_cfg_get();
++}
++
++// Defaults: the compile-time built-in descriptor and its interface count. A
++// user C module may override either.
++MP_WEAK const uint8_t *mp_usbd_builtin_desc_cfg_get(void) {
++    return mp_usbd_builtin_desc_cfg;
++}
++
++MP_WEAK uint8_t mp_usbd_builtin_itf_max(void) {
++    return USBD_ITF_BUILTIN_MAX;
+ }
+ 
+ const char *mp_usbd_runtime_string_cb(uint8_t index) {
+@@ -270,7 +280,7 @@
+ 
+     // If TinyUSB built-in drivers are enabled, don't claim any interface in the built-in range
+     #if USBD_ITF_BUILTIN_MAX > 0
+-    if (mp_usb_device_builtin_enabled(usbd) && itf_desc->bInterfaceNumber < USBD_ITF_BUILTIN_MAX) {
++    if (mp_usb_device_builtin_enabled(usbd) && itf_desc->bInterfaceNumber < mp_usbd_builtin_itf_max()) {
+         return 0;
+     }
+     #endif

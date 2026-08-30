@@ -1,0 +1,60 @@
+From: PyDevices usbif
+Date: Sat, 29 Aug 2026 00:00:00 +0000
+Subject: [PATCH] shared/tinyusb: let a user C module extend the built-in
+ configuration descriptor
+
+Purpose: usbif's isochronous classes (UAC, later UVC) must be *built-in*
+interfaces rather than runtime ones. TinyUSB dispatches each interface to
+application drivers before built-in ones, and MicroPython's runtime driver
+(runtime_dev_open) claims every interface numbered at or above
+USBD_ITF_BUILTIN_MAX whatever its class -- so an audio interface declared from
+Python is claimed by Python, and TinyUSB's audiod_open() is never called.
+Python cannot service isochronous endpoints, which is the whole reason usbif
+exists in C.
+
+This is the descriptor half of the extension hook added by patch 0001: a length
+contribution and a descriptor block, both supplied by a module-owned header, so
+no volatile content lands in MicroPython.
+
+Provenance: written for usbif Phase 1, 2026-08-29, after reading usbd.c's
+driver dispatch order (_app_driver is consulted before _usbd_driver) and
+mp_usbd_runtime.c's open callback.
+Upstream-version range: authored against v1.28.0.
+Order: applies after 0001.
+Test: build a board whose MICROPY_HW_USB_EXT_TUSB_CONFIG header enables
+CFG_TUD_AUDIO and defines MICROPY_HW_USB_EXT_DESC_CFG; the board must enumerate
+as a composite CDC + audio function and keep its REPL.
+
+--- a/shared/tinyusb/mp_usbd.h
++++ b/shared/tinyusb/mp_usbd.h
+@@ -89,10 +89,16 @@
+ // length (2 * bytes_len + 1) (including NUL terminator).
+ void mp_usbd_hex_str(char *out_str, const uint8_t *bytes, size_t bytes_len);
+ 
+-// Length of built-in configuration descriptor
++// Length of built-in configuration descriptor.
++// A user C module may contribute further built-in interfaces; the header named
++// by MICROPY_HW_USB_EXT_TUSB_CONFIG (see tusb_config.h) defines their length.
++#ifndef MICROPY_HW_USB_EXT_DESC_CFG_LEN
++#define MICROPY_HW_USB_EXT_DESC_CFG_LEN (0)
++#endif
+ #define MP_USBD_BUILTIN_DESC_CFG_LEN (TUD_CONFIG_DESC_LEN +                     \
+     (CFG_TUD_CDC ? (TUD_CDC_DESC_LEN) : 0) +  \
+-    (CFG_TUD_MSC ? (TUD_MSC_DESC_LEN) : 0)    \
++    (CFG_TUD_MSC ? (TUD_MSC_DESC_LEN) : 0) +  \
++    MICROPY_HW_USB_EXT_DESC_CFG_LEN           \
+     )
+ 
+ // Built-in USB device and configuration descriptor values
+--- a/shared/tinyusb/mp_usbd_descriptor.c
++++ b/shared/tinyusb/mp_usbd_descriptor.c
+@@ -64,6 +64,9 @@
+     #if CFG_TUD_MSC
+     TUD_MSC_DESCRIPTOR(USBD_ITF_MSC, USBD_STR_MSC, EPNUM_MSC_OUT, EPNUM_MSC_IN, USBD_MSC_IN_OUT_MAX_SIZE),
+     #endif
++    #ifdef MICROPY_HW_USB_EXT_DESC_CFG
++    MICROPY_HW_USB_EXT_DESC_CFG
++    #endif
+ };
+ 
+ const uint16_t *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {

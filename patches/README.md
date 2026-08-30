@@ -29,6 +29,10 @@ the filename.
 | `0006-micropython-webassembly-…soft…` | `webassembly` | Expose repeatable VM soft reinitialization |
 | `0007-micropython-webassembly-…jsffi…` | `webassembly` | Make jsffi callbacks inert across VM reinitialization (stale interpreter generation no longer resolves to an arbitrary recycled proxy) |
 | `0008-micropython-webassembly-…lexer-eof…` | `webassembly` | Fix `single_input` on empty input: prime the lexer so EOF and the dummy `chr0/1/2` sentinel are distinguishable again, restoring the empty-line REPL Enter behavior |
+| `0009-micropython-esp32-usbif-…tusb-config…` | `esp32` | usbif: `tusb_config.h` extension hook (`MICROPY_HW_USB_EXT_TUSB_CONFIG`) |
+| `0010-micropython-esp32-usbif-…config-descriptor…` | `esp32` | usbif: append module descriptors to the built-in configuration descriptor |
+| `0011-micropython-esp32-usbif-…runtime-selectable…` | `esp32` | usbif: weak hooks so the advertised built-in descriptor can vary at runtime (opt-in audio) |
+| `0012-micropython-esp32-usbif-p4-board-…` | `esp32` | usbif: `ESP32_GENERIC_P4` board header opts into the extension hook (inert without the module) |
 
 ## Apply
 
@@ -49,6 +53,10 @@ sync here — never the reverse** (single-writer, same rule as lvgl):
 
 - `0001…0008` (MicroPython series) → `PyDevices/micropython-pydevices`
   (`patches/`, with profiles and provenance).
+- `0009…0011` (usbif series) → `PyDevices/usbif` (`patches/0001…0003`,
+  with provenance; `apply_patches.sh` there applies them standalone).
+- `0012` is cmods-local board integration (one `#define` in the P4 board
+  header) and has no upstream home; it is authored here.
 - `adafruit_mp3/` → `PyDevices/audioif` (`patches/adafruit_mp3/`,
   applied by its `scripts/fetch_deps.sh`).
 
