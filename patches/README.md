@@ -33,6 +33,7 @@ the filename.
 | `0010-micropython-esp32-usbif-…config-descriptor…` | `esp32` | usbif: append module descriptors to the built-in configuration descriptor |
 | `0011-micropython-esp32-usbif-…runtime-selectable…` | `esp32` | usbif: weak hooks so the advertised built-in descriptor can vary at runtime (opt-in audio) |
 | `0012-micropython-esp32-usbif-p4-board-…` | `esp32` | usbif: `ESP32_GENERIC_P4` board header opts into the extension hook (inert without the module) |
+| `0013-micropython-esp32-usbif-otg-phy-…` | `esp32` | usbif: OTG PHY release/restore helpers in `usb.c` so a module can borrow the controller for host mode (mirror of usbif `patches/0004`) |
 
 ## Apply
 
@@ -53,7 +54,7 @@ sync here — never the reverse** (single-writer, same rule as lvgl):
 
 - `0001…0008` (MicroPython series) → `PyDevices/micropython-pydevices`
   (`patches/`, with profiles and provenance).
-- `0009…0011` (usbif series) → `PyDevices/usbif` (`patches/0001…0003`,
+- `0009…0011`, `0013` (usbif series) → `PyDevices/usbif` (`patches/0001…0004`,
   with provenance; `apply_patches.sh` there applies them standalone).
 - `0012` is cmods-local board integration (one `#define` in the P4 board
   header) and has no upstream home; it is authored here.

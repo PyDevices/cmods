@@ -1,0 +1,41 @@
+diff --git a/ports/esp32/usb.c b/ports/esp32/usb.c
+index bca2305f1..b3b35ba8a 100644
+--- a/ports/esp32/usb.c
++++ b/ports/esp32/usb.c
+@@ -62,6 +62,24 @@ void usb_usj_mode(void) {
+     };
+     usb_new_phy(&phy_conf, &phy_hdl);
+ }
++
++// Allow an external module to borrow the OTG controller for USB host duty.
++// The device-mode PHY created at boot must be released (after tud_deinit())
++// before a host stack, which creates its own host-mode PHY, can claim the
++// controller -- and restored when the module hands the controller back.
++// Runtime PHY reconfiguration follows the usb_usj_mode() pattern above.
++void usb_phy_otg_release(void) {
++    if (phy_hdl != NULL) {
++        usb_del_phy(phy_hdl);
++        phy_hdl = NULL;
++    }
++}
++
++void usb_phy_otg_device_mode(void) {
++    if (phy_hdl == NULL) {
++        usb_phy_init();
++    }
++}
+ #endif
+ 
+ void mp_usbd_port_get_serial_number(char *serial_buf) {
+diff --git a/ports/esp32/usb.h b/ports/esp32/usb.h
+index 99437266d..f442b35a7 100644
+--- a/ports/esp32/usb.h
++++ b/ports/esp32/usb.h
+@@ -30,5 +30,7 @@
+ 
+ void usb_phy_init(void);
+ void usb_usj_mode(void);
++void usb_phy_otg_release(void);
++void usb_phy_otg_device_mode(void);
+ 
+ #endif // MICROPY_INCLUDED_ESP32_USB_H
