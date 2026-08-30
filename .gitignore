@@ -45,6 +45,7 @@ user_post_mpconfigport.mk
 /audioif
 /displayif
 /pygraphics
+/usbif
 /pdwidgets
 /palettes
 /usdl2
