@@ -5,7 +5,10 @@
 #   ./build_mp.sh [--port PORT] [--board BOARD] [--variant VARIANT] [--debug]
 #
 # Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, EMSDK_DIR, PORT, BOARD, VARIANT,
-#              OS_DUPTERM, OS_DUPTERM_SLOTS, MP_BUILD_DEBUG, MP_AUTOSIZE
+#              OS_DUPTERM, OS_DUPTERM_SLOTS, MP_BUILD_DEBUG, MP_AUTOSIZE,
+#              MP_OVERLAY_SKIP (patch numbers excluded from the mailbox
+#              overlays, e.g. "0001 0003"), MP_MAKE_EXTRA (extra VAR=VALUE
+#              words appended to the make command line)
 #
 # USER_C_MODULES and FROZEN_MANIFEST are always cleared at startup so a prior
 # shell export cannot stick across port/board/variant builds. They then default
@@ -534,6 +537,10 @@ ensure_host_mpy_cross() {
 apply_micropython_cmods_patches() {
     # Apply mailbox patches whose names contain micropython-<PORT> as temporary
     # working-tree overlays. No matches means there is nothing to do.
+    # MP_OVERLAY_SKIP ("0001 0003") excludes listed patch numbers — used by
+    # builds that must not inherit an overlay (the vst3 engine drops the
+    # windows networking and FFI patches so shipped plugin content cannot
+    # reach the network or arbitrary DLLs).
     local patch_dir="$WORKSPACE_DIR/patches"
     [[ -d "$patch_dir" ]] || return 0
 
@@ -542,6 +549,23 @@ apply_micropython_cmods_patches() {
     shopt -s nullglob
     patches=("$patch_dir"/*"micropython-${PORT}"*)
     shopt -u nullglob
+
+    if [[ -n "${MP_OVERLAY_SKIP:-}" ]]; then
+        local -a kept=()
+        local skip base
+        for p in "${patches[@]}"; do
+            base=$(basename "$p")
+            for skip in ${MP_OVERLAY_SKIP}; do
+                if [[ "$base" == "$skip"-* ]]; then
+                    echo "  overlay skipped (MP_OVERLAY_SKIP): $base"
+                    base=""
+                    break
+                fi
+            done
+            [[ -n "$base" ]] && kept+=("$p")
+        done
+        patches=("${kept[@]+"${kept[@]}"}")
+    fi
     [[ ${#patches[@]} -gt 0 ]] || return 0
 
     # Stable apply order (0001 before 0002, …).
@@ -985,6 +1009,11 @@ make_args=(
     USER_C_MODULES="$USER_C_MODULES"
     FROZEN_MANIFEST="$FROZEN_MANIFEST"
 )
+# MP_MAKE_EXTRA: extra VAR=VALUE words for the make command line (word-split
+# on purpose). Needed where an env var cannot override a port's plain `=`
+# assignment — e.g. the vst3 unix engine passes MICROPY_PY_SOCKET=0
+# MICROPY_PY_SSL=0 MICROPY_PY_FFI=0 against ports/unix/mpconfigport.mk.
+[[ -n "${MP_MAKE_EXTRA:-}" ]] && make_args+=(${MP_MAKE_EXTRA})
 [[ -n "${CROSS_COMPILE:-}" ]] && make_args+=(CROSS_COMPILE="$CROSS_COMPILE")
 [[ -n "${SDL2_DEV:-}" ]] && make_args+=(SDL2_DEV="$SDL2_DEV")
 if is_truthy "$OS_DUPTERM" && [[ "$PORT" == unix || "$PORT" == windows || "$PORT" == webassembly ]]; then
