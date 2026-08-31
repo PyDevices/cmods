@@ -1,0 +1,12 @@
+diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.h b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.h
+index c714fe2c2..69e6af36c 100644
+--- a/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.h
++++ b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.h
+@@ -9,3 +9,7 @@
+ 
+ #define MICROPY_HW_I2C0_SCL                 (9)
+ #define MICROPY_HW_I2C0_SDA                 (8)
++
++// usbif: extend TinyUSB's device configuration (descriptor + class config are
++// provided by the usbif external C module; without that module this is unused).
++#define MICROPY_HW_USB_EXT_TUSB_CONFIG  "usbif_tusb_ext.h"
