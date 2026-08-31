@@ -18,13 +18,19 @@ without such a module is bit-for-bit unchanged:
   mp_usbd_builtin_itf_max()       the matching interface count, which
                                   runtime_dev_open() uses to decide which
                                   interfaces belong to built-in drivers
+  mp_usbd_builtin_desc_dev_get()  the device descriptor that travels with
+                                  them: a composite assembled from interface
+                                  associations must declare the IAD device
+                                  class, and a single-function device must
+                                  not -- naive hosts reject the mismatch
 
-Both are needed together: varying the descriptor without varying the bound
+The first two are needed together: varying the descriptor without varying the bound
 would leave runtime_dev_open declining interfaces that are no longer built-in,
 so a Python-defined interface occupying that number would be claimed by
 nobody.
 
-Provenance: written for usbif Phase 4, 2026-08-29.
+Provenance: written for usbif Phase 4, 2026-08-29; device-descriptor hook
+added 2026-08-31 for runtime function selection.
 Upstream-version range: authored against v1.28.0.
 Order: applies after 0001 and 0002.
 Test: with a module that enables its class only on request, the board
@@ -33,7 +39,7 @@ the host's default-device selection follows.
 
 --- a/shared/tinyusb/mp_usbd.h
 +++ b/shared/tinyusb/mp_usbd.h
-@@ -101,6 +101,15 @@
+@@ -101,6 +101,21 @@
      MICROPY_HW_USB_EXT_DESC_CFG_LEN           \
      )
  
@@ -45,13 +51,28 @@ the host's default-device selection follows.
 +// behaves exactly as before.
 +const uint8_t *mp_usbd_builtin_desc_cfg_get(void);
 +uint8_t mp_usbd_builtin_itf_max(void);
++// The device descriptor travels with the configuration: a composite built
++// from interface associations must declare the IAD device class, while a
++// single-function device must not (naive hosts reject the mismatch). A
++// module that varies its interfaces at runtime therefore has to vary this
++// too.
++const void *mp_usbd_builtin_desc_dev_get(void);
 +
  // Built-in USB device and configuration descriptor values
  extern const tusb_desc_device_t mp_usbd_builtin_desc_dev;
  extern const uint8_t mp_usbd_builtin_desc_cfg[MP_USBD_BUILTIN_DESC_CFG_LEN];
 --- a/shared/tinyusb/mp_usbd_runtime.c
 +++ b/shared/tinyusb/mp_usbd_runtime.c
-@@ -123,7 +123,17 @@
+@@ -113,7 +113,7 @@
+     if (usbd) {
+         result = usbd_get_buffer_in_cb(usbd->desc_dev, MP_BUFFER_READ);
+     }
+-    return result ? result : &mp_usbd_builtin_desc_dev;
++    return result ? result : mp_usbd_builtin_desc_dev_get();
+ }
+ 
+ const uint8_t *tud_descriptor_configuration_cb(uint8_t index) {
+@@ -123,7 +123,21 @@
      if (usbd) {
          result = usbd_get_buffer_in_cb(usbd->desc_cfg, MP_BUFFER_READ);
      }
@@ -65,12 +86,16 @@ the host's default-device selection follows.
 +    return mp_usbd_builtin_desc_cfg;
 +}
 +
++MP_WEAK const void *mp_usbd_builtin_desc_dev_get(void) {
++    return &mp_usbd_builtin_desc_dev;
++}
++
 +MP_WEAK uint8_t mp_usbd_builtin_itf_max(void) {
 +    return USBD_ITF_BUILTIN_MAX;
  }
  
  const char *mp_usbd_runtime_string_cb(uint8_t index) {
-@@ -270,7 +280,7 @@
+@@ -270,7 +284,7 @@
  
      // If TinyUSB built-in drivers are enabled, don't claim any interface in the built-in range
      #if USBD_ITF_BUILTIN_MAX > 0
