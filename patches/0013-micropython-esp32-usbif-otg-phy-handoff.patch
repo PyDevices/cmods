@@ -1,3 +1,31 @@
+From: PyDevices usbif
+Date: Sat, 30 Aug 2026 00:00:00 +0000
+Subject: [PATCH] esp32: let a user C module borrow the OTG controller for
+ host duty
+
+Purpose: the esp32 port creates a device-mode USB PHY at boot and holds it
+for the lifetime of the firmware. A module that implements USB host on the
+same controller has no way to take it: the IDF host library creates its own
+host-mode PHY, and the device-mode one must be released first or the
+install fails with "selected PHY is in use".
+
+Two functions, mirroring the existing usb_usj_mode() pattern of
+reconfiguring the PHY at runtime:
+
+  usb_phy_otg_release()      delete the device-mode PHY, after the caller
+                             has quiesced the device stack
+  usb_phy_otg_device_mode()  recreate it, handing the controller back
+
+Both are no-ops in a build without such a module, and nothing in the port
+calls them, so behaviour is unchanged unless a module asks.
+
+Provenance: written for usbif Phase 2 host bring-up, 2026-08-30.
+Upstream-version range: authored against v1.28.0.
+Order: independent of 0001-0003; touches only ports/esp32.
+Test: with the host engine, usb_host_install() succeeds after the device
+stack is deinitialised and the PHY released, and the board returns to
+enumerating as a CDC device after the module hands the controller back.
+
 diff --git a/ports/esp32/usb.c b/ports/esp32/usb.c
 index bca2305f1..b3b35ba8a 100644
 --- a/ports/esp32/usb.c
