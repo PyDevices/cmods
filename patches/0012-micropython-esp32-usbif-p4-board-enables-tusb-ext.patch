@@ -1,8 +1,8 @@
 diff --git a/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h b/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
-index b7a887848..57eaddaf6 100644
+index b7a887848..72d7cb2a9 100644
 --- a/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
 +++ b/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
-@@ -29,3 +29,7 @@
+@@ -29,3 +29,12 @@
  #ifndef MICROPY_PY_BLUETOOTH
  #define MICROPY_PY_BLUETOOTH            (0)
  #endif
@@ -10,3 +10,8 @@ index b7a887848..57eaddaf6 100644
 +// usbif: extend TinyUSB's device configuration (descriptor + class config are
 +// provided by the usbif external C module; without that module this is unused).
 +#define MICROPY_HW_USB_EXT_TUSB_CONFIG  "usbif_tusb_ext.h"
++
++// usbif: compile in the MSC device class. The board contributes the block
++// callbacks (the esp32 port has no msc_disk.c), and what the drive holds is
++// chosen from Python at runtime -- see usbif_msc_dev.c.
++#define MICROPY_HW_USB_MSC (1)
