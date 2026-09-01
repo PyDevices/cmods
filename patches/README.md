@@ -85,3 +85,27 @@ temporary overlays for the duration of the build and reversed on exit
 and MicroPython embeds `-dirty` in its version string. It does not mean
 the build came from uncommitted work: with the overlays reversed, a
 clean checkout plus the pinned patch series reproduces the same build.
+
+## Two patch series, two owners
+
+`patches/[0-9][0-9][0-9][0-9]-*.patch` is a **mirror**. `scripts/sync_from_overlay.sh`
+owns that entire glob: it deletes every file matching it and re-copies from
+`micropython-pydevices` at the pinned commit. Edit those in the source repo,
+never here.
+
+`patches/usbif-NN-*.patch` is **local to cmods**. These are the usbif module's
+integration patches (the TinyUSB config-extension hook, the descriptor hooks,
+the esp32 OTG PHY handoff, and the P4/S3 board headers), authored in
+`usbif/patches/` and mirrored here by hand.
+
+They are deliberately outside the numbered series. The two globs are
+independent -- the sync script claims a four-digit prefix, while `build_mp.sh`
+matches `*micropython-<port>*` anywhere in the name -- so the usbif series is
+invisible to the mirror and still picked up by the build, applying after the
+numbered series because digits sort before letters.
+
+This is not cosmetic. These six lived inside the mirrored glob until
+2026-09-01, which kept `mirror-drift` red and, worse, meant the resync the
+failure message recommends would have deleted them. Losing them does not
+break the build: it produces firmware whose USB functions are silently
+absent. Keep new usbif patches in the `usbif-` series.
