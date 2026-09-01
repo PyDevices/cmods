@@ -15,3 +15,19 @@ index b7a887848..72d7cb2a9 100644
 +// callbacks (the esp32 port has no msc_disk.c), and what the drive holds is
 +// chosen from Python at runtime -- see usbif_msc_dev.c.
 +#define MICROPY_HW_USB_MSC (1)
+diff --git a/ports/esp32/boards/sdkconfig.p4 b/ports/esp32/boards/sdkconfig.p4
+index 042eec40c..fe92da7e8 100644
+--- a/ports/esp32/boards/sdkconfig.p4
++++ b/ports/esp32/boards/sdkconfig.p4
+@@ -16,3 +16,11 @@ CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=50768
+ CONFIG_SOC_ULP_SUPPORTED=n
+ CONFIG_ULP_COPROC_ENABLED=n
+ CONFIG_ULP_COPROC_TYPE_FSM=n
++
++# usbif: enable external USB hub support in the IDF host library. Off by
++# default upstream, which means a hub enumerates as a device the host stack
++# cannot use and everything behind it stays invisible -- the reason a flash
++# drive behind a powered hub never appeared during Phase 2 testing. A
++# powered hub is also how a board that cannot source VBUS reaches a
++# bus-powered peripheral at all, so this is load-bearing for the P4.
++CONFIG_USB_HOST_HUBS_SUPPORTED=y

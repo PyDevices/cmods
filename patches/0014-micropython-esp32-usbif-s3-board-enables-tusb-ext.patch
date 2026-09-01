@@ -15,3 +15,19 @@ index c714fe2c2..52f7bb1f3 100644
 +// callbacks (the esp32 port has no msc_disk.c), and what the drive holds is
 +// chosen from Python at runtime -- see usbif_msc_dev.c.
 +#define MICROPY_HW_USB_MSC (1)
+diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board b/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board
+index 369330682..5eefdde92 100644
+--- a/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board
++++ b/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board
+@@ -1,2 +1,11 @@
+ CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+ CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
++
++# usbif: enable external USB hub support in the IDF host library. Off by
++# default upstream, which means a hub enumerates as a device the host stack
++# cannot use and everything behind it is invisible -- the reason a flash
++# drive behind a powered hub never appeared during Phase 2 testing. Costs
++# code size in every build; worth it because host work beyond one device
++# needs it, and because a powered hub is also how boards that cannot source
++# VBUS reach a bus-powered peripheral at all.
++CONFIG_USB_HOST_HUBS_SUPPORTED=y
