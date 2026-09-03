@@ -16,10 +16,10 @@ index c714fe2c2..52f7bb1f3 100644
 +// chosen from Python at runtime -- see usbif_msc_dev.c.
 +#define MICROPY_HW_USB_MSC (1)
 diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board b/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board
-index 369330682..5eefdde92 100644
+index 369330682..d0bb996a0 100644
 --- a/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board
 +++ b/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board
-@@ -1,2 +1,11 @@
+@@ -1,2 +1,36 @@
  CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
  CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
 +
@@ -31,3 +31,28 @@ index 369330682..5eefdde92 100644
 +# needs it, and because a powered hub is also how boards that cannot source
 +# VBUS reach a bus-powered peripheral at all.
 +CONFIG_USB_HOST_HUBS_SUPPORTED=y
++
++# usbif: raise the control-transfer buffer well above the 256-byte default.
++# IDF allocates one buffer per attached device for its control endpoint, and
++# its own Kconfig help states the consequence plainly: "Device's with
++# configuration descriptors larger than this limit cannot be supported."
++# 256 bytes suits simple peripherals and is far too small for media devices:
++# a USB audio CODEC on this bench publishes a 1191-byte configuration
++# descriptor (24 alternate settings across two AudioStreaming interfaces) and
++# simply never enumerates at the default -- no error, no event, the device is
++# absent, while a 153-byte microphone on the same hub attaches in one second.
++# UVC descriptors are larger again, so this is a Phase 6 prerequisite too.
++CONFIG_USB_HOST_CONTROL_TRANSFER_MAX_SIZE=4096
++
++# usbif: bias the host FIFOs toward periodic OUT so isochronous playback can
++# carry a real stereo stream. The balanced default caps periodic OUT at 192
++# bytes, and 48 kHz stereo 16-bit needs exactly 192 B/ms -- which the DWC
++# driver refuses (ESP_ERR_NOT_SUPPORTED at interface_claim, surfacing as a
++# claim failure rather than anything about packet sizes). Periodic OUT bias
++# raises that to 600.
++#
++# The costs are nothing on a full-speed bus: non-periodic OUT drops to 64,
++# which is already the spec maximum for full-speed bulk and control, and IN
++# drops to 408 -> 128, still comfortably above the 100 B/ms a USB microphone
++# asks for. A high-speed host would need to weigh this differently.
++CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT=y
