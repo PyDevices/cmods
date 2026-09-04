@@ -109,3 +109,12 @@ This is not cosmetic. These six lived inside the mirrored glob until
 failure message recommends would have deleted them. Losing them does not
 break the build: it produces firmware whose USB functions are silently
 absent. Keep new usbif patches in the `usbif-` series.
+
+`patches/cameraif-NN-*.patch` follows the same rule and for the same reason:
+outside the numbered series so the mirror cannot claim or delete it, still
+matched by `build_mp.sh` because the name contains `micropython-esp32`.
+
+| Patch | Port | Purpose |
+|-------|------|---------|
+| `cameraif-01-…camera-sensor-component` | `esp32` | Add `espressif/esp_cam_sensor` to `idf_component.yml` for P4 targets. ESP-IDF ships the CSI controller but no sensor drivers |
+| `cameraif-02-…machine-i2c-new-driver` | `esp32` | Put `machine.I2C` on esp-idf's new `i2c_master` driver for the P4. The panel's touch controller, the audio codecs and the camera's SCCB all share one bus, and `esp_cam_sensor` speaks only the new API. On the legacy driver the two cannot share a bus handle, so the camera opens a second master on the same pins -- which `CONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK` (set by upstream) permits silently, and the touch controller then times out on every read while the camera looks perfect |

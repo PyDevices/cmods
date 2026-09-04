@@ -1,0 +1,20 @@
+diff --git a/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h b/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
+index b7a887848..94d562503 100644
+--- a/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
++++ b/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
+@@ -11,6 +11,15 @@
+ 
+ #define MICROPY_PY_ESPNOW                (0)
+ 
++// machine.I2C on the new esp-idf i2c_master driver, not the legacy one.
++// Boards in this family share one I2C bus between the touch controller, the
++// audio codecs and the MIPI-CSI camera's SCCB, and esp_cam_sensor speaks
++// only the new API. With machine.I2C on the legacy driver the two cannot
++// share a bus handle, so the camera opens a second master on the same pins;
++// CONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK (which upstream sets) lets that
++// happen silently, and the touch controller then times out on every read.
++#define MICROPY_HW_ESP_NEW_I2C_DRIVER    (1)
++
+ #define MICROPY_HW_ENABLE_SDCARD            (1)
+ 
+ #ifndef USB_SERIAL_JTAG_PACKET_SZ_BYTES
