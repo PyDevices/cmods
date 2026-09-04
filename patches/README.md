@@ -124,6 +124,15 @@ matched by `build_mp.sh` because the name contains `micropython-esp32`.
 camera: bus scan answers 0x18 / 0x36 / 0x40 / 0x5d; the GT911 reads 10/10
 with a camera open (0/10 before the fix); the ES7210 captures real non-zero
 audio; and the ES8311 played 440/660/880 Hz tones that Brad confirmed
-hearing. Ear-verified rather than inferred from `playing == True` -- the
-board's own mic does not pick up its own speaker, so there is no acoustic
-self-test to lean on here.
+hearing.
+
+Ear-verified rather than inferred, and there is no way around that on this
+board. `playing == True` is a flag set before a sample reaches the codec and
+reads true with the speaker unplugged. The obvious alternative -- play a tone
+and record it on the ES7210 -- cannot work either: both directions construct
+`I2S(0)`, one as TX and one as RX, and one peripheral id cannot be both
+(pydevices#23), so a capture taken during playback is not evidence of
+anything. An earlier version of this note claimed the loopback proved the
+mic cannot hear the speaker. It proved no such thing; that experiment had no
+working capture path to begin with, and which of the two reasons applied was
+never established here.
