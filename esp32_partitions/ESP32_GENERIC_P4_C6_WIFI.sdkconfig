@@ -1,2 +1,18 @@
 CONFIG_ESPTOOLPY_FLASHSIZE="32MB"
 CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y
+
+# cameraif: the OV5647 on the panel's MIPI-CSI port.
+#
+# Two options, needed together, failing differently when absent. Without
+# CONFIG_CAMERA_OV5647 the driver is not compiled. Without the AUTO_DETECT
+# option it is compiled but its probe is dropped by --gc-sections, because
+# esp_cam_sensor's detection walks a linker section rather than calling a
+# symbol. Either way the detect array is empty and the camera reports as
+# absent on the bus -- a wiring-shaped error with a build-configuration
+# cause, which cost an hour to see because the message names SCCB.
+#
+# These live here rather than in the cameraif patch because usbif's P4 patch
+# already appends to boards/sdkconfig.p4, and two mailbox patches editing the
+# tail of one file collide on whichever applies second.
+CONFIG_CAMERA_OV5647=y
+CONFIG_CAMERA_OV5647_AUTO_DETECT_MIPI_INTERFACE_SENSOR=y
