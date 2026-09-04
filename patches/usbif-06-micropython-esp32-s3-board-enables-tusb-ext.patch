@@ -44,15 +44,15 @@ index 369330682..d0bb996a0 100644
 +# UVC descriptors are larger again, so this is a Phase 6 prerequisite too.
 +CONFIG_USB_HOST_CONTROL_TRANSFER_MAX_SIZE=4096
 +
-+# usbif: bias the host FIFOs toward periodic OUT so isochronous playback can
-+# carry a real stereo stream. The balanced default caps periodic OUT at 192
-+# bytes, and 48 kHz stereo 16-bit needs exactly 192 B/ms -- which the DWC
-+# driver refuses (ESP_ERR_NOT_SUPPORTED at interface_claim, surfacing as a
-+# claim failure rather than anything about packet sizes). Periodic OUT bias
-+# raises that to 600.
-+#
-+# The costs are nothing on a full-speed bus: non-periodic OUT drops to 64,
-+# which is already the spec maximum for full-speed bulk and control, and IN
-+# drops to 408 -> 128, still comfortably above the 100 B/ms a USB microphone
-+# asks for. A high-speed host would need to weigh this differently.
-+CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT=y
++# usbif: bias the host FIFOs toward IN. This is a real board-wide trade-off
++# with no setting that serves everything, and the three presets decide it:
++# Balanced is IN 408 / periodic OUT 192, Periodic OUT is IN 128 / OUT 600,
++# Bias IN is IN 600 / OUT 128. Hosting a camera needs a 512-byte isochronous
++# IN endpoint even at a modest mode, so the periodic-OUT bias this file
++# carried for audio playback capped IN at 128 and made interface_claim
++# refuse the camera outright with ESP_ERR_NOT_SUPPORTED -- a claim failure
++# that says nothing about packet sizes. IN bias costs periodic OUT
++# 600 -> 128, which still carries 48 kHz mono but not stereo.
++# The real fix is picking this at runtime from the classes host_start() was
++# asked for: usb_host_config_t.fifo_settings_custom allows exactly that.
++CONFIG_USB_HOST_HW_BUFFER_BIAS_IN=y
