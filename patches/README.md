@@ -118,3 +118,12 @@ matched by `build_mp.sh` because the name contains `micropython-esp32`.
 |-------|------|---------|
 | `cameraif-01-…camera-sensor-component` | `esp32` | Add `espressif/esp_cam_sensor` to `idf_component.yml` for P4 targets. ESP-IDF ships the CSI controller but no sensor drivers |
 | `cameraif-02-…machine-i2c-new-driver` | `esp32` | Put `machine.I2C` on esp-idf's new `i2c_master` driver for the P4. The panel's touch controller, the audio codecs and the camera's SCCB all share one bus, and `esp_cam_sensor` speaks only the new API. On the legacy driver the two cannot share a bus handle, so the camera opens a second master on the same pins -- which `CONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK` (set by upstream) permits silently, and the touch controller then times out on every read while the camera looks perfect |
+
+**Verified on the shared bus after this change**, because it alters
+`machine.I2C` for every device on the P4 panel's GPIO7/8, not just the
+camera: bus scan answers 0x18 / 0x36 / 0x40 / 0x5d; the GT911 reads 10/10
+with a camera open (0/10 before the fix); the ES7210 captures real non-zero
+audio; and the ES8311 played 440/660/880 Hz tones that Brad confirmed
+hearing. Ear-verified rather than inferred from `playing == True` -- the
+board's own mic does not pick up its own speaker, so there is no acoustic
+self-test to lean on here.
