@@ -39,9 +39,9 @@ the host's default-device selection follows.
 
 --- a/shared/tinyusb/mp_usbd.h
 +++ b/shared/tinyusb/mp_usbd.h
-@@ -101,6 +101,21 @@
-     MICROPY_HW_USB_EXT_DESC_CFG_LEN           \
-     )
+@@ -94,6 +94,21 @@
+     MICROPY_HW_USB_EXT_DESC_CFG_LEN + \
+     TUD_CONFIG_DESC_LEN)
  
 +// A user C module contributing built-in interfaces may need to vary them at
 +// runtime -- a class the application has not asked for should not be
@@ -94,8 +94,8 @@ the host's default-device selection follows.
 +    return USBD_ITF_BUILTIN_MAX;
  }
  
- const char *mp_usbd_runtime_string_cb(uint8_t index) {
-@@ -270,7 +284,7 @@
+ #if (CFG_TUD_MAX_SPEED == OPT_MODE_HIGH_SPEED)
+@@ -276,7 +290,7 @@
  
      // If TinyUSB built-in drivers are enabled, don't claim any interface in the built-in range
      #if USBD_ITF_BUILTIN_MAX > 0

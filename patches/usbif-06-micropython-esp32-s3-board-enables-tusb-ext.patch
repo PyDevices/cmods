@@ -15,44 +15,49 @@ index c714fe2c2..52f7bb1f3 100644
 +// callbacks (the esp32 port has no msc_disk.c), and what the drive holds is
 +// chosen from Python at runtime -- see usbif_msc_dev.c.
 +#define MICROPY_HW_USB_MSC (1)
-diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board b/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board
-index 369330682..d0bb996a0 100644
---- a/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board
-+++ b/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.board
-@@ -1,2 +1,36 @@
- CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
- CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
-+
-+# usbif: enable external USB hub support in the IDF host library. Off by
-+# default upstream, which means a hub enumerates as a device the host stack
-+# cannot use and everything behind it is invisible -- the reason a flash
-+# drive behind a powered hub never appeared during Phase 2 testing. Costs
-+# code size in every build; worth it because host work beyond one device
-+# needs it, and because a powered hub is also how boards that cannot source
-+# VBUS reach a bus-powered peripheral at all.
+--- a/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.cmake
++++ b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.cmake
+@@ -3,4 +3,5 @@
+ list(APPEND SDKCONFIG_DEFAULTS
+     boards/sdkconfig.flash_qio_80m
+     boards/sdkconfig.csi
++    boards/sdkconfig.usbif
+ )
+--- /dev/null
++++ b/ports/esp32/boards/sdkconfig.usbif
+@@ -0,0 +1,35 @@
++# usbif: USB host settings the module needs, kept in their own fragment so a
++# MicroPython release cannot conflict with them.
++#
++# Enable external USB hub support in the IDF host library. Off by default
++# upstream, which means a hub enumerates as a device the host stack cannot use
++# and everything behind it is invisible -- the reason a flash drive behind a
++# powered hub never appeared during Phase 2 testing. Costs code size in every
++# build; worth it because host work beyond one device needs it, and because a
++# powered hub is also how boards that cannot source VBUS reach a bus-powered
++# peripheral at all.
 +CONFIG_USB_HOST_HUBS_SUPPORTED=y
 +
-+# usbif: raise the control-transfer buffer well above the 256-byte default.
-+# IDF allocates one buffer per attached device for its control endpoint, and
-+# its own Kconfig help states the consequence plainly: "Device's with
-+# configuration descriptors larger than this limit cannot be supported."
-+# 256 bytes suits simple peripherals and is far too small for media devices:
-+# a USB audio CODEC on this bench publishes a 1191-byte configuration
-+# descriptor (24 alternate settings across two AudioStreaming interfaces) and
-+# simply never enumerates at the default -- no error, no event, the device is
-+# absent, while a 153-byte microphone on the same hub attaches in one second.
-+# UVC descriptors are larger again, so this is a Phase 6 prerequisite too.
++# Raise the control-transfer buffer well above the 256-byte default. IDF
++# allocates one buffer per attached device for its control endpoint, and its own
++# Kconfig help states the consequence plainly: "Device's with configuration
++# descriptors larger than this limit cannot be supported." 256 bytes suits
++# simple peripherals and is far too small for media devices: a USB audio CODEC
++# on this bench publishes a 1191-byte configuration descriptor (24 alternate
++# settings across two AudioStreaming interfaces) and simply never enumerates at
++# the default -- no error, no event, the device is absent, while a 153-byte
++# microphone on the same hub attaches in one second. UVC descriptors are larger
++# again, so this is a Phase 6 prerequisite too.
 +CONFIG_USB_HOST_CONTROL_TRANSFER_MAX_SIZE=4096
 +
-+# usbif: bias the host FIFOs toward IN. This is a real board-wide trade-off
-+# with no setting that serves everything, and the three presets decide it:
-+# Balanced is IN 408 / periodic OUT 192, Periodic OUT is IN 128 / OUT 600,
-+# Bias IN is IN 600 / OUT 128. Hosting a camera needs a 512-byte isochronous
-+# IN endpoint even at a modest mode, so the periodic-OUT bias this file
-+# carried for audio playback capped IN at 128 and made interface_claim
-+# refuse the camera outright with ESP_ERR_NOT_SUPPORTED -- a claim failure
-+# that says nothing about packet sizes. IN bias costs periodic OUT
-+# 600 -> 128, which still carries 48 kHz mono but not stereo.
-+# The real fix is picking this at runtime from the classes host_start() was
-+# asked for: usb_host_config_t.fifo_settings_custom allows exactly that.
++# Bias the host FIFOs toward IN. A real board-wide trade-off with no setting
++# that serves everything, and the three presets decide it: Balanced is IN 408 /
++# periodic OUT 192, Periodic OUT is IN 128 / OUT 600, Bias IN is IN 600 / OUT
++# 128. Hosting a camera needs a 512-byte isochronous IN endpoint even at a
++# modest mode, so a periodic-OUT bias caps IN at 128 and makes interface_claim
++# refuse the camera outright with ESP_ERR_NOT_SUPPORTED -- a claim failure that
++# says nothing about packet sizes. IN bias costs periodic OUT 600 -> 128, which
++# still carries 48 kHz mono but not stereo. The real fix is picking this at
++# runtime from the classes host_start() was asked for:
++# usb_host_config_t.fifo_settings_custom allows exactly that.
 +CONFIG_USB_HOST_HW_BUFFER_BIAS_IN=y

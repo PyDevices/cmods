@@ -25,9 +25,11 @@ Test: build a board whose MICROPY_HW_USB_EXT_TUSB_CONFIG header enables
 CFG_TUD_AUDIO and defines MICROPY_HW_USB_EXT_DESC_CFG; the board must enumerate
 as a composite CDC + audio function and keep its REPL.
 
+diff --git a/shared/tinyusb/mp_usbd.h b/shared/tinyusb/mp_usbd.h
+index e8a435f06..86306c0db 100644
 --- a/shared/tinyusb/mp_usbd.h
 +++ b/shared/tinyusb/mp_usbd.h
-@@ -89,10 +89,16 @@
+@@ -81,11 +81,17 @@ extern void mp_usbd_port_get_serial_number(char *buf);
  // length (2 * bytes_len + 1) (including NUL terminator).
  void mp_usbd_hex_str(char *out_str, const uint8_t *bytes, size_t bytes_len);
  
@@ -38,19 +40,21 @@ as a composite CDC + audio function and keep its REPL.
 +#ifndef MICROPY_HW_USB_EXT_DESC_CFG_LEN
 +#define MICROPY_HW_USB_EXT_DESC_CFG_LEN (0)
 +#endif
- #define MP_USBD_BUILTIN_DESC_CFG_LEN (TUD_CONFIG_DESC_LEN +                     \
-     (CFG_TUD_CDC ? (TUD_CDC_DESC_LEN) : 0) +  \
--    (CFG_TUD_MSC ? (TUD_MSC_DESC_LEN) : 0)    \
-+    (CFG_TUD_MSC ? (TUD_MSC_DESC_LEN) : 0) +  \
-+    MICROPY_HW_USB_EXT_DESC_CFG_LEN           \
-     )
+ #define MP_USBD_BUILTIN_DESC_CFG_LEN ( \
+     (CFG_TUD_CDC ? (TUD_CDC_DESC_LEN) : 0) + \
+     (CFG_TUD_MSC ? (TUD_MSC_DESC_LEN) : 0) + \
+     (CFG_TUD_NCM ? (TUD_CDC_NCM_DESC_LEN) : 0) + \
++    MICROPY_HW_USB_EXT_DESC_CFG_LEN + \
+     TUD_CONFIG_DESC_LEN)
  
  // Built-in USB device and configuration descriptor values
+diff --git a/shared/tinyusb/mp_usbd_descriptor.c b/shared/tinyusb/mp_usbd_descriptor.c
+index f6b1fe929..f6d5b29c1 100644
 --- a/shared/tinyusb/mp_usbd_descriptor.c
 +++ b/shared/tinyusb/mp_usbd_descriptor.c
-@@ -64,6 +64,9 @@
-     #if CFG_TUD_MSC
-     TUD_MSC_DESCRIPTOR(USBD_ITF_MSC, USBD_STR_MSC, EPNUM_MSC_OUT, EPNUM_MSC_IN, USBD_MSC_IN_OUT_MAX_SIZE),
+@@ -84,6 +84,9 @@ const uint8_t mp_usbd_builtin_desc_cfg[MP_USBD_BUILTIN_DESC_CFG_LEN] = {
+     // Interface number, description string index, MAC address string index, EP notification address and size, EP data address (out, in), and size, max segment size, notification interval, network capabilities.
+     TUD_CDC_NCM_DESCRIPTOR(USBD_ITF_NCM, USBD_STR_NCM, USBD_STR_NCM_MAC, USBD_NCM_EP_CMD, 64, USBD_NCM_EP_OUT, USBD_NCM_EP_IN, USBD_NCM_IN_OUT_MAX_SIZE, CFG_TUD_NET_MTU, 50, 0),
      #endif
 +    #ifdef MICROPY_HW_USB_EXT_DESC_CFG
 +    MICROPY_HW_USB_EXT_DESC_CFG
