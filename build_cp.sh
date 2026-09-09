@@ -27,6 +27,10 @@ WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 CP_DIR="${CP_DIR:-$WORKSPACE_DIR/circuitpython}"
 export WORKSPACE_DIR CP_DIR
 
+# CP_CFLAGS_EXTRA is passed through to make as CFLAGS_EXTRA; see where it is
+# added below for why that is the only lever on the coverage variant's
+# hardcoded -D flags.
+#
 # CircuitPython uses shared-bindings + circuitpython.mk, not MicroPython
 # USER_C_MODULES. Clear a leaked env from sibling build_mp.sh / shells.
 unset USER_C_MODULES FROZEN_MANIFEST
@@ -371,6 +375,28 @@ print_make_commands
 make_args_base=()
 user_config=$(cp_user_config_make_opts)
 [[ -n "$user_config" ]] && make_args_base+=("$user_config")
+# CFLAGS_EXTRA passthrough. The unix Makefile appends it at line 64, AFTER the
+# variant's own `CFLAGS +=` block (included at line 32). That is the only lever
+# on a -D the coverage variant hardcodes -- it sets
+# CIRCUITPY_SYNTHIO_MAX_CHANNELS=14 outright rather than taking
+# py/circuitpy_mpconfig.mk's `?=` the way ports/raspberrypi does.
+#
+# **Two conflicting -D flags do not work here, and "the last one wins" is
+# wrong.** This build runs -Werror, and gcc makes a redefinition to a different
+# value a warning, so the second -D fails the build outright (measured: every
+# translation unit, `error: "CIRCUITPY_SYNTHIO_MAX_CHANNELS" redefined`).
+# Undefine first: -U and -D are processed in command-line order, so
+#
+#   CP_CFLAGS_EXTRA="-UCIRCUITPY_SYNTHIO_MAX_CHANNELS \
+#                    -DCIRCUITPY_SYNTHIO_MAX_CHANNELS=64"
+#
+# compiles and yields 64.
+#
+# Why it exists: docs/correctness-standard.md in audioif holds a node
+# CircuitPython also has to CircuitPython's own bytes *at the same compile-time
+# configuration*, so a comparison build has to be able to take the ceiling this
+# workspace ships.
+[[ -n "${CP_CFLAGS_EXTRA:-}" ]] && make_args_base+=(CFLAGS_EXTRA="$CP_CFLAGS_EXTRA")
 [[ -n "$BOARD" ]] && make_args_base+=(BOARD="$BOARD")
 [[ -n "$VARIANT" ]] && make_args_base+=(VARIANT="$VARIANT")
 
