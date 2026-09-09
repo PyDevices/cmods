@@ -572,7 +572,11 @@ apply_micropython_cmods_patches() {
     IFS=$'\n' patches=($(printf '%s\n' "${patches[@]}" | sort))
     unset IFS
 
-    [[ -d "$MP_DIR/.git" ]] || {
+    # `-d .git` is false for a git WORKTREE, where .git is a file pointing at
+    # the real gitdir - so this used to refuse to build from a worktree, which
+    # is exactly how a pin move builds a new upstream version without
+    # disturbing the pinned clone. Ask git instead of looking at the filename.
+    git -C "$MP_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
         echo "error: MP_DIR is not a git checkout: $MP_DIR" >&2
         exit 1
     }
