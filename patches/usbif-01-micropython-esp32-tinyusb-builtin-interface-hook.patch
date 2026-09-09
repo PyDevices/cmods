@@ -1,0 +1,149 @@
+From: PyDevices usbif
+Date: Tue, 9 Sep 2026 00:00:00 +0000
+Subject: [PATCH] shared/tinyusb: let a user C module contribute and vary
+ built-in interfaces
+
+One patch covering what used to be usbif-01, -02 and -03. They were always
+one feature delivered in three steps, and two of them edit the same file
+(shared/tinyusb/mp_usbd.h), so a rebase of the middle one forced re-deriving
+the last one on top of it - which is exactly what the v1.29.0 move cost.
+Nothing applies one of these without the others.
+
+Purpose: usbif's isochronous classes (UAC, later UVC) must be *built-in*
+interfaces rather than runtime ones. TinyUSB dispatches each interface to
+application drivers before built-in ones, and MicroPython's runtime driver
+claims every interface numbered at or above USBD_ITF_BUILTIN_MAX whatever its
+class, so an audio interface declared from Python is claimed by Python and
+TinyUSB's audiod_open() is never called. Python cannot service isochronous
+endpoints, which is the whole reason usbif exists in C.
+
+The three parts:
+  * tusb_config.h gains an include hook, so a module can add class config
+    without any of its content landing in MicroPython.
+  * mp_usbd.h / mp_usbd_descriptor.c gain a length contribution and a
+    descriptor block, both supplied by a module-owned header.
+  * mp_usbd.h / mp_usbd_runtime.c gain weak hooks so the advertised built-in
+    descriptor, its device descriptor and the built-in interface count can
+    vary at runtime - a class the application did not ask for should not be
+    advertised. The defaults return the compile-time values, so a build
+    without such a module behaves exactly as before.
+
+Based-on: micropython 0fd6c573e (tag v1.29.0)
+---
+diff --git a/shared/tinyusb/mp_usbd.h b/shared/tinyusb/mp_usbd.h
+index e8a435f06..8afb6afd4 100644
+--- a/shared/tinyusb/mp_usbd.h
++++ b/shared/tinyusb/mp_usbd.h
+@@ -81,13 +81,34 @@ extern void mp_usbd_port_get_serial_number(char *buf);
+ // length (2 * bytes_len + 1) (including NUL terminator).
+ void mp_usbd_hex_str(char *out_str, const uint8_t *bytes, size_t bytes_len);
+ 
+-// Length of built-in configuration descriptor
++// Length of built-in configuration descriptor.
++// A user C module may contribute further built-in interfaces; the header named
++// by MICROPY_HW_USB_EXT_TUSB_CONFIG (see tusb_config.h) defines their length.
++#ifndef MICROPY_HW_USB_EXT_DESC_CFG_LEN
++#define MICROPY_HW_USB_EXT_DESC_CFG_LEN (0)
++#endif
+ #define MP_USBD_BUILTIN_DESC_CFG_LEN ( \
+     (CFG_TUD_CDC ? (TUD_CDC_DESC_LEN) : 0) + \
+     (CFG_TUD_MSC ? (TUD_MSC_DESC_LEN) : 0) + \
+     (CFG_TUD_NCM ? (TUD_CDC_NCM_DESC_LEN) : 0) + \
++    MICROPY_HW_USB_EXT_DESC_CFG_LEN + \
+     TUD_CONFIG_DESC_LEN)
+ 
++// A user C module contributing built-in interfaces may need to vary them at
++// runtime -- a class the application has not asked for should not be
++// advertised to the host. These weak hooks let it substitute the built-in
++// configuration descriptor and the interface count that goes with it; the
++// defaults return the compile-time values, so a build without such a module
++// behaves exactly as before.
++const uint8_t *mp_usbd_builtin_desc_cfg_get(void);
++uint8_t mp_usbd_builtin_itf_max(void);
++// The device descriptor travels with the configuration: a composite built
++// from interface associations must declare the IAD device class, while a
++// single-function device must not (naive hosts reject the mismatch). A
++// module that varies its interfaces at runtime therefore has to vary this
++// too.
++const void *mp_usbd_builtin_desc_dev_get(void);
++
+ // Built-in USB device and configuration descriptor values
+ extern const tusb_desc_device_t mp_usbd_builtin_desc_dev;
+ extern const uint8_t mp_usbd_builtin_desc_cfg[MP_USBD_BUILTIN_DESC_CFG_LEN];
+diff --git a/shared/tinyusb/mp_usbd_descriptor.c b/shared/tinyusb/mp_usbd_descriptor.c
+index f6b1fe929..f6d5b29c1 100644
+--- a/shared/tinyusb/mp_usbd_descriptor.c
++++ b/shared/tinyusb/mp_usbd_descriptor.c
+@@ -84,6 +84,9 @@ const uint8_t mp_usbd_builtin_desc_cfg[MP_USBD_BUILTIN_DESC_CFG_LEN] = {
+     // Interface number, description string index, MAC address string index, EP notification address and size, EP data address (out, in), and size, max segment size, notification interval, network capabilities.
+     TUD_CDC_NCM_DESCRIPTOR(USBD_ITF_NCM, USBD_STR_NCM, USBD_STR_NCM_MAC, USBD_NCM_EP_CMD, 64, USBD_NCM_EP_OUT, USBD_NCM_EP_IN, USBD_NCM_IN_OUT_MAX_SIZE, CFG_TUD_NET_MTU, 50, 0),
+     #endif
++    #ifdef MICROPY_HW_USB_EXT_DESC_CFG
++    MICROPY_HW_USB_EXT_DESC_CFG
++    #endif
+ };
+ 
+ const uint16_t *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
+diff --git a/shared/tinyusb/mp_usbd_runtime.c b/shared/tinyusb/mp_usbd_runtime.c
+index 4a1de4079..5811dd763 100644
+--- a/shared/tinyusb/mp_usbd_runtime.c
++++ b/shared/tinyusb/mp_usbd_runtime.c
+@@ -113,7 +113,7 @@ const uint8_t *tud_descriptor_device_cb(void) {
+     if (usbd) {
+         result = usbd_get_buffer_in_cb(usbd->desc_dev, MP_BUFFER_READ);
+     }
+-    return result ? result : &mp_usbd_builtin_desc_dev;
++    return result ? result : mp_usbd_builtin_desc_dev_get();
+ }
+ 
+ const uint8_t *tud_descriptor_configuration_cb(uint8_t index) {
+@@ -123,7 +123,21 @@ const uint8_t *tud_descriptor_configuration_cb(uint8_t index) {
+     if (usbd) {
+         result = usbd_get_buffer_in_cb(usbd->desc_cfg, MP_BUFFER_READ);
+     }
+-    return result ? result : &mp_usbd_builtin_desc_cfg;
++    return result ? result : mp_usbd_builtin_desc_cfg_get();
++}
++
++// Defaults: the compile-time built-in descriptor and its interface count. A
++// user C module may override either.
++MP_WEAK const uint8_t *mp_usbd_builtin_desc_cfg_get(void) {
++    return mp_usbd_builtin_desc_cfg;
++}
++
++MP_WEAK const void *mp_usbd_builtin_desc_dev_get(void) {
++    return &mp_usbd_builtin_desc_dev;
++}
++
++MP_WEAK uint8_t mp_usbd_builtin_itf_max(void) {
++    return USBD_ITF_BUILTIN_MAX;
+ }
+ 
+ #if (CFG_TUD_MAX_SPEED == OPT_MODE_HIGH_SPEED)
+@@ -276,7 +290,7 @@ static uint16_t runtime_dev_open(uint8_t rhport, tusb_desc_interface_t const *it
+ 
+     // If TinyUSB built-in drivers are enabled, don't claim any interface in the built-in range
+     #if USBD_ITF_BUILTIN_MAX > 0
+-    if (mp_usb_device_builtin_enabled(usbd) && itf_desc->bInterfaceNumber < USBD_ITF_BUILTIN_MAX) {
++    if (mp_usb_device_builtin_enabled(usbd) && itf_desc->bInterfaceNumber < mp_usbd_builtin_itf_max()) {
+         return 0;
+     }
+     #endif
+diff --git a/shared/tinyusb/tusb_config.h b/shared/tinyusb/tusb_config.h
+index 5432b9ca2..e350eff1f 100644
+--- a/shared/tinyusb/tusb_config.h
++++ b/shared/tinyusb/tusb_config.h
+@@ -210,6 +210,13 @@ enum _USBD_EP {
+     (CFG_TUD_NCM ? 2 : 0) + \
+     1)
+ 
++// Allow a user C module to extend this configuration with additional TinyUSB
++// class drivers (e.g. CFG_TUD_AUDIO) and their sizing macros, without editing
++// this file. The named header is supplied by the module's build glue.
++#ifdef MICROPY_HW_USB_EXT_TUSB_CONFIG
++#include MICROPY_HW_USB_EXT_TUSB_CONFIG
++#endif
++
+ #endif // MICROPY_HW_ENABLE_USBDEV
+ 
+ #endif // MICROPY_INCLUDED_SHARED_TINYUSB_TUSB_CONFIG_H
