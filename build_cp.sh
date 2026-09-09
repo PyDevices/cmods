@@ -34,6 +34,7 @@ unset USER_C_MODULES FROZEN_MANIFEST
 PORT="${PORT:-}"
 BOARD="${BOARD:-}"
 VARIANT="${VARIANT:-}"
+CLEAN="${CLEAN:-0}"
 CP_SKIP_EXT="${CP_SKIP_EXT:-}"
 
 while [[ $# -gt 0 ]]; do
@@ -41,9 +42,11 @@ while [[ $# -gt 0 ]]; do
         --port)    PORT="$2"; shift 2 ;;
         --board)   BOARD="$2"; shift 2 ;;
         --variant) VARIANT="$2"; shift 2 ;;
+        --clean)   CLEAN=1; shift ;;
         -h|--help)
-            echo "Usage: $0 [--port PORT] [--board BOARD] [--variant VARIANT]"
+            echo "Usage: $0 [--port PORT] [--board BOARD] [--variant VARIANT] [--clean]"
             echo "  With no args (and a TTY), prompts for port / board / variant."
+            echo "  --clean  remove this port/variant's build directory first."
             exit 0
             ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
@@ -382,6 +385,21 @@ ensure_espressif_env
 echo "Building: port=$PORT${BOARD:+ board=$BOARD}${VARIANT:+ variant=$VARIANT}"
 [[ -n "$user_config" ]] && echo "User config: $user_config"
 echo
+
+# `make clean` leaves the build directory in place, and anything stale in it
+# survives -- notably gcov's .gcda profile data on the coverage variant, which
+# then reports "overwriting an existing profile data with a different checksum"
+# on every run once the tree has moved (a pin move, say). --clean removes the
+# directory outright so the next build starts from nothing.
+if [[ "$CLEAN" = 1 ]]; then
+    _bdir=$(build_dir)
+    if [[ -n "$_bdir" && -d "$_bdir" ]]; then
+        echo "Removing build directory: $_bdir"
+        rm -rf "$_bdir"
+    else
+        echo "Nothing to clean: no build directory for this port/variant."
+    fi
+fi
 
 pushd "$PORT_DIR" >/dev/null
 make -j clean "${make_args_base[@]}"
