@@ -8,7 +8,7 @@ index b383dfa06..e762e6449 100644
      "variants": {
 -        "SPIRAM_OCT": "Support for Octal-SPIRAM"
 +        "SPIRAM_OCT": "Support for Octal-SPIRAM",
-+        "SPIRAM_OCT_JTAG": "Octal-SPIRAM debug build: USB device stack off (Serial-JTAG owns the PHY: on-chip debug + JTAG-CDC REPL), flash coredump enabled"
++        "SPIRAM_OCT_DEBUG": "Octal-SPIRAM debug build: USB device stack off (Serial-JTAG owns the PHY: on-chip debug + JTAG-CDC REPL), flash coredump enabled"
      },
      "old_variants": {
 -        "FLASH_4M": ["4MiB flash", "Use the standard variant instead."]
@@ -18,11 +18,11 @@ index b383dfa06..e762e6449 100644
 +        ]
      }
  }
-diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigvariant_SPIRAM_OCT_JTAG.cmake b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigvariant_SPIRAM_OCT_JTAG.cmake
+diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigvariant_SPIRAM_OCT_DEBUG.cmake b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigvariant_SPIRAM_OCT_DEBUG.cmake
 new file mode 100644
 index 000000000..df2664f0f
 --- /dev/null
-+++ b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigvariant_SPIRAM_OCT_JTAG.cmake
++++ b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigvariant_SPIRAM_OCT_DEBUG.cmake
 @@ -0,0 +1,17 @@
 +# SPIRAM_OCT debug variant: the USB device stack is disabled so the S3's
 +# single USB PHY stays with USB-Serial-JTAG - on-chip debugging (OpenOCD/gdb)
