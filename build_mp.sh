@@ -1056,6 +1056,20 @@ echo "Building: port=$PORT${BOARD:+ board=$BOARD}${VARIANT:+ variant=$VARIANT}"
 echo
 
 pushd "$PORT_DIR" >/dev/null
+
+# A failed CMake *configure* leaves a build directory with no CMakeCache.txt.
+# idf.py then refuses to clean it -- "doesn't seem to be a CMake build
+# directory. Refusing to automatically delete files in this directory" -- and
+# make reports that as a bare "Error 2", which reads like a compile failure
+# rather than "delete this directory". Every later run fails the same way until
+# someone removes it by hand. Remove the husk here instead; there is nothing in
+# it worth keeping.
+stale_build_dir=$(build_dir)
+if [[ -n "$stale_build_dir" && -d "$stale_build_dir" && ! -f "$stale_build_dir/CMakeCache.txt" ]]; then
+    echo "removing an incomplete build directory left by a failed configure: $stale_build_dir"
+    rm -rf "$stale_build_dir"
+fi
+
 make -j clean "${make_args[@]}"
 make -j submodules "${make_args[@]}"
 build_rc=0
