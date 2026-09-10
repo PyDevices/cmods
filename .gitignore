@@ -40,9 +40,19 @@ user_post_mpconfigport.mk
 # esp32_partition_override()
 !/esp32_partitions/
 !/esp32_partitions/**
+# …but the .csv files in there are build OUTPUT, not source. build_mp.sh's
+# esp32_autosize_partition() writes the resized table back over the override
+# path it read, so a build that overflows the app partition rewrites the file in
+# place -- and creates one from scratch for a BOARD_VARIANT combination that has
+# none yet. Tracking them meant every P4 build left the tree dirty with a
+# generated file. The sizes are derived (image size, rounded up, plus 0x40000 of
+# headroom), so nothing is lost by not keeping them. The .sdkconfig fragments
+# beside them ARE hand-written source and stay tracked.
+/esp32_partitions/*.csv
 
 # Top-level symlinks to clones/siblings (/* / does not match symlinks)
 /audioif
+/cameraif
 /displayif
 /pygraphics
 /usbif
