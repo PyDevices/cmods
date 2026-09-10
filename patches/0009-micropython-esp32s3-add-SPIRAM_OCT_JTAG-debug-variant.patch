@@ -1,0 +1,54 @@
+diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/board.json b/ports/esp32/boards/ESP32_GENERIC_S3/board.json
+index b383dfa06..e762e6449 100644
+--- a/ports/esp32/boards/ESP32_GENERIC_S3/board.json
++++ b/ports/esp32/boards/ESP32_GENERIC_S3/board.json
+@@ -21,9 +21,13 @@
+     "url": "https://www.espressif.com/en/products/modules",
+     "vendor": "Espressif",
+     "variants": {
+-        "SPIRAM_OCT": "Support for Octal-SPIRAM"
++        "SPIRAM_OCT": "Support for Octal-SPIRAM",
++        "SPIRAM_OCT_JTAG": "Octal-SPIRAM debug build: USB device stack off (Serial-JTAG owns the PHY: on-chip debug + JTAG-CDC REPL), flash coredump enabled"
+     },
+     "old_variants": {
+-        "FLASH_4M": ["4MiB flash", "Use the standard variant instead."]
++        "FLASH_4M": [
++            "4MiB flash",
++            "Use the standard variant instead."
++        ]
+     }
+ }
+diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigvariant_SPIRAM_OCT_JTAG.cmake b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigvariant_SPIRAM_OCT_JTAG.cmake
+new file mode 100644
+index 000000000..df2664f0f
+--- /dev/null
++++ b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigvariant_SPIRAM_OCT_JTAG.cmake
+@@ -0,0 +1,17 @@
++# SPIRAM_OCT debug variant: the USB device stack is disabled so the S3's
++# single USB PHY stays with USB-Serial-JTAG - on-chip debugging (OpenOCD/gdb)
++# plus a JTAG-CDC REPL channel, with the UART console still in parallel -
++# and panics leave a flash coredump for offline autopsy (espcoredump.py).
++# Note: MICROPY_HW_USB_CDC=0 alone is NOT equivalent - TinyUSB would keep
++# the PHY with zero interfaces (no enumeration and no JTAG).
++set(SDKCONFIG_DEFAULTS
++    ${SDKCONFIG_DEFAULTS}
++    boards/sdkconfig.240mhz
++    boards/sdkconfig.spiram_oct
++    boards/ESP32_GENERIC_S3/sdkconfig.jtag_coredump
++)
++
++list(APPEND MICROPY_DEF_BOARD
++    MICROPY_HW_BOARD_NAME="Generic ESP32S3 module with Octal-SPIRAM (JTAG debug)"
++    MICROPY_HW_ENABLE_USBDEV=0
++)
+diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.jtag_coredump b/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.jtag_coredump
+new file mode 100644
+index 000000000..f0b2c7dd4
+--- /dev/null
++++ b/ports/esp32/boards/ESP32_GENERIC_S3/sdkconfig.jtag_coredump
+@@ -0,0 +1,5 @@
++# Flash coredump for post-mortem autopsy (espcoredump.py). Requires a
++# "coredump, data, coredump" partition in the partition table.
++CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
++CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF=y
++CONFIG_ESP_COREDUMP_CHECKSUM_CRC32=y
