@@ -408,6 +408,14 @@ esp32_displayif_preflight() {
   [[ $REPLY =~ ^[Yy]$ ]] || exit 1
 }
 
+# Kept in one place, and used in the cache path as well as the asset name: the
+# pico-sdk MicroPython pins refuses to configure against an older picotool
+# ("Incompatible picotool installation found: Requires version 2.3.0, you have
+# version 2.1.1"), and a cache holding the wrong one used to satisfy the check
+# below and fail the build anyway.
+PICOTOOL_VERSION=2.3.0
+PICOTOOL_RELEASE=v2.3.0-1
+
 rp2_picotool_platform_asset() {
     local os arch
     os=$(uname -s)
@@ -415,12 +423,12 @@ rp2_picotool_platform_asset() {
     case "$os" in
         Linux)
             case "$arch" in
-                x86_64|amd64) echo "picotool-2.1.1-x86_64-lin.tar.gz" ;;
-                aarch64|arm64) echo "picotool-2.1.1-aarch64-lin.tar.gz" ;;
+                x86_64|amd64) echo "picotool-${PICOTOOL_VERSION}-x86_64-lin.tar.gz" ;;
+                aarch64|arm64) echo "picotool-${PICOTOOL_VERSION}-aarch64-lin.tar.gz" ;;
             esac
             ;;
-        Darwin) echo "picotool-2.1.1-mac.zip" ;;
-        MINGW*|MSYS*|CYGWIN*) echo "picotool-2.1.1-x64-win.zip" ;;
+        Darwin) echo "picotool-${PICOTOOL_VERSION}-mac.zip" ;;
+        MINGW*|MSYS*|CYGWIN*) echo "picotool-${PICOTOOL_VERSION}-x64-win.zip" ;;
     esac
 }
 
@@ -434,14 +442,14 @@ ensure_rp2_picotool() {
     fi
 
     if command -v picotool >/dev/null 2>&1; then
-        if picotool version 2>/dev/null | grep -Eq 'v2\.(1\.[1-9]|[2-9])'; then
+        if picotool version 2>/dev/null | grep -Eq "v${PICOTOOL_VERSION}"; then
             echo "Using installed picotool: $(command -v picotool)"
             return 0
         fi
     fi
 
     local cache_root asset url archive extract_dir picotool_cfg
-    cache_root="${PICOTOOL_FETCH_FROM_GIT_PATH:-${WORKSPACE_DIR}/.cache/picotool}"
+    cache_root="${PICOTOOL_FETCH_FROM_GIT_PATH:-${WORKSPACE_DIR}/.cache/picotool-${PICOTOOL_VERSION}}"
     picotool_cfg="$cache_root/picotool/picotoolConfig.cmake"
     if [[ -f "$picotool_cfg" ]]; then
         export PICOTOOL_FETCH_FROM_GIT_PATH="$cache_root"
@@ -458,7 +466,7 @@ ensure_rp2_picotool() {
         return 0
     fi
 
-    url="https://github.com/raspberrypi/pico-sdk-tools/releases/download/v2.1.1-0/$asset"
+    url="https://github.com/raspberrypi/pico-sdk-tools/releases/download/${PICOTOOL_RELEASE}/$asset"
     echo "Fetching prebuilt picotool ($asset)..."
     mkdir -p "$cache_root"
     archive="$cache_root/$asset"
