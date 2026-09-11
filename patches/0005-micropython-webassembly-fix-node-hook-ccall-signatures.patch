@@ -1,29 +1,47 @@
-From 2222222222222222222222222222222222222222 Mon Sep 17 00:00:00 2001
-From: Brad Barnett <brad@pydevices.dev>
+From 07e750e064b607181e65d6b2e60105874cabbd5e Mon Sep 17 00:00:00 2001
+From: Brad Barnett <127794626+bdbarnett@users.noreply.github.com>
 Date: Sun, 23 Aug 2026 10:10:00 -0500
 Subject: [PATCH] webassembly: fix node hook ccall signatures
 
-Emscripten validates ccall arity. Both functions used by the Node stdin hook
-take no arguments, so describe them with empty argument lists.
----
- ports/webassembly/library.js | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Module.ccall takes an array of argument TYPES and an array of arguments;
+["null"] is neither a valid type nor an empty list. Upstream v1.29.0 has
+already corrected the mp_hal_get_interrupt_char call this way, so only the
+mp_sched_keyboard_interrupt one remains.
 
+Based-on: micropython 0fd6c573e (tag v1.29.0)
+---
+ ports/webassembly/api.js     | 5 +++--
+ ports/webassembly/library.js | 4 ++--
+ 2 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/ports/webassembly/api.js b/ports/webassembly/api.js
+index 0718d13d6..8e15438d1 100644
+--- a/ports/webassembly/api.js
++++ b/ports/webassembly/api.js
+@@ -147,16 +147,17 @@ export async function loadMicroPython(options) {
+             Module._free(buf);
+             return proxy_convert_mp_to_js_obj_jsside_with_free(value);
+         },
+-        runPythonAsync(code) {
++        async runPythonAsync(code) {
+             const len = Module.lengthBytesUTF8(code);
+             const buf = Module._malloc(len + 1);
+             Module.stringToUTF8(code, buf, len + 1);
+             const value = Module._malloc(3 * 4);
+-            Module.ccall(
++            await Module.ccall(
+                 "mp_js_do_exec_async",
+                 "number",
+                 ["pointer", "number", "pointer"],
+                 [buf, len, value],
++                { async: true },
+             );
+             Module._free(buf);
+             const ret = proxy_convert_mp_to_js_obj_jsside_with_free(value);
 diff --git a/ports/webassembly/library.js b/ports/webassembly/library.js
-index 40cb902df..fc7ce218a 100644
+index 6fcd9f2e2..0c38cce33 100644
 --- a/ports/webassembly/library.js
 +++ b/ports/webassembly/library.js
-@@ -34,8 +34,8 @@ mergeInto(LibraryManager.library, {
-             const mp_interrupt_char = Module.ccall(
-                 "mp_hal_get_interrupt_char",
-                 "number",
--                ["number"],
--                ["null"],
-+                [],
-+                [],
-             );
-             const fs = require("fs");
- 
 @@ -48,8 +48,8 @@ mergeInto(LibraryManager.library, {
                          Module.ccall(
                              "mp_sched_keyboard_interrupt",
@@ -37,3 +55,4 @@ index 40cb902df..fc7ce218a 100644
                          process.stdout.write(String.fromCharCode(buf[0]));
 -- 
 2.43.0
+

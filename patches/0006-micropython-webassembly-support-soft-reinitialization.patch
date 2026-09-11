@@ -1,19 +1,24 @@
-From 4ef5c3d2b1a09876543210fedcba987654321000 Mon Sep 17 00:00:00 2001
-From: PyDevices <pydevices@users.noreply.github.com>
+From 53c4e1cd06a3c4e398cebc5af6842684043117c4 Mon Sep 17 00:00:00 2001
+From: Brad Barnett <127794626+bdbarnett@users.noreply.github.com>
 Date: Sun, 23 Aug 2026 10:00:00 -0500
 Subject: [PATCH] webassembly: support soft reinitialization
 
+Export mp_js_deinit, keep the pystack and heap pointers at file scope so it can
+free what mp_js_init allocated, and add a softReset() to the JS API that tears
+down and re-initialises in place.
+
+Based-on: micropython 0fd6c573e (tag v1.29.0)
 ---
  ports/webassembly/Makefile |  1 +
  ports/webassembly/api.js   | 12 ++++++++++++
- ports/webassembly/main.c   | 21 +++++++++++++++++----
- 3 files changed, 30 insertions(+), 4 deletions(-)
+ ports/webassembly/main.c   | 25 +++++++++++++++++++++----
+ 3 files changed, 34 insertions(+), 4 deletions(-)
 
 diff --git a/ports/webassembly/Makefile b/ports/webassembly/Makefile
-index 53182fc8d..d0bd248d1 100644
+index 827cd46aa..cf6ff7dc3 100644
 --- a/ports/webassembly/Makefile
 +++ b/ports/webassembly/Makefile
-@@ -83,6 +83,7 @@ JSFLAGS += -s EXPORTED_FUNCTIONS="\
+@@ -82,6 +82,7 @@ JSFLAGS += -s EXPORTED_FUNCTIONS="\
  	_free,\
  	_malloc,\
  	_mp_js_init,\
@@ -22,10 +27,10 @@ index 53182fc8d..d0bd248d1 100644
  	_mp_js_repl_process_char,\
  	_mp_hal_get_interrupt_char,\
 diff --git a/ports/webassembly/api.js b/ports/webassembly/api.js
-index d836daea4..5df6fa0b7 100644
+index 8e15438d1..a6277d5e7 100644
 --- a/ports/webassembly/api.js
 +++ b/ports/webassembly/api.js
-@@ -122,6 +122,18 @@ export async function loadMicroPython(options) {
+@@ -132,6 +132,18 @@ export async function loadMicroPython(options) {
              );
              Module._free(value);
          },
@@ -45,10 +50,10 @@ index d836daea4..5df6fa0b7 100644
          runPython(code) {
              const len = Module.lengthBytesUTF8(code);
 diff --git a/ports/webassembly/main.c b/ports/webassembly/main.c
-index d5d919a20..9a9b5bb2f 100644
+index 670d404da..544a2e4b5 100644
 --- a/ports/webassembly/main.c
 +++ b/ports/webassembly/main.c
-@@ -48,6 +48,9 @@ static size_t external_call_depth = 0;
+@@ -54,6 +54,9 @@ static size_t external_call_depth = 0;
  // Emscripten defaults to a 64k C-stack, so our limit should be less than that.
  #define CSTACK_SIZE (32 * 1024)
  
@@ -56,9 +61,9 @@ index d5d919a20..9a9b5bb2f 100644
 +static void *mp_js_heap;
 +
  #if MICROPY_GC_SPLIT_HEAP_AUTO
- static void gc_collect_top_level(void);
+ static void gc_collect_top_level(mp_obj_t root_obj);
  #endif
-@@ -73,13 +76,13 @@ void mp_js_init(int pystack_size, int heap_size) {
+@@ -77,13 +80,13 @@ void mp_js_init(int pystack_size, int heap_size) {
      mp_cstack_init_with_sp_here(CSTACK_SIZE);
  
      #if MICROPY_ENABLE_PYSTACK
@@ -76,7 +81,7 @@ index d5d919a20..9a9b5bb2f 100644
      #endif
  
      #if MICROPY_GC_SPLIT_HEAP_AUTO
-@@ -109,6 +112,20 @@ void mp_js_init(int pystack_size, int heap_size) {
+@@ -110,6 +113,20 @@ void mp_js_init(int pystack_size, int heap_size) {
      #endif
  }
  
@@ -99,3 +104,4 @@ index d5d919a20..9a9b5bb2f 100644
      mp_obj_t module = proxy_convert_js_to_mp_obj_cside(value);
 -- 
 2.43.0
+

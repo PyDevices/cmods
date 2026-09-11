@@ -1,4 +1,4 @@
-From cfcc9b1d7be2cba8c5f5b21d28607d7e91f06b4d Mon Sep 17 00:00:00 2001
+From 76a3b63078ad327ac5d27826d8f54349b3a8bcec Mon Sep 17 00:00:00 2001
 From: Brad Barnett <127794626+bdbarnett@users.noreply.github.com>
 Date: Tue, 28 Jul 2026 00:18:18 -0500
 Subject: [PATCH 1/2] windows: enable networking (sockets, select, ssl, msvc).
@@ -7,7 +7,7 @@ Add a windows-local modsocket.c (derived from the unix port) with Winsock
 support, select/asyncio wakeups, mingw/msvc mbedtls SSL, MSVC project glue,
 and related test updates.
 
-Based-on: micropython e0e9fbb17 (tag v1.28.0)
+Based-on: micropython 0fd6c573e (tag v1.29.0)
 ---
  extmod/modselect.c                            |   58 +
  ports/windows/Makefile                        |    1 +
@@ -27,7 +27,7 @@ Based-on: micropython e0e9fbb17 (tag v1.28.0)
  .../variants/standard/mpconfigvariant.mk      |    9 +
  .../variants/standard/mpconfigvariant.props   |   85 ++
  tests/extmod/socket_tcp_basic.py              |    2 +-
- tests/extmod/socket_udp_nonblock.py           |   21 +-
+ tests/extmod/socket_udp_nonblock.py           |    5 +-
  tests/multi_net/asyncio_tcp_client_rst.py     |    2 +-
  tests/multi_net/asyncio_tcp_client_rst.py.exp |    2 +-
  tests/multi_net/tcp_accept_recv.py            |    4 +-
@@ -39,7 +39,7 @@ Based-on: micropython e0e9fbb17 (tag v1.28.0)
  tests/net_hosted/connect_timeout.py           |    2 +-
  tests/net_inet/ssl_errors.py                  |    3 +-
  tests/run-tests.py                            |    6 +
- 30 files changed, 1483 insertions(+), 19 deletions(-)
+ 30 files changed, 1470 insertions(+), 16 deletions(-)
  create mode 100644 ports/windows/mbedtls/mbedtls_config_port.h
  create mode 100644 ports/windows/modsocket.c
  create mode 100644 tests/multi_net/tcp_recv_timeout.py
@@ -127,10 +127,10 @@ index 229f8f737..66ec666ba 100644
  
      #endif
 diff --git a/ports/windows/Makefile b/ports/windows/Makefile
-index 4129b7fe2..9628d99a6 100644
+index 82fa25f21..e22ea225d 100644
 --- a/ports/windows/Makefile
 +++ b/ports/windows/Makefile
-@@ -64,6 +64,7 @@ SRC_C = \
+@@ -71,6 +71,7 @@ SRC_C = \
  	shared/runtime/gchelper_generic.c \
  	ports/unix/main.c \
  	ports/unix/input.c \
@@ -1445,10 +1445,10 @@ index 1edcd0ede..935212455 100644
  #define MICROPY_PY_SYS_ATEXIT       (1)
  #define MICROPY_PY_SYS_PLATFORM     "win32"
 diff --git a/ports/windows/msvc/common.props b/ports/windows/msvc/common.props
-index b8d9096d6..9d135f9de 100644
+index d49d5da72..0a0d80f74 100644
 --- a/ports/windows/msvc/common.props
 +++ b/ports/windows/msvc/common.props
-@@ -63,4 +63,16 @@
+@@ -66,4 +66,16 @@
      <Copy SourceFiles="%(PyOutputFiles.Identity)" DestinationFiles="%(PyOutputFiles.Destination)"/>
      <WriteLinesToFile File="$(TLogLocation)$(ProjectName).write.u.tlog" Lines="$(PyFileCopyCookie);@(PyOutputFiles->'%(Destination)')" Overwrite="True"/>
    </Target>
@@ -1675,43 +1675,22 @@ index ebd30f786..30d7dbd44 100644
 -    print("ENOTCONN:", er.errno == errno.ENOTCONN)
 +    print("ENOTCONN:", er.errno in (errno.ENOTCONN, 10057))
 diff --git a/tests/extmod/socket_udp_nonblock.py b/tests/extmod/socket_udp_nonblock.py
-index 394115e4b..2821628da 100644
+index 7a4aac464..2821628da 100644
 --- a/tests/extmod/socket_udp_nonblock.py
 +++ b/tests/extmod/socket_udp_nonblock.py
-@@ -6,6 +6,8 @@ except ImportError:
-     print("SKIP")
-     raise SystemExit
+@@ -24,10 +24,9 @@ class Test(unittest.TestCase):
  
-+# Some targets (eg PYBV10) have the socket module but are unable to create
-+# UDP sockets without a registered NIC.
- try:
-     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-     s.bind(socket.getaddrinfo("127.0.0.1", 8000)[0][-1])
-@@ -13,11 +15,18 @@ except OSError:
-     print("SKIP")
-     raise SystemExit
- 
--s.settimeout(0)
-+import unittest
-+
-+
-+class Test(unittest.TestCase):
-+    def test_nonblocking(self):
-+        s.settimeout(0)
-+
-+        with self.assertRaises(OSError) as ctx:
-+            s.recv(1)
+         with self.assertRaises(OSError) as ctx:
+             s.recv(1)
+-        self.assertEqual(ctx.exception.errno, errno.EAGAIN)
 +        # 10035 is WSAEWOULDBLOCK on Windows
 +        self.assertIn(ctx.exception.errno, (errno.EAGAIN, 10035))
  
--try:
--    s.recv(1)
--except OSError as er:
--    print("EAGAIN:", er.errno == errno.EAGAIN)
  
+ if __name__ == "__main__":
+     unittest.main()
+-
 -s.close()
-+if __name__ == "__main__":
-+    unittest.main()
 diff --git a/tests/multi_net/asyncio_tcp_client_rst.py b/tests/multi_net/asyncio_tcp_client_rst.py
 index af70c2e22..f2d18ed0b 100644
 --- a/tests/multi_net/asyncio_tcp_client_rst.py
@@ -1855,7 +1834,7 @@ index 5f35047c8..a2d6c78b3 100644
 +    test(addr, 0, (errno.EINPROGRESS, 10035))
      test(addr, 1, (errno.ETIMEDOUT, "timed out"))  # CPython uses a string instead of errno
 diff --git a/tests/net_inet/ssl_errors.py b/tests/net_inet/ssl_errors.py
-index c23f736b0..6b245f835 100644
+index 76785c4a0..d234e1470 100644
 --- a/tests/net_inet/ssl_errors.py
 +++ b/tests/net_inet/ssl_errors.py
 @@ -16,7 +16,8 @@ def test(addr, hostname, block=True):
@@ -1865,14 +1844,14 @@ index c23f736b0..6b245f835 100644
 -        if e.errno != errno.EINPROGRESS:
 +        # 10035 is WSAEWOULDBLOCK on Windows (non-blocking connect in progress)
 +        if e.errno not in (errno.EINPROGRESS, 10035):
-             raise
+             raise e
          print("EINPROGRESS")
  
 diff --git a/tests/run-tests.py b/tests/run-tests.py
-index 153424f65..be1bafef0 100755
+index 593f82c0b..4372dacef 100755
 --- a/tests/run-tests.py
 +++ b/tests/run-tests.py
-@@ -867,6 +867,12 @@ def run_tests(pyb, tests, args, result_dir, num_threads=1):
+@@ -944,6 +944,12 @@ def run_tests(pyb, tests, args, result_dir, num_threads=1):
          if not sysconfig.get_platform().startswith("mingw"):
              # Works but CPython uses '\' path separator
              skip_tests.add("import/import_file.py")

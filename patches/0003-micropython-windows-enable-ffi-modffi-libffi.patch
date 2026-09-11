@@ -1,17 +1,20 @@
-From 21abf95d55f80beba5b529ad4b845813a7c01a70 Mon Sep 17 00:00:00 2001
+From 0708c881473dab086d23fcb89fc5b867d1fc3549 Mon Sep 17 00:00:00 2001
 From: Brad Barnett <127794626+bdbarnett@users.noreply.github.com>
 Date: Fri, 14 Aug 2026 03:36:27 -0500
 Subject: [PATCH] windows: enable ffi (modffi, libffi) on Windows (MinGW)
 
+Build libffi for the windows port and enable modffi, matching the unix port.
+
+Based-on: micropython 0fd6c573e (tag v1.29.0)
 ---
  ports/unix/modffi.c           | 76 +++++++++++++++++++++++++++++++----
- ports/windows/Makefile        | 33 +++++++++++++++
+ ports/windows/Makefile        | 35 ++++++++++++++++
  ports/windows/mpconfigport.h  |  6 +++
  ports/windows/mpconfigport.mk |  2 +
- 4 files changed, 109 insertions(+), 8 deletions(-)
+ 4 files changed, 111 insertions(+), 8 deletions(-)
 
 diff --git a/ports/unix/modffi.c b/ports/unix/modffi.c
-index b469e932e..2c1358ff8 100644
+index c16d40ad3..c60c681e6 100644
 --- a/ports/unix/modffi.c
 +++ b/ports/unix/modffi.c
 @@ -36,7 +36,11 @@
@@ -157,12 +160,12 @@ index b469e932e..2c1358ff8 100644
      mp_obj_ffimod_t *o = mp_obj_malloc(mp_obj_ffimod_t, type);
      o->handle = mod;
 diff --git a/ports/windows/Makefile b/ports/windows/Makefile
-index 9628d99a6..a76c527de 100644
+index e22ea225d..4b6b18270 100644
 --- a/ports/windows/Makefile
 +++ b/ports/windows/Makefile
-@@ -89,6 +89,21 @@ endif
+@@ -96,6 +96,21 @@ endif
  
- LIB += -lws2_32
+ LIBS += -lws2_32
  
 +ifeq ($(MICROPY_PY_FFI),1)
 +GIT_SUBMODULES += lib/libffi
@@ -182,10 +185,12 @@ index 9628d99a6..a76c527de 100644
  # List of sources for qstr extraction
  SRC_QSTR += $(SRC_C) $(SRC_CXX) $(SHARED_SRC_C)
  
-@@ -107,10 +122,28 @@ endif
+@@ -112,10 +127,30 @@ ifeq ($(shell $(CC) -dumpmachine),i686-w64-mingw32)
+ CFLAGS += -msse -mfpmath=sse -march=pentium4
+ endif
  
- CXXFLAGS += $(filter-out -std=gnu99,$(CFLAGS))
- 
++CXXFLAGS += $(filter-out -std=gnu99,$(CFLAGS))
++
 +ifneq ($(CROSS_COMPILE),)
 +CROSS_COMPILE_HOST = --host=$(patsubst %-,%,$(CROSS_COMPILE))
 +else
