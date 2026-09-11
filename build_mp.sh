@@ -3,12 +3,14 @@
 #
 # Usage:
 #   ./build_mp.sh [--port PORT] [--board BOARD] [--variant VARIANT] [--debug]
+#                 [--icon PATH]
 #
 # Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, EMSDK_DIR, PORT, BOARD, VARIANT,
 #              OS_DUPTERM, OS_DUPTERM_SLOTS, MP_BUILD_DEBUG, MP_AUTOSIZE,
 #              MP_OVERLAY_SKIP (patch numbers excluded from the mailbox
 #              overlays, e.g. "0001 0003"), MP_MAKE_EXTRA (extra VAR=VALUE
-#              words appended to the make command line)
+#              words appended to the make command line), MP_ICON (same as
+#              --icon: the .ico the windows port's executable wears)
 #
 # USER_C_MODULES and FROZEN_MANIFEST are always cleared at startup so a prior
 # shell export cannot stick across port/board/variant builds. They then default
@@ -39,9 +41,24 @@
 set -euo pipefail
 
 APPLIED_MP_PATCHES=()
+# Set by apply_micropython_icon: where the port's own micropython.rc was put
+# while ours stood in its place.
+MP_ICON_RC_BACKUP=""
 
 restore_micropython_overlay() {
     local index
+    # The icon first: it is a plain file copy and cannot fail the way a patch
+    # reversal can, so doing it here means a patch that will not reverse still
+    # leaves the resource script as MicroPython wrote it.
+    if [[ -n "$MP_ICON_RC_BACKUP" && -f "$MP_ICON_RC_BACKUP" ]]; then
+        # Copied back rather than moved-with-timestamp on purpose: the restored
+        # file is NEWER than the .res built from ours, so the next build without
+        # --icon rebuilds the resource and the port's own logo returns. The icon
+        # is per-invocation, never sticky - this checkout is shared.
+        cp "$MP_ICON_RC_BACKUP" "$MP_DIR/ports/windows/micropython.rc"
+        rm -f "$MP_ICON_RC_BACKUP"
+        MP_ICON_RC_BACKUP=""
+    fi
     for ((index=${#APPLIED_MP_PATCHES[@]}-1; index>=0; index--)); do
         git -C "$MP_DIR" apply --reverse "${APPLIED_MP_PATCHES[index]}" || {
             echo "error: failed to remove MicroPython overlay ${APPLIED_MP_PATCHES[index]}" >&2
@@ -93,11 +110,13 @@ while [[ $# -gt 0 ]]; do
         --board)   BOARD="$2"; shift 2 ;;
         --variant) VARIANT="$2"; shift 2 ;;
         --debug)   MP_BUILD_DEBUG=1; shift ;;
+        --icon)    MP_ICON="$2"; shift 2 ;;
         --no-os-dupterm) OS_DUPTERM=0; OS_DUPTERM_EXPLICIT=1; shift ;;
         --os-dupterm) OS_DUPTERM=1; OS_DUPTERM_EXPLICIT=1; shift ;;
         -h|--help)
             cat <<EOF
 Usage: $0 [--port PORT] [--board BOARD] [--variant VARIANT] [--debug]
+          [--icon PATH]
 
 Build MicroPython with user C modules from the cmods workspace.
 
@@ -105,6 +124,8 @@ Options:
   --port PORT        MicroPython port (e.g. unix, esp32, rp2)
   --board BOARD      Board name for board-based ports
   --variant VARIANT  Board variant (board ports) or build variant (unix, etc.)
+  --icon PATH        windows: .ico the built executable wears, in place of
+                     the port's own logo. Restored after the build.
   --debug            esp32: UART REPL + USB Serial/JTAG debug console
                      (ESP32_GENERIC_S3/SPIRAM_OCT → SPIRAM_OCT_DEBUG).
                      USB jack = IDF secondary console / ESP_LOG; UART jack = REPL.
@@ -120,6 +141,7 @@ Environment:
                      file for the selected port/board/variant (read by manifest-micropython.py)
   PORT, BOARD, VARIANT  Same as the corresponding options
   MP_BUILD_DEBUG     Same as --debug when set to 1/true/yes/on
+  MP_ICON            Same as --icon (windows only)
   OS_DUPTERM         Enable os.dupterm on unix/webassembly (default: 1); windows default: 0
   OS_DUPTERM_SLOTS   dupterm slot count for desktop ports (default: 1)
   SDL2_DEV           Unpacked SDL2 MinGW development ZIP root (windows; required when displayif usdl2 links)
@@ -540,6 +562,50 @@ ensure_host_mpy_cross() {
     # cleared. GNU make still forwards FROZEN_MANIFEST from our command line,
     # so a fresh tree links mpy-cross with frozen qstr flags but no frozen pool.
     make -C "$MP_DIR/mpy-cross" USER_C_MODULES= FROZEN_MANIFEST=
+}
+
+# --icon / MP_ICON: give the built executable our own icon instead of the
+# port's. ports/windows/micropython.rc is a single line naming an .ico, and the
+# windows Makefile compiles it to micropython.res and links that into $(PROG)
+# whatever the program is named - so rewriting that one line is the entire
+# mechanism. Deliberately not a patch and deliberately no stored copy of the
+# resource script: the original is stashed and the EXIT trap puts it back, the
+# same transactional shape the mailbox overlays use.
+apply_micropython_icon() {
+    [[ -n "${MP_ICON:-}" ]] || return 0
+
+    if [[ "$PORT" != windows ]]; then
+        echo "error: --icon is only meaningful for --port windows - an ELF binary" >&2
+        echo "  has nowhere to carry one. Port requested: $PORT" >&2
+        return 1
+    fi
+
+    local icon
+    icon=$(realpath -e -- "$MP_ICON" 2>/dev/null) || {
+        echo "error: --icon: no such file: $MP_ICON" >&2
+        return 1
+    }
+    # Checked here because windres reports a bad file as a parse error minutes
+    # into the build, and a .png renamed .ico is the mistake everyone makes
+    # once. An ICONDIR opens 00 00 01 00: reserved, then resource type 1.
+    local magic
+    magic=$(od -An -tx1 -N4 -- "$icon" | tr -d ' \n')
+    if [[ "$magic" != "00000100" ]]; then
+        echo "error: --icon: not a Windows .ico (header reads $magic): $icon" >&2
+        return 1
+    fi
+
+    local rc="$MP_DIR/ports/windows/micropython.rc"
+    [[ -f "$rc" ]] || {
+        echo "error: --icon: the windows port has no micropython.rc at $rc" >&2
+        return 1
+    }
+
+    MP_ICON_RC_BACKUP=$(mktemp)
+    cp "$rc" "$MP_ICON_RC_BACKUP"
+    printf 'app     ICON    "%s"\n' "$icon" > "$rc"
+    echo "Icon: $icon"
+    echo "  ports/windows/micropython.rc rewritten for this build; restored on exit"
 }
 
 apply_micropython_cmods_patches() {
@@ -1013,6 +1079,7 @@ echo "  FROZEN_MANIFEST_UPSTREAM=$FROZEN_MANIFEST_UPSTREAM"
 ensure_windows_cross_compile
 ensure_windows_sdl2_env
 apply_micropython_cmods_patches
+apply_micropython_icon
 
 print_rerun_hint
 print_make_commands
