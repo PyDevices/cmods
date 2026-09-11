@@ -1,4 +1,4 @@
-From 53c4e1cd06a3c4e398cebc5af6842684043117c4 Mon Sep 17 00:00:00 2001
+From 5f4da11af8bd49b6f6f1d36ad3637369358d558f Mon Sep 17 00:00:00 2001
 From: Brad Barnett <127794626+bdbarnett@users.noreply.github.com>
 Date: Sun, 23 Aug 2026 10:00:00 -0500
 Subject: [PATCH] webassembly: support soft reinitialization
