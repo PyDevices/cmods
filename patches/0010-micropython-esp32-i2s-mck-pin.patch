@@ -1,0 +1,83 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Brad Barnett <127794626+bdbarnett@users.noreply.github.com>
+Date: Mon, 15 Sep 2026 00:00:00 -0500
+Subject: [PATCH] esp32: let machine.I2S drive MCLK (mck=).
+
+`extmod/machine_i2s.c` already carries the whole `mck=` keyword behind
+MICROPY_PY_MACHINE_I2S_MCK -- argument, struct field, print. The esp32
+port never defined the macro and hardcoded `.mclk = I2S_GPIO_UNUSED`, so
+on this port a codec's master clock had to come from somewhere else.
+
+A board that PWMs MCLK on one pin while I2S clocks BCLK/LRCK from the
+PLL has two clock sources that are not the same clock, and the codec
+hears the beat as irregular skips. The Waveshare ESP32-P4 panel's ES8311
+is exactly that board: it needs MCLK, BCLK and LRCK off one tree, which
+means machine.I2S has to drive the pin.
+
+Opt-in per port, inert where it is not: without `mck=` the config still
+gets I2S_GPIO_UNUSED, so every existing board builds and behaves as
+before.
+
+Based-on: micropython 0fd6c573e (tag v1.29.0)
+---
+diff --git a/ports/esp32/machine_i2s.c b/ports/esp32/machine_i2s.c
+index 27b70f1c8..92a5ebe9b 100644
+--- a/ports/esp32/machine_i2s.c
++++ b/ports/esp32/machine_i2s.c
+@@ -74,6 +74,9 @@ typedef struct _machine_i2s_obj_t {
+     mp_hal_pin_obj_t sck;
+     mp_hal_pin_obj_t ws;
+     mp_hal_pin_obj_t sd;
++    #if MICROPY_PY_MACHINE_I2S_MCK
++    mp_hal_pin_obj_t mck;
++    #endif
+     i2s_dir_t mode;
+     i2s_data_bit_width_t bits;
+     format_t format;
+@@ -309,6 +312,12 @@ static void mp_machine_i2s_init_helper(machine_i2s_obj_t *self, mp_arg_val_t *ar
+     int8_t sck = args[ARG_sck].u_obj == MP_OBJ_NULL ? -1 : machine_pin_get_id(args[ARG_sck].u_obj);
+     int8_t ws = args[ARG_ws].u_obj == MP_OBJ_NULL ? -1 : machine_pin_get_id(args[ARG_ws].u_obj);
+     int8_t sd = args[ARG_sd].u_obj == MP_OBJ_NULL ? -1 : machine_pin_get_id(args[ARG_sd].u_obj);
++    #if MICROPY_PY_MACHINE_I2S_MCK
++    int8_t mck = I2S_GPIO_UNUSED;
++    if (args[ARG_mck].u_obj != mp_const_none && args[ARG_mck].u_obj != MP_OBJ_NULL) {
++        mck = machine_pin_get_id(args[ARG_mck].u_obj);
++    }
++    #endif
+ 
+     // is Mode valid?
+     int8_t mode = args[ARG_mode].u_int;
+@@ -340,6 +349,9 @@ static void mp_machine_i2s_init_helper(machine_i2s_obj_t *self, mp_arg_val_t *ar
+     self->sck = sck;
+     self->ws = ws;
+     self->sd = sd;
++    #if MICROPY_PY_MACHINE_I2S_MCK
++    self->mck = mck;
++    #endif
+     self->mode = mode;
+     self->bits = bits;
+     self->format = format;
+@@ -375,7 +387,11 @@ static void mp_machine_i2s_init_helper(machine_i2s_obj_t *self, mp_arg_val_t *ar
+         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(self->rate),
+         .slot_cfg = slot_cfg,
+         .gpio_cfg = {
++            #if MICROPY_PY_MACHINE_I2S_MCK
++            .mclk = self->mck,
++            #else
+             .mclk = I2S_GPIO_UNUSED,
++            #endif
+             .bclk = self->sck,
+             .ws = self->ws,
+             .invert_flags = {
+diff --git a/ports/esp32/mpconfigport.h b/ports/esp32/mpconfigport.h
+index 45d789f46..2762708db 100644
+--- a/ports/esp32/mpconfigport.h
++++ b/ports/esp32/mpconfigport.h
+@@ -160,6 +160,7 @@
+ #endif
+ #define MICROPY_PY_MACHINE_I2S_INCLUDEFILE  "ports/esp32/machine_i2s.c"
+ #define MICROPY_PY_MACHINE_I2S_FINALISER    (1)
++#define MICROPY_PY_MACHINE_I2S_MCK          (1)
+ #define MICROPY_PY_MACHINE_I2S_CONSTANT_RX  (I2S_DIR_RX)
+ #define MICROPY_PY_MACHINE_I2S_CONSTANT_TX  (I2S_DIR_TX)
+ #define MICROPY_PY_MACHINE_UART             (1)

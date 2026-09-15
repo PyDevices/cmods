@@ -17,7 +17,7 @@ No matching files → nothing to apply (this directory is optional for other
 ports). Add future patches by following the same `micropython-<port>` token in
 the filename.
 
-**Base (current patches):** tag `v1.28.0` (`e0e9fbb17`).
+**Base (current patches):** tag `v1.29.0` (`0fd6c573e`).
 
 | Patch | Port | Purpose |
 |-------|------|---------|
@@ -29,19 +29,15 @@ the filename.
 | `0006-micropython-webassembly-…soft…` | `webassembly` | Expose repeatable VM soft reinitialization |
 | `0007-micropython-webassembly-…jsffi…` | `webassembly` | Make jsffi callbacks inert across VM reinitialization (stale interpreter generation no longer resolves to an arbitrary recycled proxy) |
 | `0008-micropython-webassembly-…lexer-eof…` | `webassembly` | Fix `single_input` on empty input: prime the lexer so EOF and the dummy `chr0/1/2` sentinel are distinguishable again, restoring the empty-line REPL Enter behavior |
-| `0009-micropython-esp32-usbif-…tusb-config…` | `esp32` | usbif: `tusb_config.h` extension hook (`MICROPY_HW_USB_EXT_TUSB_CONFIG`) |
-| `0010-micropython-esp32-usbif-…config-descriptor…` | `esp32` | usbif: append module descriptors to the built-in configuration descriptor |
-| `0011-micropython-esp32-usbif-…runtime-selectable…` | `esp32` | usbif: weak hooks so the advertised built-in descriptor can vary at runtime (opt-in audio) |
-| `0012-micropython-esp32-usbif-p4-board-…` | `esp32` | usbif: `ESP32_GENERIC_P4` board header opts into the extension hook and enables `MICROPY_HW_USB_MSC` (inert without the module) |
-| `0013-micropython-esp32-usbif-otg-phy-…` | `esp32` | usbif: OTG PHY release/restore helpers in `usb.c` so a module can borrow the controller for host mode (mirror of usbif `patches/0004`) |
-| `0014-micropython-esp32-usbif-s3-board-…` | `esp32` | usbif: `ESP32_GENERIC_S3` board header opts into the extension hook and enables `MICROPY_HW_USB_MSC` (inert without the module) |
+| `0009-micropython-esp32s3-add-SPIRAM_OCT_DEBUG-variant.patch` | `esp32` | An `ESP32_GENERIC_S3` debug variant: USB device stack off so Serial-JTAG keeps the PHY, flash coredump on |
+| `0010-micropython-esp32-i2s-mck-pin.patch` | `esp32` | Define `MICROPY_PY_MACHINE_I2S_MCK` and wire `mck=` into `gpio_cfg.mclk`, so a codec's MCLK comes off the same PLL as BCLK and LRCK. extmod already carries the keyword; the port hardcoded `I2S_GPIO_UNUSED`. Inert without `mck=` |
 
 ## Apply
 
-From a clean `v1.28.0` checkout (or let `build_mp.sh` apply them):
+From a clean `v1.29.0` checkout (or let `build_mp.sh` apply them):
 
 ```bash
-git checkout v1.28.0
+git checkout v1.29.0
 git apply /path/to/cmods/patches/0001-micropython-windows-*.patch
 # Build, then return the checkout to clean state:
 git apply --reverse /path/to/cmods/patches/0001-micropython-windows-*.patch
@@ -117,11 +113,16 @@ matched by `build_mp.sh` because the name contains `micropython-esp32`.
 | Patch | Port | Purpose |
 |-------|------|---------|
 | `cameraif-01-…camera-sensor-component` | `esp32` | Add `espressif/esp_cam_sensor` to `idf_component.yml` for P4 targets. ESP-IDF ships the CSI controller but no sensor drivers |
-| `cameraif-02-…machine-i2c-new-driver` | `esp32` | Put `machine.I2C` on esp-idf's new `i2c_master` driver for the P4. The panel's touch controller, the audio codecs and the camera's SCCB all share one bus, and `esp_cam_sensor` speaks only the new API. On the legacy driver the two cannot share a bus handle, so the camera opens a second master on the same pins -- which `CONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK` (set by upstream) permits silently, and the touch controller then times out on every read while the camera looks perfect |
+| `usbif-01-…tinyusb-builtin-interface-hook` | `esp32` | `shared/tinyusb`: let a user C module contribute and vary the built-in USB interfaces |
+| `usbif-02-…boards-enable-tusb-ext` | `esp32` | The P4 and S3 board headers opt into the usbif hook (inert without the module) |
+| `usbif-03-…otg-phy-handoff` | `esp32` | Let a user C module borrow the OTG controller for host mode, and hand the PHY back |
 
-**Verified on the shared bus after this change**, because it alters
-`machine.I2C` for every device on the P4 panel's GPIO7/8, not just the
-camera: bus scan answers 0x18 / 0x36 / 0x40 / 0x5d; the GT911 reads 10/10
+**Verified on the shared bus when `cameraif-02` carried that change** — it
+altered `machine.I2C` for every device on the P4 panel's GPIO7/8, not just
+the camera. The patch itself is gone: v1.29.0 put the esp32 port on
+`i2c_master` upstream, so it was dropped in the rebase (`911d073`). The
+evidence stays because the bus behaviour it describes is the board's, not
+the patch's: bus scan answers 0x18 / 0x36 / 0x40 / 0x5d; the GT911 reads 10/10
 with a camera open (0/10 before the fix); the ES7210 captures real non-zero
 audio; and the ES8311 played 440/660/880 Hz tones that Brad confirmed
 hearing.
