@@ -25,3 +25,10 @@ CONFIG_ESP_COREDUMP_CHECKSUM_CRC32=y
 # and the dealer were seen dying together under polling while WiFi and the VM
 # stayed up (2026-09-16 04:00). Each socket is a few hundred bytes.
 CONFIG_LWIP_MAX_SOCKETS=16
+
+# Light heap poisoning: a canary on every block, checked on free. The
+# pairing-server thread crashed twice inside a locked heap walk on a garbage
+# block header (2026-09-16), so something writes out of bounds in internal
+# DRAM. This makes the offending free abort where the damage is, instead of
+# a later walk aborting where it is not.
+CONFIG_HEAP_POISONING_LIGHT=y
