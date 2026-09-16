@@ -1,2 +1,11 @@
 CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
 CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+
+# mbedTLS allocates from PSRAM. MicroPython's default is "Default alloc mode",
+# which with SPIRAM_MALLOC_ALWAYSINTERNAL=8192 puts every TLS allocation under
+# 8 KB -- contexts, the parsed certificate chain, the 4 KB output buffer -- in
+# internal DRAM. That is the pool FreeRTOS task stacks and I2S DMA buffers must
+# come from, and on the T-Embed spremote ran it down to 49 KB free with a
+# largest block of 23 KB, unable to start its audio thread. The IDF choice
+# symbol is loaded after the defaults, so this line wins over the port's.
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
