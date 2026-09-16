@@ -9,3 +9,12 @@ CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
 # largest block of 23 KB, unable to start its audio thread. The IDF choice
 # symbol is loaded after the defaults, so this line wins over the port's.
 CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
+
+# Core dump to the coredump partition (already in the table above). On a board
+# whose only serial line is the REPL, a panic prints nowhere anyone can see:
+# TinyUSB stops being serviced the instant the CPU faults, so the console dies
+# before the backtrace. The dump survives the reboot and reads back with
+# esptool + esp-coredump against the build's ELF.
+CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
+CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF=y
+CONFIG_ESP_COREDUMP_CHECKSUM_CRC32=y
