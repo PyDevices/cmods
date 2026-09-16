@@ -18,3 +18,10 @@ CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
 CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
 CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF=y
 CONFIG_ESP_COREDUMP_CHECKSUM_CRC32=y
+
+# More lwIP sockets. spremote alone holds the AP session, the dealer's TLS
+# websocket, mDNS and the pairing listener, and every pairing-HTTP client, DNS
+# lookup and phone poll takes one more. With the default 10, the pairing server
+# and the dealer were seen dying together under polling while WiFi and the VM
+# stayed up (2026-09-16 04:00). Each socket is a few hundred bytes.
+CONFIG_LWIP_MAX_SOCKETS=16
