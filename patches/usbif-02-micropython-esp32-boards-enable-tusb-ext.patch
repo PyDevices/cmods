@@ -19,22 +19,36 @@ here is the one appending the fragment to the board's list.
 Based-on: micropython 0fd6c573e (tag v1.29.0)
 ---
 diff --git a/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h b/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
-index 05805a5fb..36dc5afb3 100644
+index 05805a5fb..464ec75ec 100644
 --- a/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
 +++ b/ports/esp32/boards/ESP32_GENERIC_P4/mpconfigboard.h
-@@ -30,3 +30,12 @@
+@@ -30,3 +30,26 @@
  #ifndef MICROPY_PY_BLUETOOTH
  #define MICROPY_PY_BLUETOOTH            (0)
  #endif
 +
 +// usbif: extend TinyUSB's device configuration (descriptor + class config are
-+// provided by the usbif external C module; without that module this is unused).
++// provided by the usbif external C module).
++//
++// Guarded by __has_include so the board still builds when usbif is absent.
++// The header is on the include path only because usbif's micropython.cmake
++// contributes that directory, so this is exactly an "is the module in this
++// build" test. Without the guard, deleting the cmods/usbif symlink -- the
++// documented way to drop a C module -- stopped TinyUSB itself compiling:
++//
++//   mpconfigboard.h: fatal error: usbif_tusb_ext.h: No such file or directory
++//   FAILED: .../espressif__tinyusb/.../cdc_device.c.obj
++//
++// which made usbif mandatory in every ESP32 build. MSC is inside the guard
++// too: the class is useless without usbif, which supplies the block callbacks
++// (the esp32 port has no msc_disk.c) and chooses what the drive holds from
++// Python at runtime -- see usbif_msc_dev.c.
++#if defined(__has_include)
++#if __has_include("usbif_tusb_ext.h")
 +#define MICROPY_HW_USB_EXT_TUSB_CONFIG  "usbif_tusb_ext.h"
-+
-+// usbif: compile in the MSC device class. The board contributes the block
-+// callbacks (the esp32 port has no msc_disk.c), and what the drive holds is
-+// chosen from Python at runtime -- see usbif_msc_dev.c.
 +#define MICROPY_HW_USB_MSC (1)
++#endif
++#endif
 diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.cmake b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.cmake
 index 8703e2494..b106b4203 100644
 --- a/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.cmake
@@ -46,22 +60,36 @@ index 8703e2494..b106b4203 100644
 +    boards/sdkconfig.usbif
  )
 diff --git a/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.h b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.h
-index 0eada86a3..9980ef8f0 100644
+index 0eada86a3..4db2e7f78 100644
 --- a/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.h
 +++ b/ports/esp32/boards/ESP32_GENERIC_S3/mpconfigboard.h
-@@ -9,3 +9,12 @@
+@@ -9,3 +9,26 @@
  
  #define MICROPY_HW_I2C0_SCL                 (9)
  #define MICROPY_HW_I2C0_SDA                 (8)
 +
 +// usbif: extend TinyUSB's device configuration (descriptor + class config are
-+// provided by the usbif external C module; without that module this is unused).
++// provided by the usbif external C module).
++//
++// Guarded by __has_include so the board still builds when usbif is absent.
++// The header is on the include path only because usbif's micropython.cmake
++// contributes that directory, so this is exactly an "is the module in this
++// build" test. Without the guard, deleting the cmods/usbif symlink -- the
++// documented way to drop a C module -- stopped TinyUSB itself compiling:
++//
++//   mpconfigboard.h: fatal error: usbif_tusb_ext.h: No such file or directory
++//   FAILED: .../espressif__tinyusb/.../cdc_device.c.obj
++//
++// which made usbif mandatory in every ESP32 build. MSC is inside the guard
++// too: the class is useless without usbif, which supplies the block callbacks
++// (the esp32 port has no msc_disk.c) and chooses what the drive holds from
++// Python at runtime -- see usbif_msc_dev.c.
++#if defined(__has_include)
++#if __has_include("usbif_tusb_ext.h")
 +#define MICROPY_HW_USB_EXT_TUSB_CONFIG  "usbif_tusb_ext.h"
-+
-+// usbif: compile in the MSC device class. The board contributes the block
-+// callbacks (the esp32 port has no msc_disk.c), and what the drive holds is
-+// chosen from Python at runtime -- see usbif_msc_dev.c.
 +#define MICROPY_HW_USB_MSC (1)
++#endif
++#endif
 diff --git a/ports/esp32/boards/sdkconfig.p4 b/ports/esp32/boards/sdkconfig.p4
 index 936deaf8f..b9f34f202 100644
 --- a/ports/esp32/boards/sdkconfig.p4
