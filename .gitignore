@@ -54,6 +54,7 @@ user_post_mpconfigport.mk
 /audioif
 /cameraif
 /displayif
+/earful
 /pygraphics
 /usbif
 /pdwidgets
