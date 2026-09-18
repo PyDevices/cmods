@@ -12,10 +12,23 @@
 #   cp-unix     CircuitPython unix / coverage → bin/circuitpython
 #               (renamed from upstream build output named micropython)
 #
+# Opt-in target, never part of a bare run — name it with --only:
+#   cp-oracle   CircuitPython unix / coverage built at
+#               CIRCUITPY_SYNTHIO_MAX_CHANNELS=64
+#               → bin/circuitpython-oracle-<cp-version>, and nowhere else.
+#               That file is audioif's parity oracle: every golden in that
+#               repository means "the bytes this binary rendered". Its sha256
+#               is pinned in audioif's tests/test_voice_ceiling_consistency.py,
+#               so re-pinning the hash there is part of running this target,
+#               in the same change. bin/circuitpython is NOT the oracle — it
+#               is cp-unix's, at the coverage variant's own 14-voice ceiling,
+#               and this script overwrites it whenever anyone runs it.
+#
 # Usage:
 #   ./build_interpreters.sh
 #   ./build_interpreters.sh --install-only
 #   ./build_interpreters.sh --only mp-unix,mp-wasm
+#   ./build_interpreters.sh --only cp-oracle
 #
 # Environment:
 #   WORKSPACE_DIR           Workspace root (default: directory containing this script)
@@ -51,6 +64,16 @@ PORTAL_WASM="$ORG_DIR/PyDevices.github.io/vendor/micropython"
 WORKBENCH_WASM="$ORG_DIR/workbench/assets/pydevices"
 
 ALL_TARGETS=(mp-unix mp-windows mp-wasm cp-unix)
+# Opt-in: built and installed only when named with --only. A bare run must
+# never write the oracle, because its bytes are pinned in another repository.
+OPT_IN_TARGETS=(cp-oracle)
+KNOWN_TARGETS=("${ALL_TARGETS[@]}" "${OPT_IN_TARGETS[@]}")
+# The ceiling the oracle is built at, and the only way to set it on this
+# variant: the coverage variant hardcodes -DCIRCUITPY_SYNTHIO_MAX_CHANNELS=14
+# rather than taking circuitpy_mpconfig.mk's `?=`, and this build is -Werror,
+# so a second -D is a redefinition error rather than a win. -U first.
+CP_ORACLE_CFLAGS="-UCIRCUITPY_SYNTHIO_MAX_CHANNELS -DCIRCUITPY_SYNTHIO_MAX_CHANNELS=64"
+CP_ORACLE_CHANNELS=64
 INSTALL_ONLY=0
 ONLY=()
 
@@ -68,7 +91,7 @@ parse_only() {
     local t
     for t in "${parts[@]}"; do
         case "$t" in
-            mp-unix|mp-windows|mp-wasm|cp-unix) ONLY+=("$t") ;;
+            mp-unix|mp-windows|mp-wasm|cp-unix|cp-oracle) ONLY+=("$t") ;;
             *)
                 echo "Unknown --only target: $t" >&2
                 usage 1
@@ -77,9 +100,21 @@ parse_only() {
     done
 }
 
+is_opt_in() {
+    local t="$1" x
+    for x in "${OPT_IN_TARGETS[@]}"; do
+        [[ "$x" == "$t" ]] && return 0
+    done
+    return 1
+}
+
 want() {
     local t="$1"
-    [[ ${#ONLY[@]} -eq 0 ]] && return 0
+    if [[ ${#ONLY[@]} -eq 0 ]]; then
+        # A bare run is every default target and none of the opt-in ones.
+        is_opt_in "$t" && return 1
+        return 0
+    fi
     local x
     for x in "${ONLY[@]}"; do
         [[ "$x" == "$t" ]] && return 0
@@ -122,6 +157,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# cp-unix and cp-oracle are the same port and variant at two ceilings, so they
+# share one build directory and the second build overwrites the first. Running
+# both in one invocation would install whichever finished last as *both*.
+if want cp-unix && want cp-oracle && [[ ${#ONLY[@]} -gt 0 ]]; then
+    echo "cp-unix and cp-oracle share ports/unix/build-coverage; run them" \
+         "one at a time." >&2
+    exit 1
+fi
+
 [[ -x "$BUILD_MP" ]] || { echo "Missing build_mp.sh: $BUILD_MP" >&2; exit 1; }
 [[ -x "$BUILD_CP" ]] || { echo "Missing build_cp.sh: $BUILD_CP" >&2; exit 1; }
 
@@ -140,7 +184,35 @@ build_one() {
         cp-unix)
             (cd "$WORKSPACE_DIR" && "$BUILD_CP" --port unix --variant coverage)
             ;;
+        cp-oracle)
+            (cd "$WORKSPACE_DIR" \
+                && CP_CFLAGS_EXTRA="$CP_ORACLE_CFLAGS" \
+                   "$BUILD_CP" --port unix --variant coverage)
+            ;;
     esac
+}
+
+#: The tag the CircuitPython tree is checked out at, which names the oracle.
+cp_version() {
+    local version
+    version=$(git -C "$WORKSPACE_DIR/circuitpython" describe --tags --always \
+                  2>/dev/null) || version=""
+    [[ -n "$version" ]] || {
+        echo "Cannot read the CircuitPython version from" \
+             "$WORKSPACE_DIR/circuitpython" >&2
+        exit 1
+    }
+    echo "$version"
+}
+
+#: The ceiling a built binary actually answers. The oracle is the ONLY thing
+#: this script builds whose configuration is not visible in its own name, and
+#: --install-only would happily copy whatever the coverage build directory
+#: last held -- a 14-voice cp-unix build, say. Ask the binary instead.
+cp_built_channels() {
+    "$CP_UNIX_SRC" -c \
+        'import synthio; print(synthio.Synthesizer().max_polyphony)' \
+        2>/dev/null
 }
 
 install_one() {
@@ -201,6 +273,30 @@ install_one() {
                 install_file "$CP_UNIX_SRC" "$PYDEVICES_BIN" "circuitpython"
             fi
             ;;
+        cp-oracle)
+            [[ -f "$CP_UNIX_SRC" ]] || {
+                echo "Missing build output: $CP_UNIX_SRC" >&2
+                exit 1
+            }
+            local channels
+            channels=$(cp_built_channels)
+            [[ "$channels" == "$CP_ORACLE_CHANNELS" ]] || {
+                echo "Refusing to install the oracle: the coverage build" \
+                     "answers $channels voices, not $CP_ORACLE_CHANNELS." >&2
+                echo "That build is somebody else's (cp-unix builds at the" \
+                     "variant's own 14). Build cp-oracle rather than" \
+                     "installing what is lying there." >&2
+                exit 1
+            }
+            # Workspace bin only, never the sibling pydevices tree: this is a
+            # test fixture for audioif's parity gates, not an interpreter
+            # anybody runs. Re-pin its sha256 in audioif's
+            # tests/test_voice_ceiling_consistency.py in the same change.
+            install_file "$CP_UNIX_SRC" "$WORKSPACE_BIN" \
+                         "circuitpython-oracle-$(cp_version)"
+            echo "Pin this in audioif tests/test_voice_ceiling_consistency.py:"
+            sha256sum "$WORKSPACE_BIN/circuitpython-oracle-$(cp_version)"
+            ;;
     esac
 }
 
@@ -214,14 +310,14 @@ fi
 
 
 if [[ "$INSTALL_ONLY" -eq 0 ]]; then
-    for t in "${ALL_TARGETS[@]}"; do
+    for t in "${KNOWN_TARGETS[@]}"; do
         want "$t" || continue
         echo "=== build $t ==="
         build_one "$t"
     done
 fi
 
-for t in "${ALL_TARGETS[@]}"; do
+for t in "${KNOWN_TARGETS[@]}"; do
     want "$t" || continue
     echo "=== install $t ==="
     install_one "$t"
