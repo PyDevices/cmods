@@ -16,9 +16,9 @@
 #   cp-oracle   CircuitPython unix / coverage built at
 #               CIRCUITPY_SYNTHIO_MAX_CHANNELS=64
 #               → bin/circuitpython-oracle-<cp-version>, and nowhere else.
-#               That file is audioif's parity oracle: every golden in that
+#               That file is audiodsp's parity oracle: every golden in that
 #               repository means "the bytes this binary rendered". Its sha256
-#               is pinned in audioif's tests/test_voice_ceiling_consistency.py,
+#               is pinned in audiodsp's tests/test_voice_ceiling_consistency.py,
 #               so re-pinning the hash there is part of running this target,
 #               in the same change. bin/circuitpython is NOT the oracle — it
 #               is cp-unix's, at the coverage variant's own 14-voice ceiling,
@@ -289,12 +289,12 @@ install_one() {
                 exit 1
             }
             # Workspace bin only, never the sibling pydevices tree: this is a
-            # test fixture for audioif's parity gates, not an interpreter
-            # anybody runs. Re-pin its sha256 in audioif's
+            # test fixture for audiodsp's parity gates, not an interpreter
+            # anybody runs. Re-pin its sha256 in audiodsp's
             # tests/test_voice_ceiling_consistency.py in the same change.
             install_file "$CP_UNIX_SRC" "$WORKSPACE_BIN" \
                          "circuitpython-oracle-$(cp_version)"
-            echo "Pin this in audioif tests/test_voice_ceiling_consistency.py:"
+            echo "Pin this in audiodsp tests/test_voice_ceiling_consistency.py:"
             sha256sum "$WORKSPACE_BIN/circuitpython-oracle-$(cp_version)"
             ;;
     esac

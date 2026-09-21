@@ -58,9 +58,9 @@ the organization portal, simulator, and documentation sites.
 | `mp-wasm` | `./build_mp.sh --port webassembly --variant pydevices` | `bin/micropython.{mjs,wasm}` | `../pydevices/bin/micropython.{mjs,wasm}` and `../PyDevices.github.io/vendor/micropython/micropython.{mjs,wasm}` |
 | `cp-unix` | `./build_cp.sh --port unix --variant coverage` | `bin/circuitpython` | `../pydevices/bin/circuitpython` |
 
-**audioif's parity oracle is `bin/circuitpython-oracle-<cp-version>`, built
+**audiodsp's parity oracle is `bin/circuitpython-oracle-<cp-version>`, built
 only by the opt-in `--only cp-oracle` target** (the same unix coverage build at
-`CIRCUITPY_SYNTHIO_MAX_CHANNELS=64`) and re-pinned by sha256 in audioif's
+`CIRCUITPY_SYNTHIO_MAX_CHANNELS=64`) and re-pinned by sha256 in audiodsp's
 `tests/test_voice_ceiling_consistency.py` in the same change that builds it —
 `bin/circuitpython` is `cp-unix`'s, at the variant's own 14-voice ceiling, and
 a bare run of this script overwrites it.

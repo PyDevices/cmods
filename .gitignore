@@ -51,7 +51,8 @@ user_post_mpconfigport.mk
 /esp32_partitions/*.csv
 
 # Top-level symlinks to clones/siblings (/* / does not match symlinks)
-/audioif
+/audiodsp
+/audiopump
 /cameraif
 /displayif
 /earful
