@@ -46,6 +46,12 @@ ln -s ../micropython micropython
 Repeat for each usermod or interpreter you want ([displayif](https://github.com/PyDevices/displayif), [pygraphics](https://github.com/PyDevices/pygraphics),
 [lvgl-micropython](https://github.com/PyDevices/lvgl-micropython), [circuitpython](https://github.com/adafruit/circuitpython), …). Each [MicroPython](https://github.com/micropython/micropython) usermod must be an immediate subdirectory of the workspace (clone or symlink) and provide a `micropython.mk` there (optional `manifest.py` for frozen Python).
 
+For audio, link two: [audiodsp](https://github.com/PyDevices/audiodsp) is the DSP
+nodes and the audio pump's portable engine, and
+[audioif](https://github.com/PyDevices/audioif) is the pump's platform drivers.
+With only the first the firmware still builds and plays, but
+`audiopump.driver()` says `'none'` and `audiodev` goes out through `machine.I2S`.
+
 ### Patches (optional; naming convention)
 
 [`patches/`](patches/) is optional. When present, `build_mp.sh` applies every
