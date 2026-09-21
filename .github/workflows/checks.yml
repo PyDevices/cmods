@@ -33,7 +33,7 @@ jobs:
         id: pins
         run: |
           echo "mp=$(cat cmods/MICROPYTHON_PYDEVICES_COMMIT)" >> "$GITHUB_OUTPUT"
-          echo "audioif=$(cat cmods/AUDIOIF_PATCHES_COMMIT)" >> "$GITHUB_OUTPUT"
+          echo "audiodsp=$(cat cmods/AUDIODSP_PATCHES_COMMIT)" >> "$GITHUB_OUTPUT"
 
       - name: Check out micropython-pydevices at the pinned commit
         uses: actions/checkout@v4
@@ -43,15 +43,15 @@ jobs:
           path: micropython-pydevices
           fetch-depth: 1
 
-      - name: Check out audioif at the pinned commit
+      - name: Check out audiodsp at the pinned commit
         uses: actions/checkout@v4
         with:
-          repository: PyDevices/audioif
-          ref: ${{ steps.pins.outputs.audioif }}
-          path: audioif
+          repository: PyDevices/audiodsp
+          ref: ${{ steps.pins.outputs.audiodsp }}
+          path: audiodsp
           fetch-depth: 1
 
-      # cmods, micropython-pydevices, and audioif land as siblings under
+      # cmods, micropython-pydevices, and audiodsp land as siblings under
       # $GITHUB_WORKSPACE, matching the workspace layout sync_from_overlay.sh
       # expects for its sibling-checkout lookup.
       - name: Diff mirrors against pinned sources

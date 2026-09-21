@@ -392,7 +392,7 @@ user_config=$(cp_user_config_make_opts)
 #
 # compiles and yields 64.
 #
-# Why it exists: docs/correctness-standard.md in audioif holds a node
+# Why it exists: docs/correctness-standard.md in audiodsp holds a node
 # CircuitPython also has to CircuitPython's own bytes *at the same compile-time
 # configuration*, so a comparison build has to be able to take the ceiling this
 # workspace ships.

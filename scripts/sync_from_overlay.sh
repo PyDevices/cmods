@@ -5,7 +5,7 @@
 #   PyDevices/micropython-pydevices  ->  patches/000*.patch
 #                                         wasmbridge/
 #                                         variants/webassembly/pydevices/
-#   PyDevices/audioif                ->  patches/adafruit_mp3/
+#   PyDevices/audiodsp                ->  patches/adafruit_mp3/
 #
 # Edit those files in the source repo, never here (single-writer, same rule
 # as lvgl-python/scripts/sync_from_lvgl_bindings.sh).
@@ -13,11 +13,11 @@
 # Usage:
 #   ./scripts/sync_from_overlay.sh                 # sync using pinned refs
 #   ./scripts/sync_from_overlay.sh --mp-ref <ref>   # sync micropython-pydevices at <ref>
-#   ./scripts/sync_from_overlay.sh --audioif-ref <ref>
+#   ./scripts/sync_from_overlay.sh --audiodsp-ref <ref>
 #   ./scripts/sync_from_overlay.sh --check          # diff mirrors against pinned refs; exit nonzero on drift
 #
 # <ref> is an exact 40-character commit SHA or a tag. If a sibling checkout
-# (../micropython-pydevices, ../audioif) exists next to this workspace, it is
+# (../micropython-pydevices, ../audiodsp) exists next to this workspace, it is
 # used directly (after fetching the ref if not already present locally);
 # otherwise a shallow temp clone is made from GitHub.
 #
@@ -26,21 +26,21 @@
 set -euo pipefail
 
 MP_REPO_URL="${MICROPYTHON_PYDEVICES_REPO:-https://github.com/PyDevices/micropython-pydevices.git}"
-AUDIOIF_REPO_URL="${AUDIOIF_REPO:-https://github.com/PyDevices/audioif.git}"
+AUDIODSP_REPO_URL="${AUDIODSP_REPO:-https://github.com/PyDevices/audiodsp.git}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CMODS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 WORKSPACE_DIR="$(cd "$CMODS_DIR/.." && pwd)"
 
 MP_SIBLING="$WORKSPACE_DIR/micropython-pydevices"
-AUDIOIF_SIBLING="$WORKSPACE_DIR/audioif"
+AUDIODSP_SIBLING="$WORKSPACE_DIR/audiodsp"
 
 MP_PIN_FILE="$CMODS_DIR/MICROPYTHON_PYDEVICES_COMMIT"
-AUDIOIF_PIN_FILE="$CMODS_DIR/AUDIOIF_PATCHES_COMMIT"
+AUDIODSP_PIN_FILE="$CMODS_DIR/AUDIODSP_PATCHES_COMMIT"
 
 CHECK=0
 MP_REF=""
-AUDIOIF_REF=""
+AUDIODSP_REF=""
 
 usage() {
     sed -n '2,24p' "$0" | sed 's/^# \?//'
@@ -52,8 +52,8 @@ while [[ $# -gt 0 ]]; do
             MP_REF=$2
             shift 2
             ;;
-        --audioif-ref)
-            AUDIOIF_REF=$2
+        --audiodsp-ref)
+            AUDIODSP_REF=$2
             shift 2
             ;;
         --check)
@@ -186,57 +186,57 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# audioif -> patches/adafruit_mp3/
+# audiodsp -> patches/adafruit_mp3/
 # ---------------------------------------------------------------------------
 if [[ "$CHECK" -eq 1 ]]; then
-    [[ -f "$AUDIOIF_PIN_FILE" ]] || {
-        echo "Error: $AUDIOIF_PIN_FILE missing; run without --check first to establish pins." >&2
+    [[ -f "$AUDIODSP_PIN_FILE" ]] || {
+        echo "Error: $AUDIODSP_PIN_FILE missing; run without --check first to establish pins." >&2
         exit 1
     }
-    AUDIOIF_REF=$(tr -d '[:space:]' < "$AUDIOIF_PIN_FILE")
-elif [[ -z "$AUDIOIF_REF" ]]; then
-    if [[ -f "$AUDIOIF_PIN_FILE" ]]; then
-        AUDIOIF_REF=$(tr -d '[:space:]' < "$AUDIOIF_PIN_FILE")
-    elif [[ -d "$AUDIOIF_SIBLING/.git" ]]; then
-        AUDIOIF_REF=$(git -C "$AUDIOIF_SIBLING" rev-parse HEAD)
+    AUDIODSP_REF=$(tr -d '[:space:]' < "$AUDIODSP_PIN_FILE")
+elif [[ -z "$AUDIODSP_REF" ]]; then
+    if [[ -f "$AUDIODSP_PIN_FILE" ]]; then
+        AUDIODSP_REF=$(tr -d '[:space:]' < "$AUDIODSP_PIN_FILE")
+    elif [[ -d "$AUDIODSP_SIBLING/.git" ]]; then
+        AUDIODSP_REF=$(git -C "$AUDIODSP_SIBLING" rev-parse HEAD)
     else
-        echo "Error: no AUDIOIF_PATCHES_COMMIT pin, no --audioif-ref, and no sibling checkout to default from." >&2
+        echo "Error: no AUDIODSP_PATCHES_COMMIT pin, no --audiodsp-ref, and no sibling checkout to default from." >&2
         exit 1
     fi
 fi
 
-AUDIOIF_TMP=$(mktemp -d)
-CLONE_DIRS+=("$AUDIOIF_TMP")
-AUDIOIF_RESOLVED=$(resolve_and_export "$AUDIOIF_REPO_URL" "$AUDIOIF_REF" "$AUDIOIF_SIBLING" "$AUDIOIF_TMP")
+AUDIODSP_TMP=$(mktemp -d)
+CLONE_DIRS+=("$AUDIODSP_TMP")
+AUDIODSP_RESOLVED=$(resolve_and_export "$AUDIODSP_REPO_URL" "$AUDIODSP_REF" "$AUDIODSP_SIBLING" "$AUDIODSP_TMP")
 
-if [[ ! -d "$AUDIOIF_TMP/patches/adafruit_mp3" ]]; then
-    echo "Error: patches/adafruit_mp3/ not found in audioif @ ${AUDIOIF_RESOLVED}." >&2
+if [[ ! -d "$AUDIODSP_TMP/patches/adafruit_mp3" ]]; then
+    echo "Error: patches/adafruit_mp3/ not found in audiodsp @ ${AUDIODSP_RESOLVED}." >&2
     exit 1
 fi
 
 if [[ "$CHECK" -eq 1 ]]; then
-    diff_tree "$AUDIOIF_TMP/patches/adafruit_mp3" "$CMODS_DIR/patches/adafruit_mp3" "patches/adafruit_mp3/ vs audioif@${AUDIOIF_RESOLVED}" || DRIFT=1
+    diff_tree "$AUDIODSP_TMP/patches/adafruit_mp3" "$CMODS_DIR/patches/adafruit_mp3" "patches/adafruit_mp3/ vs audiodsp@${AUDIODSP_RESOLVED}" || DRIFT=1
 else
     rm -rf "$CMODS_DIR/patches/adafruit_mp3"
     mkdir -p "$CMODS_DIR/patches/adafruit_mp3"
-    cp -a "$AUDIOIF_TMP/patches/adafruit_mp3/." "$CMODS_DIR/patches/adafruit_mp3/"
-    printf '%s\n' "$AUDIOIF_RESOLVED" > "$AUDIOIF_PIN_FILE"
-    echo "Synced patches/adafruit_mp3/ from audioif@${AUDIOIF_RESOLVED}"
+    cp -a "$AUDIODSP_TMP/patches/adafruit_mp3/." "$CMODS_DIR/patches/adafruit_mp3/"
+    printf '%s\n' "$AUDIODSP_RESOLVED" > "$AUDIODSP_PIN_FILE"
+    echo "Synced patches/adafruit_mp3/ from audiodsp@${AUDIODSP_RESOLVED}"
 fi
 
 if [[ "$CHECK" -eq 1 ]]; then
     if [[ "$DRIFT" -ne 0 ]]; then
         echo
         echo "Mirror drift detected against pinned commits. Re-run without --check to resync," >&2
-        echo "or bump MICROPYTHON_PYDEVICES_COMMIT / AUDIOIF_PATCHES_COMMIT after verifying the source change." >&2
+        echo "or bump MICROPYTHON_PYDEVICES_COMMIT / AUDIODSP_PATCHES_COMMIT after verifying the source change." >&2
         exit 1
     fi
     echo "No drift: mirrors match pinned commits."
     echo "  micropython-pydevices @ ${MP_RESOLVED}"
-    echo "  audioif @ ${AUDIOIF_RESOLVED}"
+    echo "  audiodsp @ ${AUDIODSP_RESOLVED}"
 else
     echo
     echo "Commit when ready:"
-    echo "  git add MICROPYTHON_PYDEVICES_COMMIT AUDIOIF_PATCHES_COMMIT patches wasmbridge variants/webassembly/pydevices"
-    echo "  git commit -m \"Sync overlay mirrors from micropython-pydevices@${MP_RESOLVED:0:12} / audioif@${AUDIOIF_RESOLVED:0:12}.\""
+    echo "  git add MICROPYTHON_PYDEVICES_COMMIT AUDIODSP_PATCHES_COMMIT patches wasmbridge variants/webassembly/pydevices"
+    echo "  git commit -m \"Sync overlay mirrors from micropython-pydevices@${MP_RESOLVED:0:12} / audiodsp@${AUDIODSP_RESOLVED:0:12}.\""
 fi

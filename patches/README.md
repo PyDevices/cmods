@@ -55,7 +55,7 @@ sync here — never the reverse** (single-writer, same rule as lvgl):
   with provenance; `apply_patches.sh` there applies them standalone).
 - `0012` and `0014` are cmods-local board integration (the P4 and S3 board
   headers, respectively) and have no upstream home; they are authored here.
-- `adafruit_mp3/` → `PyDevices/audioif` (`patches/adafruit_mp3/`,
+- `adafruit_mp3/` → `PyDevices/audiodsp` (`patches/adafruit_mp3/`,
   applied by its `scripts/fetch_deps.sh`).
 
 ## Regenerate
