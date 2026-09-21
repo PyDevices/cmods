@@ -52,7 +52,7 @@ user_post_mpconfigport.mk
 
 # Top-level symlinks to clones/siblings (/* / does not match symlinks)
 /audiodsp
-/audiopump
+/audioif
 /cameraif
 /displayif
 /earful
