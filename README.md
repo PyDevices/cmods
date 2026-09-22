@@ -78,12 +78,12 @@ symlinks) instead.
 
 ## How it works
 
-- `USER_C_MODULES=$(pwd)` — [MicroPython](https://github.com/micropython/micropython) discovers `*/micropython.mk` in immediate subdirectories
+- Since MicroPython 1.29 the frozen manifest names every C module (`c_module()`), so `USER_C_MODULES` is not passed at all; each sibling's `manifest.py` names its own C half and [`manifest-micropython.py`](manifest-micropython.py) includes them
 - [`manifest-micropython.py`](manifest-micropython.py) — frozen Python from cmod sibling repos, then includes the [MicroPython](https://github.com/micropython/micropython) upstream freeze via `FROZEN_MANIFEST_UPSTREAM`
 - [`manifest-circuitpython.py`](manifest-circuitpython.py) — same aggregator shape for [CircuitPython](https://github.com/adafruit/circuitpython) (`build_cp.sh`)
 - [`build_mp.sh`](build_mp.sh) — sets `FROZEN_MANIFEST_UPSTREAM` to the freeze file [MicroPython](https://github.com/micropython/micropython) would use for the selected port/board/variant (same as a manual `make` without override)
 - [`build_cp.sh`](build_cp.sh) — auto-discovers `*/apply_cp_patches.sh` (optional extensions) and uses `manifest-circuitpython.py` for all ports
-- [`micropython.cmake`](micropython.cmake) — aggregates `*/micropython.cmake` for CMake ports (ESP32, RP2)
+- There is no aggregator `micropython.cmake` any more: CMake ports get their modules from the manifest's `c_module()` lines like the Make ports
 
 ## Build scripts
 

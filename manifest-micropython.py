@@ -26,6 +26,10 @@ import os
 # module lookup keeps the first matching module.
 _upstream_hint = os.environ.get("FROZEN_MANIFEST_UPSTREAM", "")
 if "/variants/webassembly/pydevices/" in _upstream_hint.replace("\\", "/"):
+    # The port's patched main.c calls pydevices_bridge_deinit() (overlay 0006),
+    # which the wasm bridge usermod provides. It is mirrored here from
+    # micropython-pydevices/usermods/wasmbridge; name it for this variant only.
+    c_module("wasmbridge")
     freeze("variants/webassembly/pydevices", "requests.py", opt=3)
     # Freeze mip without resolving its socket-based requests dependency. The
     # sources import the Fetch facade above at runtime.
@@ -54,6 +58,15 @@ else:
 # (no gitignored manifest-user.py) the freeze failed outright.
 if os.path.isfile("manifest-user.py"):
     include("manifest-user.py")
+
+# ulab is upstream's own repository with no manifest of ours, and its glue sits
+# one level down in ulab/code/. On the Make ports audiodsp's micropython.mk
+# already includes it (a sibling dependency it owns), so naming it here too
+# would compile it twice; on the CMake ports nothing else names it now that
+# the aggregator micropython.cmake is gone. This file is replaced by presets
+# in a later piece of the retool, where ulab is named once.
+if "/ports/esp32/" in _upstream_hint.replace("\\", "/") or "/ports/rp2/" in _upstream_hint.replace("\\", "/"):
+    c_module("ulab/code")
 
 for _name in sorted(os.listdir(".")):
     if _name.startswith("."):

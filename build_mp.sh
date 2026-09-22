@@ -14,8 +14,11 @@
 #              --icon: the .ico the windows port's executable wears)
 #
 # USER_C_MODULES and FROZEN_MANIFEST are always cleared at startup so a prior
-# shell export cannot stick across port/board/variant builds. They then default
-# to \$WORKSPACE_DIR and \$WORKSPACE_DIR/manifest-micropython.py.
+# shell export cannot stick across port/board/variant builds. FROZEN_MANIFEST
+# then defaults to \$WORKSPACE_DIR/manifest-micropython.py. USER_C_MODULES is
+# never passed: since MicroPython 1.29 the manifest names every C module it
+# wants with c_module(), and each sibling's manifest.py names its own. The
+# aggregator micropython.cmake that used to glob the workspace is gone.
 #
 # FROZEN_MANIFEST defaults to this repo's manifest-micropython.py. build_mp.sh
 # also exports FROZEN_MANIFEST_UPSTREAM to the MicroPython freeze file for the
@@ -92,7 +95,6 @@ if ! flock -w "${MP_BUILD_LOCK_WAIT:-7200}" 9; then
 fi
 WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 MP_DIR="${MP_DIR:-$WORKSPACE_DIR/micropython}"
-USER_C_MODULES="$WORKSPACE_DIR"
 IDF_DIR="${IDF_DIR:-$WORKSPACE_DIR/esp-idf}"
 EMSDK_DIR="${EMSDK_DIR:-$WORKSPACE_DIR/emsdk}"
 FROZEN_MANIFEST="$WORKSPACE_DIR/manifest-micropython.py"
@@ -151,7 +153,7 @@ Environment:
   MP_DIR             MicroPython tree (default: \$WORKSPACE_DIR/micropython)
   IDF_DIR            ESP-IDF install for esp32 (default: \$WORKSPACE_DIR/esp-idf)
   EMSDK_DIR          Emscripten SDK for webassembly (default: \$WORKSPACE_DIR/emsdk)
-  USER_C_MODULES     Always \$WORKSPACE_DIR (inherited env is unset at startup)
+  USER_C_MODULES     Never passed; the manifest names C modules (c_module())
   FROZEN_MANIFEST    Always \$WORKSPACE_DIR/manifest-micropython.py (inherited env is unset)
   FROZEN_MANIFEST_UPSTREAM  Set by this script to the MicroPython upstream freeze
                      file for the selected port/board/variant (read by manifest-micropython.py)
@@ -706,7 +708,6 @@ apply_micropython_cmods_patches() {
 
 make_target_args() {
     local -a args=(
-        USER_C_MODULES="$USER_C_MODULES"
         FROZEN_MANIFEST="$FROZEN_MANIFEST"
     )
     [[ -n "${CROSS_COMPILE:-}" ]] && args+=(CROSS_COMPILE="$CROSS_COMPILE")
@@ -1298,7 +1299,6 @@ print_rerun_hint
 print_make_commands
 
 make_args=(
-    USER_C_MODULES="$USER_C_MODULES"
     FROZEN_MANIFEST="$FROZEN_MANIFEST"
 )
 # MP_MAKE_EXTRA: extra VAR=VALUE words for the make command line (word-split
