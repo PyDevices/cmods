@@ -192,7 +192,9 @@ REBUILD = {
 }
 
 
-def _rebuild_hint(binary: Path) -> str:
+def _rebuild_hint(binary: Path, override: str | None = None) -> str:
+    if override:
+        return override
     for key, command in REBUILD.items():
         if binary.name.startswith(key):
             return command
@@ -202,7 +204,7 @@ def _rebuild_hint(binary: Path) -> str:
 def cmd_check(args: argparse.Namespace) -> int:
     binary = Path(args.binary).resolve()
     stamp = stamp_path(binary)
-    hint = _rebuild_hint(binary)
+    hint = _rebuild_hint(binary, args.rebuild_hint)
     if not binary.exists():
         print(f"REFUSED: no interpreter at {binary}\n  build it: {hint}")
         return 1
@@ -291,9 +293,9 @@ def cmd_check(args: argparse.Namespace) -> int:
                 how = "on a different commit from"
             if changed == 0:
                 notes.append(
-                    f"{name}: the checkout is {how} the binary ({stamped['describe']} "
-                    f"-> {now['describe']}), but nothing under {rel} moved, so the "
-                    f"binary carries this module's current code.")
+                    f"{name}: the binary is {how} the checkout ({stamped['describe']} "
+                    f"-> {now['describe']}), but nothing under {rel} moved, so it "
+                    f"carries this module's current code.")
             else:
                 where = "" if rel == "." else f" ({rel} changed)"
                 problems.append(
@@ -338,6 +340,10 @@ def main() -> int:
     check.add_argument("binary")
     check.add_argument("--source", action="append",
                        help="only compare this source (repeatable); default is all")
+    check.add_argument("--rebuild-hint", default=None,
+                       help="the command a refusal should name, for a binary "
+                            "build_interpreters.sh does not build (mpvst's "
+                            "sidecar engine has its own script)")
     check.add_argument("--contains", action="append", metavar="SOURCE=REV",
                        help="the binary's SOURCE must CONTAIN REV -- for a gate "
                             "that pins its core (audiocomponents' AUDIODSP_PIN) "
