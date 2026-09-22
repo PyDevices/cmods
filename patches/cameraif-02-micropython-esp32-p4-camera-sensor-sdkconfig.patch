@@ -1,0 +1,45 @@
+Subject: [PATCH] esp32/p4: enable the OV5647 sensor driver for every P4 variant
+
+cameraif's own micropython.cmake says the sdkconfig options are what matter
+and that they live in the cameraif patch -- and they did not live anywhere.
+No fragment in this tree set CONFIG_CAMERA_OV5647, so the only P4 image that
+ever had a working camera was a build directory whose sdkconfig had been set
+by hand on 2026-09-07 (build-ESP32_GENERIC_P4-C6_WIFI). Every fresh build,
+and every other variant -- including the PRE_REV3_C6_WIFI one the Waveshare
+panel needs -- shipped cameraif with an empty sensor-detect array.
+
+What that costs is a wiring-shaped error for a build-configuration cause:
+esp_cam_sensor drivers register through a linker section, so with no driver
+compiled the array is empty and cameraif reports "no camera sensor answered
+on SCCB" on a perfectly good bus. The note in micropython.cmake was written
+about exactly this and could not prevent it, because nothing carried the
+options.
+
+A fragment on the P4 common config rather than on one variant, because the
+CSI controller is a property of the chip, not of which radio is attached.
+
+diff --git a/ports/esp32/boards/mpconfigboard_esp32p4_common.cmake b/ports/esp32/boards/mpconfigboard_esp32p4_common.cmake
+--- a/ports/esp32/boards/mpconfigboard_esp32p4_common.cmake
++++ b/ports/esp32/boards/mpconfigboard_esp32p4_common.cmake
+@@ -3,4 +3,5 @@
+ set(SDKCONFIG_DEFAULTS
+     boards/sdkconfig.base
+     boards/sdkconfig.p4
++    boards/sdkconfig.p4_camera
+ )
+diff --git a/ports/esp32/boards/sdkconfig.p4_camera b/ports/esp32/boards/sdkconfig.p4_camera
+new file mode 100644
+--- /dev/null
++++ b/ports/esp32/boards/sdkconfig.p4_camera
+@@ -0,0 +1,11 @@
++# cameraif: the MIPI-CSI sensor drivers.
++#
++# Both options are load-bearing and neither implies the other. Without
++# CONFIG_CAMERA_OV5647 the driver is not compiled at all; without the
++# AUTO_DETECT option esp_cam_sensor does not emit the `-u` that keeps its
++# detect function against --gc-sections. Either one missing leaves the
++# detect array empty, and cameraif then reports every camera as absent with
++# an SCCB error -- see cameraif/micropython.cmake, which explains why adding
++# the `-u` on the cameraif side instead does not work.
++CONFIG_CAMERA_OV5647=y
++CONFIG_CAMERA_OV5647_AUTO_DETECT_MIPI_INTERFACE_SENSOR=y
