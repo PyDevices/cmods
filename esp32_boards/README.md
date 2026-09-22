@@ -18,6 +18,12 @@ directory and one artifact, and an overlay build leaves an overlaid image
 sitting in it. Copy your artifact out immediately and rebuild the plain image
 after, or you hand somebody else a firmware they did not ask for.
 
+`build_mp.sh` builds a second, throwaway overlay of its own on top of yours
+(in `.board-overlays/`) to carry the partition table, so the two compose:
+yours is included first, the table's fragment is appended after it. You do
+not have to do anything for that — but it is why the rule below matters to
+your file as much as to the generated one.
+
 ## The one rule that is not obvious
 
 `list(APPEND SDKCONFIG_DEFAULTS ...)` has to come **after** the stock

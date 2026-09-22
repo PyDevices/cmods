@@ -1,0 +1,9 @@
+# Name, Type, SubType, Offset, Size, Flags
+# The bench Waveshare ESP32-P4 panel carries an image built from this table.
+# factory stays at 0x3f0000, read out of the image the board runs: this port
+# has no vfs entry and puts the filesystem after the last partition at boot,
+# so the app's size IS the filesystem's offset (cmods#30).
+
+nvs, data, nvs, 0x9000, 0x6000
+phy_init, data, phy, 0xf000, 0x1000
+factory, app, factory, 0x10000, 0x3f0000

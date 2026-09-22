@@ -7,6 +7,7 @@
 #
 # Environment: WORKSPACE_DIR, MP_DIR, IDF_DIR, EMSDK_DIR, PORT, BOARD, VARIANT,
 #              OS_DUPTERM, OS_DUPTERM_SLOTS, MP_BUILD_DEBUG, MP_AUTOSIZE,
+#              MP_CLEAN,
 #              MP_OVERLAY_SKIP (patch numbers excluded from the mailbox
 #              overlays, e.g. "0001 0003"), MP_MAKE_EXTRA (extra VAR=VALUE
 #              words appended to the make command line), MP_ICON (same as
@@ -109,7 +110,8 @@ else
     OS_DUPTERM=1
 fi
 OS_DUPTERM_SLOTS="${OS_DUPTERM_SLOTS:-1}"
-MP_AUTOSIZE="${MP_AUTOSIZE:-1}"
+MP_AUTOSIZE="${MP_AUTOSIZE:-0}"
+MP_CLEAN="${MP_CLEAN:-1}"
 
 is_truthy() {
     case "${1,,}" in
@@ -162,7 +164,15 @@ Environment:
   PICOTOOL_FETCH_FROM_GIT_PATH  Cache dir for prebuilt picotool (rp2 port)
   picotool_DIR       Prebuilt picotool cmake package dir (rp2 port)
   DISPLAYIF_SKIP_SPIRAM_CHECK  Set to 1 to skip esp32 PSRAM warning when displayif is present
-  MP_AUTOSIZE        Grow an overflowing esp32 app partition and rebuild once (default: 1)
+  MP_AUTOSIZE        esp32: when the app overflows its partition, build once against an
+                     enlarged table kept in the build directory only (default: 0 = refuse
+                     and print the table that would fit). The pinned table in
+                     esp32_partitions/ is never rewritten either way; growing the app
+                     partition moves the filesystem, which is a decision (cmods#30).
+  MP_CLEAN           Run 'make clean' before building (default: 1). On esp32 that is
+                     'idf.py fullclean', which deletes the whole port's managed_components/
+                     -- it is skipped automatically when the build directory does not
+                     exist yet, and MP_CLEAN=0 skips it always (cmods#29).
 
 Options:
   --no-os-dupterm    Disable os.dupterm (same as OS_DUPTERM=0)
@@ -708,6 +718,7 @@ make_target_args() {
         boards)
             [[ -n "$BOARD" ]] && args+=(BOARD="$BOARD")
             [[ -n "$VARIANT" ]] && args+=(BOARD_VARIANT="$VARIANT")
+            [[ -n "${ESP32_OVERLAY_DIR:-}" ]] && args+=(BOARD_DIR="$ESP32_OVERLAY_DIR")
             ;;
         variants)
             if [[ -n "$VARIANT_DIR" ]]; then
@@ -824,6 +835,27 @@ print_make_commands() {
 }
 
 build_dir() {
+    # A BUILD= passed in MP_MAKE_EXTRA is where make will actually put the
+    # build, so everything that looks into the build directory -- the partition
+    # override, the sdkconfig check, the "Build output:" line -- has to follow
+    # it. (Note the standing rule that esp32 builds must not pass BUILD=: the
+    # mpy-cross sub-make inherits it and pollutes the qstr fragments. This is
+    # here so the machinery is honest when somebody does it anyway.)
+    local word override=""
+    for word in ${MP_MAKE_EXTRA:-}; do
+        [[ "$word" == BUILD=* ]] && override="${word#BUILD=}"
+    done
+    # ...and a BUILD in the environment reaches make just the same (the vst3
+    # engine build exports BUILD=build-vst-engine rather than passing it).
+    [[ -z "$override" ]] && override="${BUILD:-}"
+    if [[ -n "$override" ]]; then
+        if [[ "$override" == /* ]]; then
+            echo "$override"
+        else
+            echo "$PORT_DIR/$override"
+        fi
+        return 0
+    fi
     case "$PORT_KIND" in
         boards)
             if [[ -n "$BOARD" && -n "$VARIANT" ]]; then
@@ -847,47 +879,184 @@ esp32_partition_override() {
     echo "$WORKSPACE_DIR/esp32_partitions/${suffix}.csv"
 }
 
-esp32_patch_partition_sdkconfig() {
-    local build_path="$1" override="$2"
-    python3 - "$build_path" "$override" <<'PY'
+esp32_base_board_dir() {
+    # The board this build overlays: a BOARD_DIR= the caller passed in
+    # MP_MAKE_EXTRA (esp32_boards/ overlays do this), else the port's own.
+    local word
+    for word in ${MP_MAKE_EXTRA:-}; do
+        if [[ "$word" == BOARD_DIR=* ]]; then
+            readlink -f "${word#BOARD_DIR=}"
+            return 0
+        fi
+    done
+    echo "$PORT_DIR/boards/$BOARD"
+}
+
+esp32_overlay_dir() {
+    local suffix="$BOARD"
+    [[ -n "$VARIANT" ]] && suffix="${suffix}_${VARIANT}"
+    echo "$WORKSPACE_DIR/.board-overlays/$suffix"
+}
+
+# Build a throwaway board overlay that carries the partition table, and hand it
+# to make as BOARD_DIR=.
+#
+# Why not patch $BUILD/sdkconfig, which is what this used to do: idf.py
+# regenerates the saved sdkconfig from SDKCONFIG_DEFAULTS whenever it
+# reconfigures, and a fresh build directory always reconfigures. kconfgen then
+# takes the board's own partitions-4MiBplus.csv back and the packaging step
+# fails with "app partition is too small" -- or, worse, succeeds against a table
+# nobody chose. A fragment appended LAST to SDKCONFIG_DEFAULTS is on the winning
+# side of that regeneration, because kconfgen takes the last assignment.
+# (cmods#29.)
+#
+# The flash-size settings travel with the table: without the sibling
+# .sdkconfig fragment gen_esp32part.py refuses the table itself ("occupies
+# 7.9MB of flash which does not fit in configured flash size 4MB"), so both
+# halves go into the same fragment.
+esp32_prepare_board_overlay() {
+    local table="$1" fragment="$2" base overlay
+    base=$(esp32_base_board_dir)
+    overlay=$(esp32_overlay_dir)
+    python3 - "$base" "$overlay" "${VARIANT:-}" "$table" "$fragment" <<'PY'
 import os
+import shutil
 import sys
 from pathlib import Path
 
-build = Path(sys.argv[1])
-override = Path(sys.argv[2])
-sdk = build / "sdkconfig"
-lines = sdk.read_text("utf-8").splitlines() if sdk.is_file() else []
-rel = Path(os.path.relpath(override, build.parent)).as_posix()
-drop = ("CONFIG_PARTITION_TABLE_CUSTOM", "CONFIG_PARTITION_TABLE_FILENAME")
-lines = [line for line in lines if not line.startswith(drop)]
-lines.extend(
-    [
-        "CONFIG_PARTITION_TABLE_CUSTOM=y",
-        f'CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="{rel}"',
-        f'CONFIG_PARTITION_TABLE_FILENAME="{rel}"',
-    ]
+base, overlay, variant, table, fragment = sys.argv[1:6]
+base = Path(base)
+overlay = Path(overlay)
+if not (base / "mpconfigboard.cmake").is_file():
+    raise SystemExit(f"no board at {base}")
+
+variant_name = f"mpconfigvariant_{variant}.cmake" if variant else "mpconfigvariant.cmake"
+generated = {"mpconfigboard.cmake", "mpconfigboard.h", variant_name,
+             "partitions.csv", "sdkconfig.partition"}
+
+if overlay.exists():
+    shutil.rmtree(overlay)
+overlay.mkdir(parents=True)
+
+# Everything else the board directory holds is linked through, because
+# ${MICROPY_BOARD_DIR} is an include directory and some board cmake files
+# name files inside it (pins.csv, sdkconfig.board, board_init.c, manifest.py).
+for entry in sorted(base.iterdir()):
+    if entry.name in generated:
+        continue
+    (overlay / entry.name).symlink_to(entry.resolve())
+
+(overlay / "mpconfigboard.cmake").write_text(
+    "# Generated by build_mp.sh. The board below, unchanged; the partition\n"
+    "# table arrives through the variant file beside this one.\n"
+    f"include({base.as_posix()}/mpconfigboard.cmake)\n",
+    encoding="utf-8",
 )
-fragment = override.with_suffix(".sdkconfig")
-if fragment.is_file():
-    lines.extend(
-        line.strip()
-        for line in fragment.read_text("utf-8").splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
+base_header = base / "mpconfigboard.h"
+if base_header.is_file():
+    (overlay / "mpconfigboard.h").write_text(
+        "// Generated by build_mp.sh: the board's own header, unchanged.\n"
+        f'#include "{base_header.as_posix()}"\n',
+        encoding="utf-8",
     )
-sdk.parent.mkdir(parents=True, exist_ok=True)
-sdk.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+base_variant = base / variant_name
+lines = [
+    "# Generated by build_mp.sh.",
+    "#",
+    "# The append has to come LAST: kconfgen takes the last assignment in",
+    "# SDKCONFIG_DEFAULTS, so a fragment listed before the board's own is",
+    "# silently overridden -- and the build then succeeds against the board's",
+    "# default partition table, which is the expensive kind of failure.",
+]
+if base_variant.is_file():
+    lines.append(f"include({base_variant.as_posix()})")
+elif not variant:
+    lines.append(f"include({base_variant.as_posix()} OPTIONAL)")
+else:
+    raise SystemExit(f"no {variant_name} in {base}")
+
+if table:
+    src = Path(table)
+    dest = overlay / "partitions.csv"
+    shutil.copyfile(src, dest)
+    body = [
+        "# Generated by build_mp.sh from",
+        f"#   {src}",
+        "# This copy is what the image is built against. Nothing writes back to",
+        "# the file above: growing the app partition moves the filesystem, and",
+        "# that is a decision, not a build fix-up (cmods#30).",
+        "CONFIG_PARTITION_TABLE_CUSTOM=y",
+        f'CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="{dest.resolve().as_posix()}"',
+        f'CONFIG_PARTITION_TABLE_FILENAME="{dest.resolve().as_posix()}"',
+    ]
+    if fragment and Path(fragment).is_file():
+        body.append(f"# from {fragment}")
+        body.extend(
+            line.strip()
+            for line in Path(fragment).read_text("utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        )
+    (overlay / "sdkconfig.partition").write_text("\n".join(body) + "\n", encoding="utf-8")
+    lines.append(
+        f"list(APPEND SDKCONFIG_DEFAULTS {(overlay / 'sdkconfig.partition').as_posix()})"
+    )
+
+(overlay / variant_name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+print(overlay)
 PY
 }
 
-esp32_autosize_partition() {
-    local log_file="$1" override="$2" build_path="$3"
-    python3 - "$log_file" "$override" "$build_path" <<'PY'
+# The table the build is actually configured against, read back out of the
+# saved sdkconfig. A build whose sdkconfig names anything but our copy has lost
+# the override again -- exactly the cmods#29 regression -- and that has to be
+# loud, because the image it produces looks fine and boots onto the wrong
+# filesystem offset.
+esp32_check_partition_sdkconfig() {
+    local build_path="$1" expected="$2" got
+    [[ -f "$build_path/sdkconfig" ]] || return 0
+    got=$(sed -n 's/^CONFIG_PARTITION_TABLE_FILENAME="\(.*\)"$/\1/p' "$build_path/sdkconfig" | tail -n1)
+    [[ -n "$got" ]] || got="(unset)"
+    if [[ "$got" != "$expected" ]]; then
+        echo >&2
+        echo "error: the build is configured against a partition table we did not choose." >&2
+        echo "  wanted: $expected" >&2
+        echo "  got:    $got" >&2
+        echo "  The sdkconfig override was lost on a reconfigure (cmods#29). Delete" >&2
+        echo "  $build_path/sdkconfig and build again; if that does not fix it, the" >&2
+        echo "  board overlay is not reaching SDKCONFIG_DEFAULTS last." >&2
+        return 1
+    fi
+    return 0
+}
+
+esp32_print_partition_layout() {
+    local used="$1" pinned="$2"
+    [[ -f "$used" ]] || return 0
+    echo
+    echo "esp32 partition layout in this image:"
+    grep -v '^[[:space:]]*#' "$used" | grep -v '^[[:space:]]*$' | sed 's/^/  /'
+    if [[ -f "$pinned" ]] && ! diff -q "$used" "$pinned" >/dev/null 2>&1; then
+        echo
+        echo "  WARNING: this is NOT the pinned table in $pinned." >&2
+        echo "  A board flashed with this image gets a different filesystem offset" >&2
+        echo "  from one flashed with an image built against the pinned table, and" >&2
+        echo "  nothing at boot will say so (cmods#30)." >&2
+    fi
+    echo
+}
+
+# Work out the table that would fit and write it to a destination of the
+# caller's choosing. It never writes the file it read: that file is a board's
+# data format, not a build artifact (cmods#30).
+esp32_resize_partition_table() {
+    local log_file="$1" source_csv="$2" dest_csv="$3"
+    python3 - "$log_file" "$source_csv" "$dest_csv" <<'PY'
 import re
 import sys
 from pathlib import Path
 
-log_path, override, build = map(Path, sys.argv[1:])
+log_path, override, dest = map(Path, sys.argv[1:])
 text = log_path.read_text("utf-8", "replace")
 image_match = re.search(
     r"app partition is too small for binary \S+ size (0x[0-9a-fA-F]+)", text
@@ -901,21 +1070,9 @@ part_match = re.search(
 )
 part_name = part_match.group(1) if part_match else "factory"
 
-source = override if override.is_file() else None
-if source is None:
-    sdk = build / "sdkconfig"
-    if sdk.is_file():
-        match = re.search(
-            r'^CONFIG_PARTITION_TABLE_FILENAME="([^"]+)"',
-            sdk.read_text("utf-8", "replace"),
-            re.MULTILINE,
-        )
-        if match:
-            candidate = (build.parent / match.group(1)).resolve()
-            if candidate.is_file():
-                source = candidate
-if source is None:
+if not override.is_file():
     raise SystemExit(1)
+source = override
 
 def number(value):
     value = value.strip()
@@ -951,10 +1108,16 @@ for row in rows[index + 1 :]:
     row[3] = hex(cursor)
     cursor += number(row[4])
 
-override.parent.mkdir(parents=True, exist_ok=True)
-body = ["# Name, Type, SubType, Offset, Size, Flags", ""]
+dest.parent.mkdir(parents=True, exist_ok=True)
+body = [
+    "# Name, Type, SubType, Offset, Size, Flags",
+    f"# Generated by build_mp.sh from {source}: '{rows[index][0]}' grown to",
+    f"# {hex(new_size)} for an image of {hex(image_size)}. Every partition after it",
+    "# moved, including the filesystem.",
+    "",
+]
 body.extend(", ".join(row).rstrip(", ") for row in rows)
-override.write_text("\n".join(body) + "\n", encoding="utf-8")
+dest.write_text("\n".join(body) + "\n", encoding="utf-8")
 print(hex(new_size))
 PY
 }
@@ -1095,6 +1258,22 @@ ensure_windows_sdl2_env
 apply_micropython_cmods_patches
 apply_micropython_icon
 
+# The esp32 partition table reaches the build as a generated board overlay
+# (BOARD_DIR=), so it has to exist before the make command line is assembled or
+# printed.
+ESP32_OVERLAY_DIR=""
+esp32_override=""
+if [[ "$PORT" == esp32 && -n "$BOARD" ]]; then
+    esp32_override=$(esp32_partition_override)
+    if [[ -f "$esp32_override" ]]; then
+        echo "esp32 partition table: $esp32_override"
+        ESP32_OVERLAY_DIR=$(esp32_prepare_board_overlay "$esp32_override" "${esp32_override%.csv}.sdkconfig")
+        echo "esp32 board overlay:   $ESP32_OVERLAY_DIR"
+    else
+        echo "WARNING: no esp32 partition table found at $esp32_override (BOARD=${BOARD}${VARIANT:+ VARIANT=$VARIANT}); building with the port's default partition table."
+    fi
+fi
+
 print_rerun_hint
 print_make_commands
 
@@ -1106,7 +1285,17 @@ make_args=(
 # on purpose). Needed where an env var cannot override a port's plain `=`
 # assignment — e.g. the vst3 unix engine passes MICROPY_PY_SOCKET=0
 # MICROPY_PY_SSL=0 MICROPY_PY_FFI=0 against ports/unix/mpconfigport.mk.
-[[ -n "${MP_MAKE_EXTRA:-}" ]] && make_args+=(${MP_MAKE_EXTRA})
+# A BOARD_DIR= in here is the board our generated overlay includes, so it must
+# not also reach make -- the overlay replaces it.
+if [[ -n "${MP_MAKE_EXTRA:-}" ]]; then
+    for _extra_word in ${MP_MAKE_EXTRA}; do
+        if [[ "$_extra_word" == BOARD_DIR=* && -n "$ESP32_OVERLAY_DIR" ]]; then
+            continue
+        fi
+        make_args+=("$_extra_word")
+    done
+    unset _extra_word
+fi
 [[ -n "${CROSS_COMPILE:-}" ]] && make_args+=(CROSS_COMPILE="$CROSS_COMPILE")
 [[ -n "${SDL2_DEV:-}" ]] && make_args+=(SDL2_DEV="$SDL2_DEV")
 if is_truthy "$OS_DUPTERM" && [[ "$PORT" == unix || "$PORT" == windows || "$PORT" == webassembly ]]; then
@@ -1125,6 +1314,7 @@ case "$PORT_KIND" in
     boards)
         [[ -n "$BOARD" ]] && make_args+=(BOARD="$BOARD")
         [[ -n "$VARIANT" ]] && make_args+=(BOARD_VARIANT="$VARIANT")
+        [[ -n "$ESP32_OVERLAY_DIR" ]] && make_args+=(BOARD_DIR="$ESP32_OVERLAY_DIR")
         ;;
     variants)
         if [[ -n "$VARIANT_DIR" ]]; then
@@ -1159,34 +1349,74 @@ if [[ -n "$stale_build_dir" && -d "$stale_build_dir" && ! -f "$stale_build_dir/C
     rm -rf "$stale_build_dir"
 fi
 
-make -j clean "${make_args[@]}"
+# On esp32 `make clean` is `idf.py fullclean`, which deletes
+# managed_components/ for the WHOLE port rather than for this build directory.
+# A build directory that does not exist yet has nothing to clean, so paying that
+# is pure loss (cmods#29).
+if ! is_truthy "$MP_CLEAN"; then
+    echo "clean: skipped (MP_CLEAN=0)"
+elif [[ -n "$stale_build_dir" && ! -d "$stale_build_dir" ]]; then
+    echo "clean: skipped (nothing at $stale_build_dir yet)"
+else
+    make -j clean "${make_args[@]}"
+fi
 make -j submodules "${make_args[@]}"
 build_rc=0
 if [[ "$PORT" == esp32 ]]; then
     esp32_build_dir=$(build_dir)
-    esp32_override=$(esp32_partition_override)
-    if [[ -f "$esp32_override" ]]; then
-        echo "esp32 partition override: $esp32_override"
-        esp32_patch_partition_sdkconfig "$esp32_build_dir" "$esp32_override"
+    # An sdkconfig left in the build directory is treated by the IDF as the
+    # user's current configuration and beats SDKCONFIG_DEFAULTS, so one failed
+    # run can pin the wrong table for every run after it. Ours is generated;
+    # drop it and let the defaults win.
+    rm -f "$esp32_build_dir/sdkconfig"
+    if [[ -n "$ESP32_OVERLAY_DIR" ]]; then
+        esp32_overlay_table="$ESP32_OVERLAY_DIR/partitions.csv"
     else
-        echo "WARNING: no esp32 partition override found at $esp32_override (BOARD=${BOARD}${VARIANT:+ VARIANT=$VARIANT}); building with the port's default partition table."
+        esp32_overlay_table=""
     fi
     esp32_build_log=$(mktemp /tmp/build-mp-esp32.XXXXXX.log)
     set +e
     make -j all "${make_args[@]}" 2>&1 | tee "$esp32_build_log"
     build_rc=${PIPESTATUS[0]}
     set -e
-    if [[ "$build_rc" -ne 0 ]] && is_truthy "$MP_AUTOSIZE"; then
-        if new_app_size=$(esp32_autosize_partition "$esp32_build_log" "$esp32_override" "$esp32_build_dir"); then
-            echo "esp32 autosize: app -> $new_app_size; rebuilding once"
-            esp32_patch_partition_sdkconfig "$esp32_build_dir" "$esp32_override"
-            set +e
-            make -j all "${make_args[@]}"
-            build_rc=$?
-            set -e
+    if [[ "$build_rc" -ne 0 && -n "$esp32_overlay_table" ]]; then
+        esp32_suggested="$esp32_build_dir/partitions-autosized.csv"
+        if new_app_size=$(esp32_resize_partition_table "$esp32_build_log" "$esp32_overlay_table" "$esp32_suggested"); then
+            if is_truthy "$MP_AUTOSIZE"; then
+                cp "$esp32_suggested" "$esp32_overlay_table"
+                echo
+                echo "esp32 autosize: app -> $new_app_size, in this build's own copy of the table."
+                echo "  $esp32_override is unchanged. The image now has a DIFFERENT layout"
+                echo "  from one built against the pinned table -- do not mix them on a board"
+                echo "  whose filesystem you want to keep (cmods#30)."
+                echo
+                set +e
+                make -j all "${make_args[@]}"
+                build_rc=$?
+                set -e
+            else
+                echo >&2
+                echo "error: the app does not fit the partition table this board is pinned to." >&2
+                echo "  pinned table: $esp32_override" >&2
+                echo "  'factory' would have to grow to $new_app_size" >&2
+                echo "  a table that fits: $esp32_suggested" >&2
+                echo >&2
+                echo "  Growing the app partition slides every partition after it, including" >&2
+                echo "  the filesystem, so a board flashed with the new layout comes up on a" >&2
+                echo "  different (usually empty, sometimes unmountable) filesystem and" >&2
+                echo "  nothing says so. That is a decision, not a build fix-up (cmods#30)." >&2
+                echo >&2
+                echo "  Either edit $esp32_override by hand and reflash every board that" >&2
+                echo "  carries it, or re-run with MP_AUTOSIZE=1 for a one-off image built" >&2
+                echo "  against the enlarged table, leaving the pinned one alone." >&2
+                echo >&2
+            fi
         fi
     fi
     unlink "$esp32_build_log"
+    if [[ "$build_rc" -eq 0 && -n "$esp32_overlay_table" ]]; then
+        esp32_check_partition_sdkconfig "$esp32_build_dir" "$(readlink -f "$esp32_overlay_table")" || build_rc=1
+    fi
 else
     make -j all "${make_args[@]}"
 fi
@@ -1194,6 +1424,10 @@ popd >/dev/null
 
 if [[ "$build_rc" -ne 0 ]]; then
     exit "$build_rc"
+fi
+
+if [[ "$PORT" == esp32 && -n "${esp32_overlay_table:-}" ]]; then
+    esp32_print_partition_layout "$esp32_overlay_table" "$esp32_override"
 fi
 
 print_build_outputs

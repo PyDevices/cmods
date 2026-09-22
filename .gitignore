@@ -45,15 +45,14 @@ user_post_mpconfigport.mk
 # esp32_boards/README.md
 !/esp32_boards/
 !/esp32_boards/**
-# …but the .csv files in there are build OUTPUT, not source. build_mp.sh's
-# esp32_autosize_partition() writes the resized table back over the override
-# path it read, so a build that overflows the app partition rewrites the file in
-# place -- and creates one from scratch for a BOARD_VARIANT combination that has
-# none yet. Tracking them meant every P4 build left the tree dirty with a
-# generated file. The sizes are derived (image size, rounded up, plus 0x40000 of
-# headroom), so nothing is lost by not keeping them. The .sdkconfig fragments
-# beside them ARE hand-written source and stay tracked.
-/esp32_partitions/*.csv
+# The .csv files in there are SOURCE again, and tracked, as of cmods#30. They
+# used to be build output, because esp32_autosize_partition() wrote a resized
+# table back over the file it read -- so a board's filesystem offset tracked how
+# big somebody's last firmware was, and two images built the same day for the
+# same board had different layouts with nothing saying so. No build writes them
+# now: an overflow refuses and prints the table that would fit, and MP_AUTOSIZE=1
+# keeps its enlarged copy inside the build directory. Tracked means drift in a
+# board's flash layout shows up in `git status`, which is the whole point.
 
 # Top-level symlinks to clones/siblings (/* / does not match symlinks)
 /audiodsp
