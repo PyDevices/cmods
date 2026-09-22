@@ -227,8 +227,10 @@ def cmd_check(args: argparse.Namespace) -> int:
         if now["head"] != stamped["head"]:
             behind = _git(Path(stamped["path"]), "rev-list", "--count",
                           f"{stamped['head']}..{now['head']}")
-            how = (f"{behind} commits behind" if behind and behind.isdigit() and int(behind)
-                   else "on a different commit from")
+            if behind and behind.isdigit() and int(behind):
+                how = "%s commit%s behind" % (behind, "" if behind == "1" else "s")
+            else:
+                how = "on a different commit from"
             problems.append(
                 f"{name}: the binary is {how} the checkout. Built from "
                 f"{stamped['describe']}, the tree is at {now['describe']}.")
