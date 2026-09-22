@@ -40,6 +40,11 @@ user_post_mpconfigport.mk
 # esp32_partition_override()
 !/esp32_partitions/
 !/esp32_partitions/**
+# board overlays: a directory that includes one of MicroPython's own boards and
+# changes one thing, passed as BOARD_DIR=. Source, not output -- see
+# esp32_boards/README.md
+!/esp32_boards/
+!/esp32_boards/**
 # …but the .csv files in there are build OUTPUT, not source. build_mp.sh's
 # esp32_autosize_partition() writes the resized table back over the override
 # path it read, so a build that overflows the app partition rewrites the file in
