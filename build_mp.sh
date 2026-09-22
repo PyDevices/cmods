@@ -75,6 +75,20 @@ unset USER_C_MODULES FROZEN_MANIFEST
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 BUILD_MP="${BUILD_MP:-$SCRIPT_DIR/build_mp.sh}"
+
+# One build at a time, whatever the target. Every run transacts the mailbox
+# overlays through the same micropython/ checkout (applied, built, reversed),
+# so two overlapping runs do not collide on build directories -- they collide
+# on that tree, and the failure is a *successful* build of half-patched
+# sources. The lock is held for this process's lifetime and released by the
+# kernel on exit, so a killed build cannot leave it behind. MP_BUILD_LOCK_WAIT
+# is the seconds to wait for another build before giving up (default two
+# hours, 0 to fail at once).
+exec 9>"$SCRIPT_DIR/.build.lock"
+if ! flock -w "${MP_BUILD_LOCK_WAIT:-7200}" 9; then
+    echo "error: another build_mp.sh holds $SCRIPT_DIR/.build.lock; waited ${MP_BUILD_LOCK_WAIT:-7200}s" >&2
+    exit 1
+fi
 WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 MP_DIR="${MP_DIR:-$WORKSPACE_DIR/micropython}"
 USER_C_MODULES="$WORKSPACE_DIR"

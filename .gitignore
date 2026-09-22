@@ -69,3 +69,4 @@ user_post_mpconfigport.mk
 /esp-idf
 /SDL2-*
 /lvgl
+.build.lock
