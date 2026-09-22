@@ -209,6 +209,12 @@ _FROZEN_HEADER = '''\
 '''
 
 
+REBUILD = {
+    "micropython": "./build_interpreters.sh --only mp-unix",
+    "circuitpython": "./build_interpreters.sh --only cp-unix",
+}
+
+
 def _rebuild_hint(binary: Path, override: str | None = None) -> str:
     if override:
         return override
