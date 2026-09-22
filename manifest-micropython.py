@@ -70,6 +70,18 @@ for _name in sorted(os.listdir(".")):
     except Exception:
         pass
 
+# What this firmware was built from, so a board can be asked (cmods#36). It is
+# written by `build_mp.sh` through `scripts/provenance.py freeze`, and frozen
+# only if it is there: the generator is best-effort by contract, and a build
+# that cannot say what it is made of must still be a build that happens.
+#
+# Deliberately NOT one of the pydevices libs the comment above refuses to
+# freeze, and for the opposite reason: there is no mip-installed copy for this
+# to shadow. A build-time snapshot is the only honest form the answer has,
+# because the question is about the build.
+if os.path.isfile(os.path.join("generated", "pydevices_build.py")):
+    freeze("generated", "pydevices_build.py", opt=3)
+
 _upstream = _upstream_hint.strip()
 if not _upstream:
     raise Exception(
