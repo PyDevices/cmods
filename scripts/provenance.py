@@ -24,6 +24,12 @@ told nobody anything.
     python3 scripts/provenance.py check bin/micropython --source audiodsp
     python3 scripts/provenance.py check bin/micropython           # every source
 
+A repository that pins its core asks a different question -- not "is this the
+checkout's HEAD" but "does it contain the commit my gates are read at":
+
+    python3 scripts/provenance.py check bin/micropython \
+        --source audiodsp --contains audiodsp=$(tail -1 ../audiocomponents/AUDIODSP_PIN | cut -d' ' -f2)
+
 What it cannot know: `--install-only` copies a binary somebody built earlier,
 and the stamp is written now. The stamp records that (`install_only`), and
 `check` says so rather than pretending the two are the same claim.
@@ -69,6 +75,16 @@ def linked_usermods() -> dict[str, Path]:
             continue
         found[entry.name] = resolved
     return found
+
+
+def _git_rc(repo: Path, *args: str) -> int | None:
+    """git's exit status, for the commands whose ANSWER is the status."""
+    try:
+        out = subprocess.run(["git", "-C", str(repo), *args],
+                             capture_output=True, text=True, timeout=60)
+    except OSError:
+        return None
+    return out.returncode
 
 
 def _git(repo: Path, *args: str) -> str | None:
@@ -211,6 +227,7 @@ def cmd_check(args: argparse.Namespace) -> int:
             f"{record['binary']['sha256'][:12]} in the stamp. Something replaced "
             f"it without stamping it.")
 
+    pins = dict(item.split("=", 1) for item in (args.contains or []))
     wanted = args.source or sorted(record["sources"])
     for name in wanted:
         stamped = record["sources"].get(name)
@@ -224,16 +241,64 @@ def cmd_check(args: argparse.Namespace) -> int:
             notes.append(f"{name}: {stamped['path']} is not a git checkout now; "
                          f"cannot compare.")
             continue
+        if name in pins:
+            # A repository that PINS this source is not asking for the
+            # checkout's HEAD -- it is asking for the commit its gates are read
+            # at. audiocomponents' AUDIODSP_PIN is the case: audiodsp's tree
+            # moves several times a day, and demanding HEAD would refuse every
+            # run for changes the gate is not about, which is how a check stops
+            # being read. What it must refuse is a binary built BEFORE the pin,
+            # because that one does not contain the code the pin names.
+            pin = pins[name]
+            repo = Path(stamped["path"])
+            resolved = _git(repo, "rev-parse", f"{pin}^{{commit}}")
+            if resolved is None:
+                problems.append(
+                    f"{name}: the pin {pin} is not a commit in {repo}, so nothing "
+                    f"here can say whether the binary contains it.")
+            elif _git(repo, "merge-base", "--is-ancestor", resolved,
+                      stamped["head"]) is None:
+                behind = _git(repo, "rev-list", "--count",
+                              f"{stamped['head']}..{resolved}")
+                how = (f"{behind} commit{'' if behind == '1' else 's'} behind"
+                       if behind and behind.isdigit() and int(behind)
+                       else "not an ancestor of")
+                problems.append(
+                    f"{name}: the binary is {how} the pin it must contain. Built "
+                    f"from {stamped['describe']}, the pin is {resolved[:7]}.")
+            elif stamped["dirty"]:
+                notes.append(f"{name}: contains the pin {resolved[:7]}, but was "
+                             f"built from a dirty tree.")
+            continue
         if now["head"] != stamped["head"]:
-            behind = _git(Path(stamped["path"]), "rev-list", "--count",
+            # The question is not "has the repository moved" but "has THIS
+            # module's code moved". A usermod can be one directory inside a
+            # repository that also holds docs, tests and three other usermods
+            # (mpvst carries vstaudio and vstui), and a repository-wide
+            # comparison refuses on a README. A gate that is red every day
+            # stops being read, which is how the staleness this script exists
+            # for got a week to hide in.
+            repo = Path(stamped["path"])
+            top = _git(repo, "rev-parse", "--show-toplevel")
+            rel = (os.path.relpath(repo, top) if top else ".") or "."
+            changed = _git_rc(Path(top) if top else repo, "diff", "--quiet",
+                              f"{stamped['head']}..{now['head']}", "--", rel)
+            behind = _git(repo, "rev-list", "--count",
                           f"{stamped['head']}..{now['head']}")
             if behind and behind.isdigit() and int(behind):
                 how = "%s commit%s behind" % (behind, "" if behind == "1" else "s")
             else:
                 how = "on a different commit from"
-            problems.append(
-                f"{name}: the binary is {how} the checkout. Built from "
-                f"{stamped['describe']}, the tree is at {now['describe']}.")
+            if changed == 0:
+                notes.append(
+                    f"{name}: the checkout is {how} the binary ({stamped['describe']} "
+                    f"-> {now['describe']}), but nothing under {rel} moved, so the "
+                    f"binary carries this module's current code.")
+            else:
+                where = "" if rel == "." else f" ({rel} changed)"
+                problems.append(
+                    f"{name}: the binary is {how} the checkout{where}. Built from "
+                    f"{stamped['describe']}, the tree is at {now['describe']}.")
         if stamped["dirty"]:
             notes.append(f"{name}: built from a dirty tree ({stamped['describe']}), "
                          f"so what it contains is not any commit.")
@@ -273,6 +338,10 @@ def main() -> int:
     check.add_argument("binary")
     check.add_argument("--source", action="append",
                        help="only compare this source (repeatable); default is all")
+    check.add_argument("--contains", action="append", metavar="SOURCE=REV",
+                       help="the binary's SOURCE must CONTAIN REV -- for a gate "
+                            "that pins its core (audiocomponents' AUDIODSP_PIN) "
+                            "rather than tracking the checkout's HEAD (repeatable)")
     check.set_defaults(func=cmd_check)
 
     args = parser.parse_args()

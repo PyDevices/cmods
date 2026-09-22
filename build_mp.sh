@@ -1343,8 +1343,16 @@ pushd "$PORT_DIR" >/dev/null
 # rather than "delete this directory". Every later run fails the same way until
 # someone removes it by hand. Remove the husk here instead; there is nothing in
 # it worth keeping.
+# ...and only on the CMake-driven ports. A Makefile port's build directory has
+# no CMakeCache.txt and never will, so the test below would call every healthy
+# unix/windows build directory a husk and delete it.
 stale_build_dir=$(build_dir)
-if [[ -n "$stale_build_dir" && -d "$stale_build_dir" && ! -f "$stale_build_dir/CMakeCache.txt" ]]; then
+if [[ "$PORT" != esp32 && "$PORT" != rp2 ]]; then
+    stale_build_dir_is_cmake=0
+else
+    stale_build_dir_is_cmake=1
+fi
+if [[ "$stale_build_dir_is_cmake" -eq 1 && -n "$stale_build_dir" && -d "$stale_build_dir" && ! -f "$stale_build_dir/CMakeCache.txt" ]]; then
     echo "removing an incomplete build directory left by a failed configure: $stale_build_dir"
     rm -rf "$stale_build_dir"
 fi
