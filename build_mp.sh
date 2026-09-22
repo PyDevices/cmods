@@ -1254,26 +1254,6 @@ fi
 echo "Frozen manifest: $FROZEN_MANIFEST"
 echo "  FROZEN_MANIFEST_UPSTREAM=$FROZEN_MANIFEST_UPSTREAM"
 
-# What this firmware is being built from, frozen into it, so a board can be
-# asked the question the desktop gates can already ask of a bin/ binary
-# (cmods#36). A board has no file beside it; the answer has to be inside the
-# image or it does not exist.
-#
-# Here rather than anywhere else because this is the point where the target
-# and the overlay set are both known and nothing has been compiled yet, and
-# because this script already knows every linked usermod -- the same set
-# provenance.py derives, never a list somebody maintains.
-#
-# `|| true`, and the generator swallows its own failures as well: a build that
-# cannot say what it is made of is worse than one that can, and far better
-# than a build that does not happen. manifest-micropython.py freezes the file
-# only if it is there, so the whole feature fails to nothing.
-if [[ -x "$(command -v python3 || true)" ]]; then
-    python3 "$WORKSPACE_DIR/scripts/provenance.py" freeze \
-        --target "$PORT${BOARD:+/$BOARD}${VARIANT:+/$VARIANT}" \
-        --port "$PORT" || true
-fi
-
 ensure_windows_cross_compile
 ensure_windows_sdl2_env
 apply_micropython_cmods_patches
