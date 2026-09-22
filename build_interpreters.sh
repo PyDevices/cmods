@@ -129,6 +129,34 @@ install_file() {
     mkdir -p "$dest_dir"
     install -m 755 "$src" "$dest_dir/$dest_name"
     echo "Installed $dest_dir/$dest_name"
+    stamp_provenance "$dest_dir/$dest_name"
+}
+
+# Write bin/<name>.provenance beside a binary we just installed: every usermod
+# in cmods with its commit, whether its tree was dirty, the overlay patches for
+# the port, and the binary's own sha256 (cmods#27).
+#
+# WHY, in one sentence: bin/micropython was thirteen minutes older than an
+# audiodsp C change once, and every parity run for a week certified a binary
+# that did not contain the code the gate was about -- green the whole time,
+# because the binary reports MicroPython's version and nothing about us.
+#
+# Written HERE rather than in build_mp.sh because this script is the one that
+# decides what lands in bin/, and a stamp beside a binary nobody installed
+# would describe a build directory instead of an artifact.
+STAMP_TARGET=""
+STAMP_PORT=""
+stamp_provenance() {
+    local binary="$1"
+    local extra=()
+    [[ "$INSTALL_ONLY" -eq 1 ]] && extra+=(--install-only)
+    python3 "$SCRIPT_DIR/scripts/provenance.py" write "$binary" \
+        --target "$STAMP_TARGET" --port "$STAMP_PORT" "${extra[@]}" || {
+        # A missing stamp must not fail a build -- but it must be loud, because
+        # the whole point is that a binary with no stamp cannot be trusted and
+        # the check script refuses one.
+        echo "WARNING: could not stamp $binary; gates will refuse it" >&2
+    }
 }
 
 copy_wasm_pair() {
@@ -139,6 +167,9 @@ copy_wasm_pair() {
     # this script; bin/wasm.py and friends need it set or they fail rc=126.
     chmod 755 "$dest_dir/micropython.mjs" "$dest_dir/micropython.wasm"
     echo "Installed $dest_dir/micropython.{mjs,wasm}"
+    # The .wasm carries the compiled usermods; the .mjs is its loader. One
+    # stamp, on the half that holds the code.
+    stamp_provenance "$dest_dir/micropython.wasm"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -320,6 +351,13 @@ fi
 for t in "${KNOWN_TARGETS[@]}"; do
     want "$t" || continue
     echo "=== install $t ==="
+    STAMP_TARGET="$t"
+    case "$t" in
+        mp-unix) STAMP_PORT=unix ;;
+        mp-windows) STAMP_PORT=windows ;;
+        mp-wasm) STAMP_PORT=webassembly ;;
+        *) STAMP_PORT="" ;;
+    esac
     install_one "$t"
 done
 

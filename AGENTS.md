@@ -65,6 +65,28 @@ only by the opt-in `--only cp-oracle` target** (the same unix coverage build at
 `bin/circuitpython` is `cp-unix`'s, at the variant's own 14-voice ceiling, and
 a bare run of this script overwrites it.
 
+### Every installed binary carries a provenance stamp
+
+`bin/<name>.provenance` lands beside each binary this script installs: every
+usermod in `cmods` with the commit it was at, whether its tree was dirty, the
+overlay patches for the port, and the binary's own sha256. A gate that renders
+through an interpreter asks before it trusts one:
+
+```bash
+python3 scripts/provenance.py check bin/micropython --source audiodsp
+```
+
+It exits non-zero and names the rebuild command, deliberately a refusal rather
+than a warning. Why it exists: `bin/micropython` was once thirteen minutes
+older than an audiodsp C change, and every parity run for a week certified a
+binary that did not contain the code the gate was about — green throughout,
+because a binary reports MicroPython's version and nothing about ours
+(cmods#27).
+
+`--install-only` copies a binary somebody built earlier while the stamp is
+written now, so the stamp records that and `check` says so rather than treating
+the two as the same claim.
+
 **When to run:** after changing any usermod or freeze/config compiled into these
 binaries (`pygraphics`, `lvgl-micropython`, `lvgl-circuitpython` /
 regenerated `lvgl-bindings`, `displayif` when present — including desktop
