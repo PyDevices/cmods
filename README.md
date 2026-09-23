@@ -1,5 +1,19 @@
 # cmods
 
+> **Retired and archived, 2026-09-23.** Nothing builds from this repository
+> any more. Its job is done by upstream MicroPython's and CircuitPython's own
+> `make` with the layout the PyDevices repositories assume: every repository a
+> sibling of the interpreter checkout, and
+> [micropython-pydevices](https://github.com/PyDevices/micropython-pydevices)
+> carrying the presets (`manifests/`, one `c_module()` line per module), the
+> out-of-tree variants and boards, and the patch series with
+> `tools/prepare-micropython.sh` to apply it once. CircuitPython builds from
+> each C-carrying repository's `apply_cp_patches.sh` against one checkout,
+> then `make`. The workspace that installs the desktop interpreters keeps
+> its `build_interpreters.sh` and `provenance.py` under its own `tools/`.
+> Everything below is history.
+
+
 An **optional** multi-module workspace layout and build helper for [MicroPython](https://github.com/micropython/micropython) and [CircuitPython](https://github.com/adafruit/circuitpython).
 
 `cmods` makes it easy to build custom firmware containing multiple **user C modules** side-by-side (such as [displayif](https://github.com/PyDevices/displayif), [lvgl-micropython](https://github.com/PyDevices/lvgl-micropython), and [pygraphics](https://github.com/PyDevices/pygraphics)):
